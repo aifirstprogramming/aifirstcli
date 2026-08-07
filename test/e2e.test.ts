@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -28,11 +28,23 @@ interface Run {
   code: number;
 }
 
-async function aifirst(args: string[], cwd = sandbox): Promise<Run> {
+interface RunOptions {
+  cwd?: string;
+  /**
+   * Replace PATH. Agent detection probes PATH first, so a test that depends on
+   * whether a tool is installed is otherwise non-deterministic: it would pass on
+   * a developer machine with Claude Code installed and take a different branch on
+   * a clean CI runner.
+   */
+  path?: string;
+}
+
+async function aifirst(args: string[], options: RunOptions = {}): Promise<Run> {
   const proc = Bun.spawn([process.execPath, "run", ENTRY, ...args], {
-    cwd,
+    cwd: options.cwd ?? sandbox,
     env: {
       ...process.env,
+      ...(options.path === undefined ? {} : { PATH: options.path }),
       AIFIRST_STATE_DIR: join(sandbox, "state"),
       AIFIRST_HOME_OVERRIDE: join(sandbox, "home"),
       NO_COLOR: "1",
@@ -320,9 +332,21 @@ describe("init and doctor", () => {
   });
 
   it("init refuses to write without confirmation when non-interactive", async () => {
+    // Force one agent to be detected regardless of this machine's PATH: the
+    // adapters treat an existing config directory as a signal. Without this the
+    // test takes the "nothing installed" branch on a clean runner.
+    mkdirSync(join(sandbox, "home", ".claude"), { recursive: true });
+
     const r = await aifirst(["init"]);
     expect(r.code).toBe(1);
     expect(r.stdout + r.stderr).toContain("--yes");
+    expect(existsSync(join(sandbox, "home", ".claude", "skills", "aifirst"))).toBe(false);
+  });
+
+  it("init explains what to install when no AI tool is present", async () => {
+    const r = await aifirst(["init"], { path: "/nonexistent" });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("No supported AI tools found");
     expect(existsSync(join(sandbox, "home", ".claude", "skills", "aifirst"))).toBe(false);
   });
 

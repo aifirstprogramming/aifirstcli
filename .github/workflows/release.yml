@@ -24,6 +24,18 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      # The binary reports package.json's version, while `aifirst update`
+      # compares against the release tag. If they disagree, every install thinks
+      # an upgrade is permanently available.
+      - name: Tag matches package.json version
+        run: |
+          PKG=$(jq -r .version package.json)
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $PKG"
+            exit 1
+          fi
+
       # The committed books must match the content package the lockfile pins,
       # or we would ship a binary with stale examples.
       - name: Verify content is in sync
