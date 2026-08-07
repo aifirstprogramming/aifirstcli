@@ -1,0 +1,18 @@
+node_modules/
+dist/
+build/
+*.tgz
+
+# Compiled binaries produced by scripts/build.ts
+bin/
+aifirst
+aifirst.exe
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.swp
+
+# Agent scratch
+.claude/settings.local.json
+.claude/worktrees/

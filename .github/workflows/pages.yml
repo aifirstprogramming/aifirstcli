@@ -1,0 +1,93 @@
+name: Publish install scripts
+
+# Serves the one-liners the book prints:
+#   curl -fsSL https://aifirstprogramming.com/install.sh | bash
+#   irm https://aifirstprogramming.com/install.ps1 | iex
+#
+# Point the apex domain's DNS at GitHub Pages and enable Pages for this repo with
+# source "GitHub Actions". The CNAME file below tells Pages which domain to serve.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "install/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p site
+          cp install/install.sh site/install.sh
+          cp install/install.ps1 site/install.ps1
+          echo "aifirstprogramming.com" > site/CNAME
+
+          # A plain landing page, so someone who opens the install URL in a
+          # browser sees what it is rather than a wall of shell.
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>AI First CLI</title>
+            <style>
+              body { font: 16px/1.6 system-ui, sans-serif; max-width: 42rem;
+                     margin: 4rem auto; padding: 0 1.5rem; color: #111; }
+              code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+              pre { background: #f5f5f5; padding: 1rem; border-radius: 6px; overflow-x: auto; }
+              h2 { margin-top: 2.5rem; font-size: 1.1rem; }
+              a { color: #0645ad; }
+              @media (prefers-color-scheme: dark) {
+                body { background: #111; color: #eee; }
+                pre { background: #1c1c1c; }
+                a { color: #7ab7ff; }
+              }
+            </style>
+          </head>
+          <body>
+            <h1>AI First CLI</h1>
+            <p>Companion for the <strong>AI First</strong> book series. Installs book
+               skills into Claude Code, Codex, Antigravity and VS Code, serves the
+               book's exact examples, and tracks your progress.</p>
+
+            <h2>macOS and Linux</h2>
+            <pre><code>curl -fsSL https://aifirstprogramming.com/install.sh | bash</code></pre>
+
+            <h2>Windows (PowerShell)</h2>
+            <pre><code>irm https://aifirstprogramming.com/install.ps1 | iex</code></pre>
+
+            <h2>Then</h2>
+            <pre><code>aifirst init
+          aifirst next</code></pre>
+
+            <p><a href="https://github.com/aifirstprogramming/aifirstcli">Source</a> ·
+               <a href="https://github.com/aifirstprogramming/aifirstcli/issues">Issues</a></p>
+          </body>
+          </html>
+          HTML
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

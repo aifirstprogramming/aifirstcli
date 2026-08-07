@@ -1,0 +1,160 @@
+# aifirst
+
+Companion CLI for the [AI First](https://aifirstprogramming.com) Apress book series.
+
+The books print a prompt and the exact code it produces. This CLI installs a skill into whichever AI
+tools you already use, so that when you ask for a book example you get **the book's answer** —
+character for character — instead of whatever a model generates today. It also keeps a private log of
+which exercises you've done.
+
+## Install
+
+```sh
+curl -fsSL https://aifirstprogramming.com/install.sh | bash
+```
+
+```powershell
+irm https://aifirstprogramming.com/install.ps1 | iex
+```
+
+Then:
+
+```sh
+aifirst init     # sets up the AI tools it finds
+aifirst next     # your next exercise
+```
+
+Nothing else is required — no Node, no Python, no JVM. The binary is self-contained and ships with all
+the book content inside it, so it works offline on first run.
+
+## Supported tools
+
+| Tool | What gets installed | Where |
+| --- | --- | --- |
+| Claude Code | skill + slash commands | `~/.claude/skills/aifirst/` |
+| Codex | skill + prompt commands | `~/.codex/skills/aifirst/`, `~/.codex/prompts/` |
+| Antigravity (IDE) | plugin bundle | `~/.gemini/config/plugins/aifirst/` |
+| Antigravity CLI (`agy`) | plugin bundle | `~/.gemini/antigravity-cli/plugins/aifirst/` |
+| VS Code | the AI First extension | Marketplace |
+
+`init` detects what you have, shows you, asks once, and installs into all of it. Writes are additive
+and confined to an `aifirst`-named directory per tool — no settings file, model configuration, or
+credential is ever touched, and `aifirst skill remove` is a clean uninstall.
+
+## Commands
+
+```
+aifirst init [--yes] [--claude|--codex|--antigravity|--vscode]
+aifirst next [py|java]              your next unfinished exercise
+aifirst list [py|java] [--chapter N]
+aifirst show <id>                   the book's prompt and exact code
+aifirst prompt <id>                 just the prompt, to paste into a chat
+aifirst apply <id> [--into <file>]  write the book's code to a file
+aifirst search "<prompt text>"      find the exercise for a prompt
+aifirst done|skip <id>              record progress
+aifirst reset <id>|--all
+aifirst progress [--format text|json|md]
+aifirst doctor
+aifirst skill install|check|remove
+aifirst update [--content] [--check]
+```
+
+Exercise ids look like `py-2-06` or `java-3-05`. `py-2-06.2` addresses step 2 of a multi-step exercise.
+Unambiguous prefixes work: `aifirst show py-1`.
+
+### For agents
+
+`--format json` is a stable contract, and it's what the installed skills use:
+
+```sh
+aifirst show py-2-06 --format json                       # canonical prompt + response
+aifirst search "Write a Hello World app" --format json   # resolve prompt text to an exercise
+aifirst done py-2-06 --via agent --agent claude          # record a chat-only walkthrough
+```
+
+Errors also render as JSON (on stderr) when `--format json` is set, and every command exits non-zero
+on failure, so an agent can branch on the result rather than parse prose.
+
+## How determinism works
+
+The skill instructs the agent not to write the code itself, but to call `aifirst show` and reproduce
+the `response` field verbatim. The answer therefore comes from the content pack, not from a model —
+identical on every tool, every machine, and every run.
+
+The matching that turns a prompt into a response lives in
+[`@aifirst/content`](https://github.com/aifirstprogramming/aifirstcontent) and is shared with the VS
+Code extension, so both surfaces resolve a given prompt the same way by construction rather than by
+convention.
+
+## Your learner log
+
+Plain JSON at `~/.aifirst/progress.json` (`$XDG_STATE_HOME/aifirst` if set,
+`%LOCALAPPDATA%\aifirst` on Windows). Read it, edit it, copy it between machines, delete it.
+
+It's a personal ledger, not an assessment — there's no verification and nothing to defend against
+tampering. Exercises are recorded three ways: automatically when you `apply` one, by an agent after it
+walks you through one, and by hand with `aifirst done`. `aifirst show` never records anything, because
+reading an exercise isn't doing it.
+
+Progress percentages count **authored** exercises only. Both books have chapters written ahead of
+their examples; counting those would tell you you're 15% done when you've finished everything that
+exists.
+
+## Content
+
+The books ship inside the binary, and `aifirst update --content` pulls a newer pack into
+`~/.aifirst/content/` when one is published. A downloaded pack is validated through the same strict
+loader the CLI uses before it's put in place, and is only ever preferred when strictly newer — so a
+bad download can't leave you unable to see your exercises, and content fixes reach readers without a
+new CLI release.
+
+Current coverage is 38 exercises: chapters 1–3 of both books. Later chapters exist but have no
+examples authored yet.
+
+## Development
+
+```sh
+bun install
+bun run check          # sync check + typecheck + tests
+bun test
+bun run build:local    # a binary for this machine, into ./bin
+bun run build          # all non-darwin release targets
+```
+
+Requires a checkout of [`aifirstcontent`](https://github.com/aifirstprogramming/aifirstcontent) beside
+this repo (the `@aifirst/content` dependency is a `file:` link), with `bun run build` run there once.
+`bun run sync-content` copies its books into `books/` and regenerates the embedded module; both are
+committed so a release is reproducible from one commit.
+
+Tests never touch a real config: `AIFIRST_HOME_OVERRIDE` and `AIFIRST_STATE_DIR` redirect every path,
+and the end-to-end suite runs the CLI as a subprocess in a temp sandbox. Use the same variables to try
+things by hand:
+
+```sh
+AIFIRST_HOME_OVERRIDE=/tmp/fakehome AIFIRST_STATE_DIR=/tmp/fakestate bun run src/index.ts init --claude
+```
+
+### Releasing
+
+Tag `vX.Y.Z`. The release workflow cross-compiles Linux and Windows on Ubuntu, builds and codesigns
+macOS on a macOS runner, and publishes nine artifacts plus `SHA256SUMS`.
+
+Two things are easy to get wrong here:
+
+- **macOS must be built on macOS.** Apple Silicon refuses to execute an unsigned arm64 binary, so a
+  Linux-cross-compiled darwin artifact dies on launch. The workflow ad-hoc signs with the JIT
+  entitlements Bun requires; set `MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD` and
+  `MACOS_SIGN_IDENTITY` to sign with a Developer ID instead.
+- **Artifact names are a three-way contract** between `src/targets.ts`, `src/platform.ts` and
+  `install/install.sh`. `test/platform.test.ts` keeps them in agreement. The `-baseline` variants exist
+  for x64 CPUs without AVX2 (which Bun's default build requires and which crash on it) and `-musl` for
+  Alpine; both the installer and `aifirst update` detect these, so a learner is never upgraded onto a
+  binary that won't start.
+
+## Verification notes
+
+- Claude Code and Codex adapters were developed and tested against real installations.
+- **Antigravity paths come from Google's published documentation, not local inspection** — they need a
+  test on a machine with Antigravity installed. Note it shares `~/.gemini` with the Gemini CLI.
+- The Java filename derivation (naming the file after the public class so `javac` accepts it) is unit
+  tested, but has not been run through a real JDK.

@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (for a dry run)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  # Linux and Windows cross-compile cleanly from one Linux runner.
+  build-linux-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      # The committed books must match the content package the lockfile pins,
+      # or we would ship a binary with stale examples.
+      - name: Verify content is in sync
+        run: bun scripts/sync-content.ts --check
+
+      - run: bunx tsc -p tsconfig.json
+      - run: bun test
+
+      # The default target set is everything except darwin, which the macOS job
+      # builds and signs.
+      - name: Build
+        run: bun scripts/build.ts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-linux-windows
+          path: bin/*
+          if-no-files-found: error
+
+  # macOS must build on macOS: Apple Silicon refuses to execute an unsigned
+  # arm64 binary, so a Linux-cross-compiled darwin artifact dies on launch.
+  build-darwin:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/sync-content.ts --check
+
+      - name: Build darwin targets
+        run: |
+          bun scripts/build.ts --target bun-darwin-x64
+          mv bin/aifirst-darwin-x64 /tmp/aifirst-darwin-x64
+          bun scripts/build.ts --target bun-darwin-arm64
+          mv /tmp/aifirst-darwin-x64 bin/aifirst-darwin-x64
+
+      # Ad-hoc signing (-s -) is the minimum that lets the binary run on Apple
+      # Silicon at all. Set MACOS_CERTIFICATE + MACOS_SIGN_IDENTITY to sign with a
+      # Developer ID instead, which additionally avoids Gatekeeper warnings for
+      # users who download via a browser. (A `curl | bash` install does not set
+      # the quarantine attribute, so ad-hoc is sufficient for the documented
+      # install path.)
+      - name: Codesign
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+        run: |
+          IDENTITY="-"
+          if [ -n "$MACOS_CERTIFICATE" ] && [ -n "$MACOS_SIGN_IDENTITY" ]; then
+            echo "$MACOS_CERTIFICATE" | base64 --decode > /tmp/cert.p12
+            security create-keychain -p actions build.keychain
+            security default-keychain -s build.keychain
+            security unlock-keychain -p actions build.keychain
+            security import /tmp/cert.p12 -k build.keychain \
+              -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: -s -k actions build.keychain
+            IDENTITY="$MACOS_SIGN_IDENTITY"
+            rm -f /tmp/cert.p12
+          else
+            echo "::notice::No signing certificate configured; using ad-hoc signature."
+          fi
+
+          for f in bin/aifirst-darwin-*; do
+            codesign --force --timestamp=none \
+              --entitlements scripts/entitlements.plist \
+              --sign "$IDENTITY" "$f"
+            codesign --verify --verbose "$f"
+          done
+
+      # Catch a signing mistake here rather than in a reader's terminal.
+      - name: Smoke test the native binary
+        run: |
+          ARCH=$(uname -m)
+          BIN=$([ "$ARCH" = "arm64" ] && echo bin/aifirst-darwin-arm64 || echo bin/aifirst-darwin-x64)
+          "$BIN" --version
+          "$BIN" show py-1-01 --format json | grep -q 'Hello, World'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-darwin
+          path: bin/*
+          if-no-files-found: error
+
+  release:
+    needs: [build-linux-windows, build-darwin]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: artifacts
+        run: |
+          sha256sum aifirst-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/aifirst-*
+            artifacts/SHA256SUMS
