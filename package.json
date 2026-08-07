@@ -19,8 +19,13 @@
     "build:local": "bun scripts/build.ts --local",
     "check": "bun scripts/sync-content.ts --check && tsc -p tsconfig.json && bun test"
   },
+  "//dependencies": [
+    "Pinned to a tag rather than a sibling path so `bun install` works in CI and",
+    "on a fresh clone. For local content work, run `bun link` in an aifirstcontent",
+    "checkout and `bun link @aifirst/content` here."
+  ],
   "dependencies": {
-    "@aifirst/content": "file:../aifirstcontent"
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.0.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

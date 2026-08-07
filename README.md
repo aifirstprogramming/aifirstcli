@@ -13,6 +13,10 @@ which exercises you've done.
 curl -fsSL https://aifirstprogramming.com/install.sh | bash
 ```
 
+<!-- The scripts under install/ are the source of truth; the website repo
+     (aifirstprogramming/aifirstwebsite) serves copies of them from static/. -->
+
+
 ```powershell
 irm https://aifirstprogramming.com/install.ps1 | iex
 ```
@@ -121,10 +125,23 @@ bun run build:local    # a binary for this machine, into ./bin
 bun run build          # all non-darwin release targets
 ```
 
-Requires a checkout of [`aifirstcontent`](https://github.com/aifirstprogramming/aifirstcontent) beside
-this repo (the `@aifirst/content` dependency is a `file:` link), with `bun run build` run there once.
-`bun run sync-content` copies its books into `books/` and regenerates the embedded module; both are
-committed so a release is reproducible from one commit.
+`@aifirst/content` is pinned to a tag of
+[`aifirstcontent`](https://github.com/aifirstprogramming/aifirstcontent), so a fresh clone builds with
+nothing else checked out. To work on content and the CLI together, link a local checkout:
+
+```sh
+cd ../aifirstcontent && bun link
+cd -                 && bun link @aifirst/content
+```
+
+`bun run sync-content` copies the package's books into `books/` and regenerates the embedded module;
+both are committed so a release is reproducible from a single commit. Bumping the content pin means
+updating the dependency tag and re-running `sync-content`.
+
+Note the `paths` entry in `tsconfig.json`: the package is installed from git and ships TypeScript
+source with no built `dist`. Bun finds it through the package's `bun` export condition, but tsc
+doesn't understand that condition and would otherwise resolve the import to `any` — passing the
+typecheck while checking nothing.
 
 Tests never touch a real config: `AIFIRST_HOME_OVERRIDE` and `AIFIRST_STATE_DIR` redirect every path,
 and the end-to-end suite runs the CLI as a subprocess in a temp sandbox. Use the same variables to try
