@@ -1,0 +1,17 @@
+# Normalize to LF everywhere.
+#
+# Without this, Git converts text files to CRLF when checking out on Windows,
+# which breaks two things: `sync-content.ts --check` compares the committed books
+# byte-for-byte against the content package and sees every line as different, and
+# install.sh would be unrunnable if it ever reached a shell with CRLF endings.
+* text=auto eol=lf
+
+# Generated, and compared byte-for-byte in CI.
+books/*.json               text eol=lf
+src/content/embedded.generated.ts text eol=lf
+
+# Must stay LF to run at all.
+install/install.sh         text eol=lf
+
+*.png binary
+*.ico binary
