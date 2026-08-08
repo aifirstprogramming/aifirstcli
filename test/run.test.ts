@@ -19,7 +19,15 @@ beforeEach(() => {
   sandbox = mkdtempSync(join(tmpdir(), "aifirst-run-"));
 });
 
-afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+afterEach(() => {
+  // Windows can hold the directory open briefly after a child process exits, so
+  // retry rather than failing the suite on cleanup.
+  try {
+    rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch {
+    /* a leftover temp dir is not a test failure */
+  }
+});
 
 interface Run {
   stdout: string;
@@ -66,13 +74,19 @@ describe("run", () => {
     expect(await done()).toBe(1);
   });
 
-  it("names a Java file after its public class and runs it", async () => {
-    const r = await aifirst(["run", "java-1-01", "--format", "json"]);
-    const out = JSON.parse(r.stdout);
-    expect(out.path.endsWith("HelloWorld.java")).toBe(true);
-    expect(out.ran.ok).toBe(true);
-    expect(out.ran.stdout).toContain("Hello, World!");
-  });
+  it(
+    "names a Java file after its public class and runs it",
+    async () => {
+      const r = await aifirst(["run", "java-1-01", "--format", "json"]);
+      const out = JSON.parse(r.stdout);
+      expect(out.path.endsWith("HelloWorld.java")).toBe(true);
+      expect(out.ran.ok).toBe(true);
+      expect(out.ran.stdout).toContain("Hello, World!");
+    },
+    // `java Foo.java` compiles in memory on every run; a cold Windows runner
+    // takes well over the default 5s.
+    60_000,
+  );
 
   it("feeds the authored sample to an exercise that reads input", async () => {
     const r = await aifirst(["run", "py-3-10", "--format", "json"]);
