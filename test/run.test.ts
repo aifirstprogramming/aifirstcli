@@ -58,7 +58,9 @@ describe("run", () => {
     const out = JSON.parse(r.stdout);
     expect(out.wrote).toBe(true);
     expect(out.ran.ok).toBe(true);
-    expect(out.ran.stdout).toBe("Hello, World!\n");
+    // Trimmed: the interpreter's line endings are the platform's business
+    // (Python emits CRLF on Windows) and we report its output as captured.
+    expect(out.ran.stdout.trim()).toBe("Hello, World!");
     expect(out.recorded).toBe(true);
     expect(readFileSync(out.path, "utf8")).toBe('print("Hello, World!")\n');
     expect(await done()).toBe(1);
