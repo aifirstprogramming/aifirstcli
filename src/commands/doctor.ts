@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import type { Args } from "../cli";
 import { formatFlag } from "../cli";
 import { detectAll } from "../agents";
+import { read as readConfig } from "../config";
 import { findLatestPack, resolveContent } from "../content";
 import { report } from "../exercises";
 import { read } from "../log/progress";
@@ -36,6 +37,12 @@ export async function doctor(args: Args): Promise<void> {
 
   const configured = skills.filter((s) => s.skill.state === "current");
   const drifted = skills.filter((s) => s.skill.state === "drift");
+  // A configured tool that still prompts for every command is not "all good" —
+  // reporting it as such is what let this go unnoticed after 0.2.0.
+  const optedOut = readConfig().permissionsOptOut === true;
+  const unapproved = optedOut
+    ? []
+    : skills.filter((s) => s.skill.state === "current" && s.permissions === "missing");
   const pack = findLatestPack();
 
   if (format === "json") {
@@ -51,9 +58,10 @@ export async function doctor(args: Args): Promise<void> {
       },
       log: { path: progressFile(), exists: existsSync(progressFile()), counts },
       agents: skills,
-      ok: configured.length > 0 && drifted.length === 0,
+      permissionsOptOut: optedOut,
+      ok: configured.length > 0 && drifted.length === 0 && unapproved.length === 0,
     });
-    if (configured.length === 0 || drifted.length > 0) process.exitCode = 1;
+    if (configured.length === 0 || drifted.length > 0 || unapproved.length > 0) process.exitCode = 1;
     return;
   }
 
@@ -111,7 +119,11 @@ export async function doctor(args: Args): Promise<void> {
       } else if (s.permissions === "manual") {
         out(`      ${dim("add command(aifirst) to its Allow list to skip approval prompts")}`);
       } else if (s.permissions === "missing") {
-        out(`      ${yellow(`${glyph.todo} not pre-approved — you'll be asked to approve each command`)}`);
+        out(
+          optedOut
+            ? dim(`      not pre-approved (your choice)`)
+            : `      ${yellow(`${glyph.todo} not pre-approved — you'll be asked to approve each command`)}`,
+        );
       }
     }
   }
@@ -128,6 +140,17 @@ export async function doctor(args: Args): Promise<void> {
   if (drifted.length > 0) {
     out(`  ${yellow("Some skills were written by a different aifirst version.")}`);
     out(dim(`  ${glyph.arrow} aifirst skill install    refresh them`));
+    out();
+    process.exitCode = 1;
+    return;
+  }
+
+  if (unapproved.length > 0) {
+    out(
+      `  ${yellow(`${unapproved.length} tool${unapproved.length === 1 ? "" : "s"} will ask you to approve every aifirst command.`)}`,
+    );
+    out(dim(`  ${glyph.arrow} aifirst skill install          pre-approve them`));
+    out(dim(`  ${glyph.arrow} aifirst skill install --no-permissions   leave it alone and stop asking`));
     out();
     process.exitCode = 1;
     return;

@@ -7,10 +7,11 @@
  */
 
 import type { Args } from "../cli";
-import { formatFlag } from "../cli";
+import { boolFlag, formatFlag } from "../cli";
 import { AGENTS, agentByKey, detectAll, keysFromFlags, selectAgents } from "../agents";
-import type { Agent } from "../agents";
+import type { Agent, PermissionResult } from "../agents";
 import { CliError, bold, dim, glyph, green, json, out, red, yellow } from "../output";
+import { setPermissionsOptOut } from "../config";
 import { VERSION } from "../version";
 
 async function targets(args: Args): Promise<Agent[]> {
@@ -55,19 +56,42 @@ export async function skill(args: Args): Promise<void> {
   }
 }
 
+/**
+ * Installs the skill *and* pre-approves the commands.
+ *
+ * Granting here, not only in `init`, is deliberate: `aifirst update` refreshes
+ * skills through this path, so leaving it out meant every upgrading reader kept
+ * being asked to approve each command — which is exactly what happened after
+ * 0.2.0 shipped.
+ */
 async function skillInstall(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
+  const skipPermissions = boolFlag(args, "no-permissions");
   const agents = await targets(args);
-  const results: { key: string; written: string[]; notes?: string[]; error?: string }[] = [];
+  const results: {
+    key: string;
+    written: string[];
+    notes?: string[];
+    error?: string;
+    permissions?: PermissionResult;
+  }[] = [];
 
   for (const agent of agents) {
     try {
       const r = await agent.install();
-      results.push({ key: agent.key, written: r.written, notes: r.notes });
+      const entry: (typeof results)[number] = { key: agent.key, written: r.written, notes: r.notes };
+      if (!skipPermissions) {
+        entry.permissions = await agent
+          .grantPermissions()
+          .catch((e): PermissionResult => ({ state: "missing", changed: [], notes: [(e as Error).message] }));
+      }
+      results.push(entry);
     } catch (e) {
       results.push({ key: agent.key, written: [], error: (e as Error).message });
     }
   }
+
+  setPermissionsOptOut(skipPermissions);
 
   if (format === "json") {
     json({ version: VERSION, results });
@@ -79,6 +103,11 @@ async function skillInstall(args: Args): Promise<void> {
     if (r.error) out(`  ${red(glyph.todo)} ${agent.label}: ${r.error}`);
     else out(`  ${green(glyph.done)} ${agent.label} ${dim(`(${r.written.length} file(s))`)}`);
     for (const note of r.notes ?? []) out(dim(`      ${note}`));
+
+    if (r.permissions?.state === "allowlisted" && r.permissions.changed.length > 0) {
+      out(dim(`      pre-approved aifirst commands`));
+    }
+    if (r.permissions?.manual) out(`      ${yellow(r.permissions.manual)}`);
   }
   out();
 }

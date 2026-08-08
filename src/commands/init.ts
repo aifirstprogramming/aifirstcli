@@ -16,7 +16,7 @@ import { boolFlag, formatFlag } from "../cli";
 import { AGENTS, detectAll, keysFromFlags, selectAgents } from "../agents";
 import type { Agent, PermissionResult } from "../agents";
 import { bookChoices, resolveScope } from "../books";
-import { ALL_BOOKS, setBook } from "../config";
+import { ALL_BOOKS, setBook, setPermissionsOptOut } from "../config";
 import { resolveContent } from "../content";
 import { recordPack } from "../log/progress";
 import { WITHHELD_COMMANDS } from "../permissions";
@@ -45,6 +45,7 @@ export async function init(args: Args): Promise<void> {
       return;
     }
     const results = await installAll(targets, skipPermissions);
+    setPermissionsOptOut(skipPermissions);
     recordPack(content.version);
     json({
       detected: detected.map((d) => ({ key: d.agent.key, ...d.detection })),
@@ -127,6 +128,7 @@ export async function init(args: Args): Promise<void> {
   }
 
   const results = await installAll(targets, skipPermissions);
+  setPermissionsOptOut(skipPermissions);
 
   for (const r of results) {
     const agent = AGENTS.find((a) => a.key === r.key)!;

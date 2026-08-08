@@ -54,11 +54,16 @@ directories — without it you approve a prompt for every step of every exercise
 | Codex | `~/.codex/rules/default.rules` (a marker-delimited block) |
 | Antigravity | not writable — `doctor` tells you to add `command(aifirst)` to its Allow list |
 
-Only the reading and recording commands are allowlisted. **`reset`, `skill` and `update` deliberately
-keep prompting**, so an assistant that misreads an instruction can't wipe your ledger or replace the
+`aifirst init` and `aifirst skill install` both set this up, so an upgrade (which refreshes skills
+through `skill install`) keeps it current. Only the reading and recording commands are allowlisted.
+**`reset`, `skill` and `update` deliberately keep prompting**, so an assistant that misreads an instruction can't wipe your ledger or replace the
 binary without you saying yes. Pass `--no-permissions` to skip this entirely, and
-`aifirst skill remove` reverses both the files and the allowlist. No model configuration or credential
-is ever touched.
+`aifirst skill remove` reverses both the files and the allowlist. Your choice to skip is remembered, so
+`doctor` won't nag. No model configuration or credential is ever touched.
+
+`aifirst doctor` reports per tool whether commands are pre-approved, and **exits non-zero if a tool
+with the skill installed will still prompt** — a setup that works but interrupts you constantly is not
+a healthy one.
 
 ## Commands
 

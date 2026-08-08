@@ -19,6 +19,7 @@ import type { Args } from "../cli";
 import { boolFlag, formatFlag } from "../cli";
 import { compareVersions, findLatestPack, resolveContent } from "../content";
 import { EMBEDDED_PACK_VERSION } from "../content";
+import { read as readConfig } from "../config";
 import { contentDir } from "../paths";
 import { isWindows } from "../paths";
 import { CliError, bold, dim, glyph, green, json, out, yellow } from "../output";
@@ -263,7 +264,11 @@ async function updateBinary(format: Format, checkOnly: boolean): Promise<void> {
   renameSync(tmp, target);
 
   // Skill bundles carry the CLI version, so refresh them with the *new* binary.
-  const refresh = await run(target, ["skill", "install", "--format", "json"], 30_000);
+  // This also refreshes the command allowlist, which is why an upgrade no longer
+  // leaves a reader approving every command. A learner who declined stays declined.
+  const refreshArgs = ["skill", "install", "--format", "json"];
+  if (readConfig().permissionsOptOut) refreshArgs.push("--no-permissions");
+  const refresh = await run(target, refreshArgs, 30_000);
 
   if (format === "json") {
     json({ updated: true, from: VERSION, to: available, skillsRefreshed: refresh.ok });

@@ -17,6 +17,13 @@ export interface Config {
   version: 1;
   /** A book id, the string "all", or absent when the learner hasn't chosen. */
   book?: string;
+  /**
+   * Set when the learner passed `--no-permissions`.
+   *
+   * Recorded so `doctor` can tell "you chose not to pre-approve" apart from
+   * "pre-approval silently never happened" — and stop nagging about the former.
+   */
+  permissionsOptOut?: boolean;
 }
 
 export function configFile(): string {
@@ -30,6 +37,7 @@ export function read(path = configFile()): Config {
     return {
       version: 1,
       ...(typeof parsed.book === "string" ? { book: parsed.book } : {}),
+      ...(parsed.permissionsOptOut === true ? { permissionsOptOut: true } : {}),
     };
   } catch {
     // Absent or unreadable is simply "not chosen yet"; never fatal.
@@ -62,5 +70,13 @@ export function setBook(book: string, path?: string): void {
 export function clearBook(path?: string): void {
   const current = read(path);
   delete current.book;
+  write(current, path);
+}
+
+/** Remember that the learner declined pre-approval, so `doctor` stops nagging. */
+export function setPermissionsOptOut(optOut: boolean, path?: string): void {
+  const current = read(path);
+  if (optOut) current.permissionsOptOut = true;
+  else delete current.permissionsOptOut;
   write(current, path);
 }
