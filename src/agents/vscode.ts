@@ -8,7 +8,7 @@
  */
 
 import { EXTENSION_ID } from "../constants";
-import type { Agent, Detection, InstallResult, SkillState } from "./types";
+import type { Agent, Detection, InstallResult, PermissionResult, PermissionState, SkillState } from "./types";
 import { captureVersion, run, which } from "./util";
 
 /** Editors that ship a `code`-compatible CLI, in preference order. */
@@ -73,6 +73,18 @@ export const vscodeAgent: Agent = {
   async remove(): Promise<string[]> {
     const editor = findEditor();
     if (editor) await run(editor.bin, ["--uninstall-extension", EXTENSION_ID], 120_000);
+    return [];
+  },
+
+  // The extension serves book content inside the editor and never shells out to
+  // this CLI, so there is nothing to pre-approve.
+  async grantPermissions(): Promise<PermissionResult> {
+    return { state: "unsupported", changed: [] };
+  },
+  async permissionState(): Promise<PermissionState> {
+    return "unsupported";
+  },
+  async revokePermissions(): Promise<string[]> {
     return [];
   },
 };

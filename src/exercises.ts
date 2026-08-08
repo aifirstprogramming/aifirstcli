@@ -9,6 +9,8 @@
  */
 
 import { compareIds } from "@aifirst/content";
+import { inScope } from "./books";
+import type { Scope } from "./books";
 import type { Content, Example, Step } from "./content/types";
 import type { Entry, ProgressLog } from "./log/progress";
 
@@ -55,10 +57,13 @@ export function chapters(content: Content): ChapterView[] {
 /**
  * The next exercise to work on: the first authored example, in id order, with no
  * log entry. A skipped exercise counts as handled and is not offered again.
+ *
+ * Never crosses out of `scope`. Finishing a book is an achievement to report, not
+ * a cue to silently start a different book the reader may not even own.
  */
-export function next(content: Content, log: ProgressLog, bookId?: string): Example | null {
+export function next(content: Content, log: ProgressLog, scope: Scope): Example | null {
   for (const ex of ordered(content)) {
-    if (bookId && ex.bookId !== bookId) continue;
+    if (!inScope(scope, ex.bookId)) continue;
     if (!log.exercises[ex.id]) return ex;
   }
   return null;
@@ -110,8 +115,15 @@ export interface ProgressReport {
   books: BookProgress[];
 }
 
-export function report(content: Content, log: ProgressLog): ProgressReport {
-  const books: BookProgress[] = content.books.map((book) => {
+/**
+ * Progress over the books in scope.
+ *
+ * A reader who owns one book should see a denominator they can actually finish,
+ * not one inflated by a book they don't have.
+ */
+export function report(content: Content, log: ProgressLog, scope: Scope = { kind: "all" }): ProgressReport {
+  const scoped = content.books.filter((b) => inScope(scope, b.id));
+  const books: BookProgress[] = scoped.map((book) => {
     const chapterViews = book.sections.flatMap((s) => s.chapters);
     const examples = chapterViews.flatMap((c) => c.examples);
     return {
@@ -128,7 +140,8 @@ export function report(content: Content, log: ProgressLog): ProgressReport {
     };
   });
 
-  return { overall: tally(content.examples, log), books };
+  const inScopeExamples = content.examples.filter((e) => inScope(scope, e.bookId));
+  return { overall: tally(inScopeExamples, log), books };
 }
 
 // ---------------------------------------------------------------------------

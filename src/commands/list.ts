@@ -7,41 +7,13 @@
  */
 
 import type { Args } from "../cli";
-import { formatFlag, numberFlag, stringFlag } from "../cli";
+import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
+import { inScope, resolveScope } from "../books";
 import { resolveContent } from "../content";
-import type { Book, Content } from "../content/types";
 import { chapters } from "../exercises";
 import { read } from "../log/progress";
 import type { ProgressLog } from "../log/progress";
 import { CliError, bold, cyan, dim, glyph, green, json, out, yellow } from "../output";
-
-/** Resolve a book selector: tag, id, or a distinctive part of the title. */
-export function selectBook(content: Content, selector: string): Book {
-  const s = selector.toLowerCase();
-  const tags: Record<string, string> = { py: "python", python: "python", java: "java" };
-  if (tags[s]) {
-    const byLanguage = content.books.find((b) => b.language === tags[s]);
-    if (byLanguage) return byLanguage;
-  }
-  const exact = content.books.find((b) => b.id.toLowerCase() === s);
-  if (exact) return exact;
-  const partial = content.books.filter(
-    (b) => b.id.toLowerCase().includes(s) || b.title.toLowerCase().includes(s),
-  );
-  if (partial.length === 1) return partial[0];
-  if (partial.length > 1) {
-    throw new CliError(
-      `"${selector}" matches ${partial.length} books`,
-      "ambiguous_book",
-      `Try one of: ${content.books.map((b) => b.language).join(", ")}`,
-    );
-  }
-  throw new CliError(
-    `No book matches "${selector}"`,
-    "unknown_book",
-    `Available: ${content.books.map((b) => b.language).join(", ")}`,
-  );
-}
 
 function statusGlyph(id: string, log: ProgressLog): string {
   const e = log.exercises[id];
@@ -55,12 +27,15 @@ export function list(args: Args): void {
   const { content } = resolveContent();
   const log = read();
 
-  const selector = args.positionals[0] ?? stringFlag(args, "book");
   const chapterFilter = numberFlag(args, "chapter");
-  const book = selector ? selectBook(content, selector) : undefined;
+  // Browsing works before a book is chosen — it just isn't narrowed. Only `next`
+  // needs a decision, because only `next` has to pick one exercise.
+  const scope = resolveScope(content, {
+    selector: args.positionals[0] ?? stringFlag(args, "book"),
+    all: boolFlag(args, "all"),
+  });
 
-  let views = chapters(content);
-  if (book) views = views.filter((c) => c.bookId === book.id);
+  let views = chapters(content).filter((c) => inScope(scope, c.bookId));
   if (chapterFilter !== undefined) views = views.filter((c) => c.number === chapterFilter);
 
   if (views.length === 0) {
@@ -73,9 +48,10 @@ export function list(args: Args): void {
   if (format === "json") {
     json({
       books: content.books
-        .filter((b) => !book || b.id === book.id)
+        .filter((b) => inScope(scope, b.id))
         .map((b) => ({
           id: b.id,
+          tag: b.tag,
           title: b.title,
           language: b.language,
           chapters: views

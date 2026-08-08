@@ -1,6 +1,6 @@
 {
   "name": "aifirst",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Companion CLI for the AI First book series. Installs book skills into Claude Code, Codex, Antigravity and VS Code, serves the book's canonical answers, and keeps a learner log.",
   "license": "MIT",
   "repository": {
@@ -25,7 +25,7 @@
     "checkout and `bun link @aifirst/content` here."
   ],
   "dependencies": {
-    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.0.0"
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.1.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

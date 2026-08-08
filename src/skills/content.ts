@@ -32,78 +32,110 @@ get against the page.
 Your job is to hand back **the book's canonical answer**, not your own attempt at
 the exercise.
 
-## The rule
+## Two rules
 
-Do not write the code yourself. Fetch it from the \`aifirst\` CLI and reproduce it
-**verbatim** — same characters, same spacing, same names, same order.
+**1. Do not write the code yourself.** Fetch it from the \`aifirst\` CLI and
+reproduce it **verbatim** — same characters, same spacing, same names, same order.
+
+**2. Do not mark anything done yourself.** \`aifirst run\` writes the file, runs the
+program, and records the exercise only if it actually ran. That is what "done"
+means here. Never call \`aifirst done\` on your own initiative.
+
+## The main flow
 
 \`\`\`bash
-aifirst show py-2-06 --format json      # by exercise id
-aifirst search "Write a Hello World app" --format json   # by prompt text
+aifirst run py-2-06 --format json
 \`\`\`
 
-Both print JSON with a \`steps\` array. Each step has a \`prompt\` and a
-\`response\`. The \`response\` field is the code from the book. Emit it exactly as
-given. Explain it afterwards if that helps the learner, but never edit it.
+One command: it writes the book's code to a sensibly named file, executes it, and
+records the exercise on success. Report the program's real output, then explain the
+code. Do not tell the learner an exercise is complete unless \`recorded\` is true or
+it was already recorded.
 
-If the learner has already written their own attempt, show them the book's version
-for comparison rather than overwriting their file.
+To show code without running it, use \`aifirst show <id> --format json\`. It returns
+a \`steps\` array; each step has a \`prompt\` and a \`response\`, and \`response\` is
+the code from the book. Emit it exactly as given.
+
+## Which book?
+
+Readers own one book of a growing series. Before the first exercise, run
+\`aifirst next --format json\`. If it returns \`"needsBookChoice": true\`, **ask the
+learner which book they are reading** and record it:
+
+\`\`\`bash
+aifirst book py      # or: aifirst book java
+\`\`\`
+
+Never guess, and never hand them an exercise from a book they may not own.
 
 ## Commands
 
 | Command | Use |
 | --- | --- |
-| \`aifirst next --format json\` | The learner's next unfinished exercise. |
-| \`aifirst show <id> --format json\` | Canonical prompt(s) and response(s). |
+| \`aifirst next --format json\` | Their next unfinished exercise, within their book. |
+| \`aifirst run <id> --format json\` | Write it, run it, record it. The main one. |
+| \`aifirst show <id> --format json\` | Canonical prompt(s) and response(s); records nothing. |
 | \`aifirst search "<prompt>" --format json\` | Find the exercise matching prompt text. |
-| \`aifirst list [py\\|java] --format json\` | Browse books, chapters, exercises. |
-| \`aifirst apply <id> --into <file>\` | Write the canonical response to a file (records progress). |
-| \`aifirst done <id> --via agent --agent <you>\` | Record completion after a chat walkthrough. |
+| \`aifirst list [py\|java] --format json\` | Browse books, chapters, exercises. |
+| \`aifirst apply <id> --into <file>\` | Write the code without running it. |
 | \`aifirst progress --format json\` | Their ledger so far. |
+| \`aifirst book <tag>\` | Set or switch which book they are reading. |
 
-Exercise ids look like \`py-2-06\` or \`java-3-05\`; \`py-2-06.2\` addresses step 2
-of a multi-step exercise.
+Exercise ids look like \`py-2-06\` or \`java-3-05\`; \`py-2-06.2\` addresses step 2 of
+a multi-step exercise.
 
 ## Workflows
 
+**They ask what is next** ("where was I", "what should I do now")
+\`aifirst next --format json\`. Show the prompt and let them try it themselves
+before revealing the book's answer.
+
 **They name an exercise** ("show me py-2-06", "let's do chapter 2 exercise 6")
-Run \`aifirst show <id> --format json\`. Present the prompt, then the response
-verbatim. Offer to write it with \`aifirst apply\`.
+\`aifirst run <id> --format json\`, then present the output and explain the code. If
+they only want to look at it, use \`show\`.
 
 **They paste a prompt from the book**
-Run \`aifirst search "<their text>" --format json\`. On a hit, give that exercise's
-response verbatim. On \`{"match": null}\`, say no book example matches and answer
-normally — do not invent an exercise id.
-
-**They ask what's next** ("where was I", "what should I do now")
-Run \`aifirst next --format json\`, show the exercise's prompt, and let them try it
-before revealing the response.
-
-**They finish an exercise in chat**
-Run \`aifirst done <id> --via agent --agent <your name>\` so their ledger reflects
-it even though no file was written.
+\`aifirst search "<their text>" --format json\`. On a hit, use that exercise. On
+\`{"match": null}\`, say no book example matches and answer normally — do not invent
+an exercise id.
 
 **A multi-step exercise**
-\`steps\` is ordered and progressive — each step modifies the previous result.
-Walk through them in order. The last step's response is the finished program.
+\`steps\` is ordered and progressive: each step modifies the previous result. Walk
+them in order. \`run\` executes the final step, which is the finished program.
+
+**They finish a book**
+\`next\` returns \`"complete": true\` with the book named. Congratulate them, then
+offer the books listed in \`otherBooks\` via \`aifirst book <tag>\`.
+
+**\`run\` fails with \`needs_interactive_run\`**
+The exercise reads input and no terminal is attached. Ask the learner to run it
+themselves so they can type the answers:
+
+    !aifirst run <id>
+
+The leading \`!\` runs it in their own shell and shows you the output.
 
 ## Gotchas
 
 - **Verbatim means verbatim.** No renamed variables, no added comments, no
   reformatting, no "improved" version, no switching quote style. The learner is
-  diffing against printed pages.
+  comparing against a printed page.
+- **Only \`run\` records progress.** \`show\` and \`apply\` deliberately do not.
+  Reading a prompt or writing a file is not completing an exercise, and a ledger
+  that claims otherwise is worthless to the learner.
+- **Report what actually happened.** If the program failed, say so and help them
+  fix it. Never describe an exercise as done because the code looks correct.
 - **Python and Java have separate exercises.** Pass \`--language py\` or
-  \`--language java\` to \`search\` when you know which book they're reading;
-  otherwise the match may come from the other book.
-- **\`aifirst show\` does not record progress.** Only \`apply\` and \`done\` do.
-  Viewing an exercise is not completing it.
+  \`--language java\` to \`search\` when you know which book they are reading.
 - **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe
-  their progress. It clears their whole log.
-- **Don't overwrite their work.** \`aifirst apply\` refuses to clobber an existing
-  file; do not add \`--force\` on their behalf.
+  their progress; it clears their whole log. It will ask for approval — do not
+  approve it on their behalf.
+- **Do not overwrite their work.** \`run\` and \`apply\` refuse to replace a file
+  whose contents differ. Do not add \`--force\` on their behalf.
 - If \`aifirst\` is missing, point them at
   \`curl -fsSL https://aifirstprogramming.com/install.sh | bash\` rather than
   reconstructing examples from memory — you will get them subtly wrong.
+
 `;
 }
 
@@ -148,26 +180,31 @@ description: Show my next unfinished AI First book exercise and coach me through
 
 Run \`aifirst next --format json\`.
 
+If it reports \`"needsBookChoice": true\`, ask me which book I'm reading and set it
+with \`aifirst book <tag>\` before going further.
+
 Present the exercise title and its first prompt. Let me attempt the prompt myself
-first — do not reveal the response until I ask or I've tried. When I ask for the
-answer, run \`aifirst show <id> --format json\` and reproduce the \`response\`
-verbatim.
+first — do not reveal the book's answer until I ask or I've tried. When I ask for it,
+run \`aifirst run <id> --format json\`, which writes the code, runs it, and records
+the exercise. Show me the real output, then explain the code.
 `,
     },
     {
       name: "aifirst-example",
       body: `---
-description: Show a specific AI First book exercise by id, with the book's exact code.
+description: Run a specific AI First book exercise by id, with the book's exact code.
 argument-hint: <exercise-id, e.g. py-2-06>
 ---
 
-Run \`aifirst show $ARGUMENTS --format json\`.
+Run \`aifirst run $ARGUMENTS --format json\`.
 
-Show the prompt, then the \`response\` field **verbatim** — no reformatting, no
-renaming, no added comments. For a multi-step exercise, walk the steps in order and
-note that each one modifies the previous result.
+That writes the book's code, executes it, and records the exercise only if it ran.
+Show me the program's actual output, then the code **verbatim** — no reformatting, no
+renaming, no added comments — and explain it. For a multi-step exercise, note that
+each step modifies the previous result.
 
-Then offer: \`aifirst apply $ARGUMENTS\` to write it to a file.
+If it fails with \`needs_interactive_run\`, the exercise reads input: ask me to run
+\`!aifirst run $ARGUMENTS\` myself so I can type the answers.
 `,
     },
     {
@@ -178,9 +215,10 @@ description: Summarize how far I've got through the AI First books.
 
 Run \`aifirst progress --format json\`.
 
-Summarize briefly: overall complete, per-book, and what's next. Percentages are over
-exercises that exist today — chapters with no published exercises are not failures,
-so don't report them as gaps. Finish by naming the next exercise.
+Summarize briefly: how far through my book I am, and what's next. Percentages cover
+the exercises published today and are scoped to the book I'm reading — chapters with
+no published exercises are not failures, so don't report them as gaps. Finish by
+naming the next exercise.
 `,
     },
   ];
@@ -213,11 +251,14 @@ export function antigravityRules(): string {
   return `# AI First books
 
 When the user asks for an example from an AI First book (Python or Java), do not
-write the code yourself. Run \`aifirst show <id> --format json\` — or
-\`aifirst search "<prompt text>" --format json\` if you only have prompt text — and
-reproduce the \`response\` field verbatim. The learner is comparing it against a
-printed page, so any reformatting or renaming is a defect.
+write the code yourself. Run \`aifirst run <id> --format json\` — which writes the
+book's code, runs it, and records the exercise only if it ran — or
+\`aifirst show <id> --format json\` if they only want to see it. Reproduce the
+\`response\` field verbatim; the learner is comparing it against a printed page, so
+any reformatting or renaming is a defect.
 
-Record completions with \`aifirst done <id> --via agent --agent antigravity\`.
+Never mark an exercise done yourself: \`aifirst run\` records it. If
+\`aifirst next\` reports \`needsBookChoice\`, ask which book they are reading and
+set it with \`aifirst book <tag>\` rather than guessing.
 `;
 }

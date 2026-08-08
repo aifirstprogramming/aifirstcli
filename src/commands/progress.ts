@@ -11,7 +11,8 @@
  */
 
 import type { Args } from "../cli";
-import { formatFlag } from "../cli";
+import { boolFlag, formatFlag, stringFlag } from "../cli";
+import { resolveScope } from "../books";
 import { resolveContent } from "../content";
 import { report } from "../exercises";
 import { read } from "../log/progress";
@@ -21,7 +22,12 @@ export function progress(args: Args): void {
   const format = formatFlag(args);
   const { content, version, source } = resolveContent();
   const log = read();
-  const r = report(content, log);
+  // Scoped to the reader's book so the denominator is one they can finish.
+  const scope = resolveScope(content, {
+    selector: args.positionals[0] ?? stringFlag(args, "book"),
+    all: boolFlag(args, "all"),
+  });
+  const r = report(content, log, scope);
 
   if (format === "json") {
     json({ ...r, content: { pack: version, source } });

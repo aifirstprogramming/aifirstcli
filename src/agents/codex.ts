@@ -10,13 +10,15 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { codex as paths } from "../paths";
+import { CODEX_BEGIN, CODEX_END, codexRuleBlock } from "../permissions";
 import { commandFiles, parseSkillVersion, skillMarkdown } from "../skills/content";
 import { VERSION } from "../version";
-import type { Agent, Detection, InstallResult, SkillState } from "./types";
-import { captureVersion, readIfExists, removeIfExists, which, writeFileTree } from "./util";
+import type { Agent, Detection, InstallResult, PermissionResult, PermissionState, SkillState } from "./types";
+import { captureVersion, readIfExists, removeIfExists, run, which, writeFileTree } from "./util";
 
 const skillFile = () => join(paths.skill(), "SKILL.md");
 const promptFile = (name: string) => join(paths.prompts(), `${name}.md`);
+const rulesFile = () => join(paths.root(), "rules", "default.rules");
 
 export const codexAgent: Agent = {
   key: "codex",
@@ -54,4 +56,72 @@ export const codexAgent: Agent = {
     for (const cmd of commandFiles()) removed.push(...removeIfExists(promptFile(cmd.name)));
     return removed;
   },
+
+  permissionTarget: "~/.codex/rules/default.rules",
+
+  async grantPermissions(): Promise<PermissionResult> {
+    const existing = readIfExists(rulesFile()) ?? "";
+    const block = codexRuleBlock();
+
+    if (existing.includes(block)) return { state: "allowlisted", changed: [] };
+
+    // Replace a previous block in place rather than appending a second one.
+    const next = hasBlock(existing)
+      ? replaceBlock(existing, block)
+      : existing.trim().length > 0
+        ? `${existing.replace(/\n*$/, "")}\n\n${block}\n`
+        : `${block}\n`;
+
+    writeFileTree(rulesFile(), next);
+
+    const notes = ["Codex reads this at startup; restart it to pick the rules up."];
+    // Prove the rules parse and mean what we think, rather than assuming.
+    const bin = which("codex");
+    if (bin) {
+      const check = await run(bin, ["execpolicy", "check", "--rules", rulesFile(), "--", "aifirst", "show", "py-1-01"]);
+      notes.push(
+        check.ok && /allow/i.test(check.output)
+          ? "Verified with codex execpolicy check."
+          : `codex execpolicy check did not report allow: ${check.output.split("\n")[0] ?? ""}`,
+      );
+    }
+
+    return { state: "allowlisted", changed: [rulesFile()], notes };
+  },
+
+  async permissionState(): Promise<PermissionState> {
+    const existing = readIfExists(rulesFile());
+    if (existing === undefined) return "missing";
+    return existing.includes(codexRuleBlock()) ? "allowlisted" : "missing";
+  },
+
+  async revokePermissions(): Promise<string[]> {
+    const existing = readIfExists(rulesFile());
+    if (existing === undefined || !hasBlock(existing)) return [];
+    const stripped = stripBlock(existing);
+    // Don't leave an empty rules file behind that we created.
+    if (stripped.trim().length === 0) return removeIfExists(rulesFile());
+    writeFileTree(rulesFile(), stripped);
+    return [rulesFile()];
+  },
 };
+
+function hasBlock(text: string): boolean {
+  return text.includes(CODEX_BEGIN) && text.includes(CODEX_END);
+}
+
+function blockRange(text: string): [number, number] {
+  const start = text.indexOf(CODEX_BEGIN);
+  const end = text.indexOf(CODEX_END) + CODEX_END.length;
+  return [start, end];
+}
+
+function replaceBlock(text: string, block: string): string {
+  const [start, end] = blockRange(text);
+  return `${text.slice(0, start)}${block}${text.slice(end)}`;
+}
+
+function stripBlock(text: string): string {
+  const [start, end] = blockRange(text);
+  return `${text.slice(0, start)}${text.slice(end)}`.replace(/\n{3,}/g, "\n\n").replace(/^\n+/, "");
+}

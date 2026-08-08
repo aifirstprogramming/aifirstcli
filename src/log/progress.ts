@@ -24,13 +24,16 @@ export type Status = "done" | "skipped";
 /**
  * How a completion was recorded. Purely informational, shown in reports.
  *
- * Note there is no value for merely viewing an exercise: `aifirst show` never
- * marks anything, since reading a prompt isn't doing the work and silently
- * inflating a learner's progress would make the log worthless to them.
+ * There is no value for merely viewing or writing an exercise: `aifirst show`
+ * and `aifirst apply` never mark anything. Reading a prompt or dropping a file on
+ * disk isn't doing the work, and silently inflating a learner's progress would
+ * make the log worthless to them. `run` is recorded because the program ran.
+ *
+ * `apply` is retained only so logs written by 0.1.x still parse.
  */
-export type Via = "apply" | "agent" | "self";
+export type Via = "run" | "agent" | "self" | "apply";
 
-const VIAS: readonly Via[] = ["apply", "agent", "self"];
+const VIAS: readonly Via[] = ["run", "agent", "self", "apply"];
 
 export interface Entry {
   status: Status;

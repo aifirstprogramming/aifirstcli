@@ -30,6 +30,7 @@ export async function doctor(args: Args): Promise<void> {
       label: d.agent.label,
       detection: d.detection,
       skill: await d.agent.check().catch(() => ({ state: "missing" as const })),
+      permissions: await d.agent.permissionState().catch(() => "missing" as const),
     })),
   );
 
@@ -102,6 +103,17 @@ export async function doctor(args: Args): Promise<void> {
     const version = s.detection.version ? dim(` ${s.detection.version}`) : "";
     out(`    ${s.label}${version}`);
     out(`      ${status}`);
+
+    // Whether the reader will be interrupted by approval prompts.
+    if (s.skill.state !== "missing" || s.detection.installed) {
+      if (s.permissions === "allowlisted") {
+        out(`      ${green(`${glyph.done} aifirst commands pre-approved`)}`);
+      } else if (s.permissions === "manual") {
+        out(`      ${dim("add command(aifirst) to its Allow list to skip approval prompts")}`);
+      } else if (s.permissions === "missing") {
+        out(`      ${yellow(`${glyph.todo} not pre-approved — you'll be asked to approve each command`)}`);
+      }
+    }
   }
   out();
 

@@ -24,8 +24,9 @@ irm https://aifirstprogramming.com/install.ps1 | iex
 Then:
 
 ```sh
-aifirst init     # sets up the AI tools it finds
-aifirst next     # your next exercise
+aifirst init      # sets up the AI tools it finds, and asks which book you're reading
+aifirst next      # your next exercise
+aifirst run <id>  # write the book's code, run it, record it
 ```
 
 Nothing else is required — no Node, no Python, no JVM. The binary is self-contained and ships with all
@@ -41,27 +42,45 @@ the book content inside it, so it works offline on first run.
 | Antigravity CLI (`agy`) | plugin bundle | `~/.gemini/antigravity-cli/plugins/aifirst/` |
 | VS Code | the AI First extension | Marketplace |
 
-`init` detects what you have, shows you, asks once, and installs into all of it. Writes are additive
-and confined to an `aifirst`-named directory per tool — no settings file, model configuration, or
-credential is ever touched, and `aifirst skill remove` is a clean uninstall.
+`init` detects what you have, shows you, asks once, and installs into all of it.
+
+Skill files are additive and confined to an `aifirst`-named directory per tool. `init` **also**
+pre-approves the everyday `aifirst` commands, which is the one thing written outside those
+directories — without it you approve a prompt for every step of every exercise:
+
+| Tool | Allowlist written to |
+| --- | --- |
+| Claude Code | `~/.claude/settings.json` → `permissions.allow` (merged; a `.aifirst-backup` is written first) |
+| Codex | `~/.codex/rules/default.rules` (a marker-delimited block) |
+| Antigravity | not writable — `doctor` tells you to add `command(aifirst)` to its Allow list |
+
+Only the reading and recording commands are allowlisted. **`reset`, `skill` and `update` deliberately
+keep prompting**, so an assistant that misreads an instruction can't wipe your ledger or replace the
+binary without you saying yes. Pass `--no-permissions` to skip this entirely, and
+`aifirst skill remove` reverses both the files and the allowlist. No model configuration or credential
+is ever touched.
 
 ## Commands
 
 ```
-aifirst init [--yes] [--claude|--codex|--antigravity|--vscode]
-aifirst next [py|java]              your next unfinished exercise
-aifirst list [py|java] [--chapter N]
+aifirst init [--yes] [--no-permissions] [--claude|--codex|--antigravity|--vscode]
+aifirst book [py|java|all]          which book you're reading
+aifirst next                        your next unfinished exercise, in your book
+aifirst run <id> [--into <file>]    write the code, run it, record it
 aifirst show <id>                   the book's prompt and exact code
+aifirst list [py|java] [--chapter N]
 aifirst prompt <id>                 just the prompt, to paste into a chat
-aifirst apply <id> [--into <file>]  write the book's code to a file
+aifirst apply <id> [--into <file>]  write the code without running it
 aifirst search "<prompt text>"      find the exercise for a prompt
-aifirst done|skip <id>              record progress
+aifirst done|skip <id>              record progress by hand
 aifirst reset <id>|--all
 aifirst progress [--format text|json|md]
 aifirst doctor
 aifirst skill install|check|remove
 aifirst update [--content] [--check]
 ```
+
+Most commands take `--book <tag>` or `--all` to override the book you picked.
 
 Exercise ids look like `py-2-06` or `java-3-05`. `py-2-06.2` addresses step 2 of a multi-step exercise.
 Unambiguous prefixes work: `aifirst show py-1`.
@@ -71,9 +90,10 @@ Unambiguous prefixes work: `aifirst show py-1`.
 `--format json` is a stable contract, and it's what the installed skills use:
 
 ```sh
+aifirst run py-2-06 --format json                        # write, run, record — the main one
 aifirst show py-2-06 --format json                       # canonical prompt + response
 aifirst search "Write a Hello World app" --format json   # resolve prompt text to an exercise
-aifirst done py-2-06 --via agent --agent claude          # record a chat-only walkthrough
+aifirst next --format json                               # may return needsBookChoice
 ```
 
 Errors also render as JSON (on stderr) when `--format json` is set, and every command exits non-zero
@@ -81,28 +101,47 @@ on failure, so an agent can branch on the result rather than parse prose.
 
 ## How determinism works
 
-The skill instructs the agent not to write the code itself, but to call `aifirst show` and reproduce
-the `response` field verbatim. The answer therefore comes from the content pack, not from a model —
-identical on every tool, every machine, and every run.
+The skill instructs the agent not to write the code itself, but to call `aifirst run` (or `show`) and
+reproduce the `response` field verbatim. The answer therefore comes from the content pack, not from a
+model — identical on every tool, every machine, and every run.
+
+The skill is also explicit that the agent must not record completion itself. It can't honestly claim
+an exercise is done, because only `run` records, and only when the program exits cleanly.
 
 The matching that turns a prompt into a response lives in
 [`@aifirst/content`](https://github.com/aifirstprogramming/aifirstcontent) and is shared with the VS
 Code extension, so both surfaces resolve a given prompt the same way by construction rather than by
 convention.
 
+## What "done" means
+
+An exercise is complete when **the program actually ran**. `aifirst run` writes the book's code,
+executes it, and records it only on a clean exit. Neither `show` nor `apply` records anything: reading
+a prompt or dropping a file on disk isn't doing the exercise, and a ledger that says otherwise is
+worthless to the learner. `aifirst done <id>` remains for exercises you did by hand, in VS Code, or
+without a runtime installed.
+
+Eleven exercises read input. Those carry sample input in the content pack, so they run to completion
+unattended — an assistant can't type into a running program, and Claude Code's `!` prefix
+[doesn't attach an interactive stdin](https://github.com/anthropics/claude-code/issues/47103). Run one
+from a real terminal and you type the values yourself instead.
+
 ## Your learner log
 
 Plain JSON at `~/.aifirst/progress.json` (`$XDG_STATE_HOME/aifirst` if set,
-`%LOCALAPPDATA%\aifirst` on Windows). Read it, edit it, copy it between machines, delete it.
+`%LOCALAPPDATA%\aifirst` on Windows). Read it, edit it, copy it between machines, delete it. Your book
+choice lives beside it in `config.json`, so resetting progress doesn't lose it.
 
 It's a personal ledger, not an assessment — there's no verification and nothing to defend against
-tampering. Exercises are recorded three ways: automatically when you `apply` one, by an agent after it
-walks you through one, and by hand with `aifirst done`. `aifirst show` never records anything, because
-reading an exercise isn't doing it.
+tampering.
 
-Progress percentages count **authored** exercises only. Both books have chapters written ahead of
-their examples; counting those would tell you you're 15% done when you've finished everything that
-exists.
+Progress is scoped to the book you're reading, so a Python reader sees a denominator they can
+actually finish rather than one inflated by a book they don't own. `aifirst book` switches; `--all`
+shows everything. `next` never crosses out of your book — finish one and it says so, and offers the
+others.
+
+Percentages count **authored** exercises only. Both books have chapters written ahead of their
+examples; counting those would tell you you're 15% done when you've finished everything that exists.
 
 ## Content
 

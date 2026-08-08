@@ -15,6 +15,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { antigravity as paths } from "../paths";
+import { ANTIGRAVITY_ALLOW_ENTRY } from "../permissions";
 import {
   antigravityPluginJson,
   antigravityRules,
@@ -22,7 +23,7 @@ import {
   skillMarkdown,
 } from "../skills/content";
 import { VERSION } from "../version";
-import type { Agent, Detection, InstallResult, SkillState } from "./types";
+import type { Agent, Detection, InstallResult, PermissionResult, PermissionState, SkillState } from "./types";
 import { captureVersion, readIfExists, removeIfExists, run, which, writeFileTree } from "./util";
 
 /** Write the plugin bundle (plugin.json + skills/ + rules/) under `root`. */
@@ -40,6 +41,21 @@ function bundleState(root: string): SkillState {
   const version = parseSkillVersion(text);
   return version === VERSION ? { state: "current", version } : { state: "drift", version, expected: VERSION };
 }
+
+
+/**
+ * Antigravity documents the allowlist syntax but not where it is stored, so the
+ * CLI cannot write it. Telling the learner the exact entry is the honest option;
+ * silently guessing at a settings path could corrupt an unrelated file.
+ */
+const manualPermissions = async (): Promise<PermissionResult> => ({
+  state: "manual",
+  changed: [],
+  manual: `Add ${ANTIGRAVITY_ALLOW_ENTRY} to Antigravity's Allow list (Settings -> Permissions).`,
+});
+
+const manualPermissionState = async (): Promise<PermissionState> => "manual";
+const noRevoke = async (): Promise<string[]> => [];
 
 export const antigravityIdeAgent: Agent = {
   key: "antigravity",
@@ -69,6 +85,10 @@ export const antigravityIdeAgent: Agent = {
   async remove(): Promise<string[]> {
     return removeIfExists(paths.idePlugin());
   },
+
+  grantPermissions: manualPermissions,
+  permissionState: manualPermissionState,
+  revokePermissions: noRevoke,
 };
 
 export const antigravityCliAgent: Agent = {
@@ -114,6 +134,10 @@ export const antigravityCliAgent: Agent = {
     if (bin) await run(bin, ["plugin", "uninstall", "aifirst"]);
     return removeIfExists(paths.cliPlugin());
   },
+
+  grantPermissions: manualPermissions,
+  permissionState: manualPermissionState,
+  revokePermissions: noRevoke,
 };
 
 function firstLine(s: string): string {

@@ -1,9 +1,13 @@
 /**
  * `aifirst apply <id> [--into <file>]`.
  *
- * Writes the book's canonical response to a file, byte for byte, and records the
- * exercise as done. This is the deterministic path: no model is involved, so the
- * learner's file matches the printed page exactly.
+ * Writes the book's canonical response to a file, byte for byte. No model is
+ * involved, so the learner's file matches the printed page exactly.
+ *
+ * Deliberately does **not** record progress — see `aifirst run`, which writes and
+ * then executes, and records only when the program actually runs. Marking an
+ * exercise done for writing a file was the original behaviour and it let an
+ * assistant tick off an exercise it had neither written nor run.
  *
  * Never overwrites an existing file without `--force`. A learner's own attempt at
  * an exercise is the most valuable thing in the directory.
@@ -11,48 +15,14 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
-import { resolve } from "@aifirst/content";
+import { resolve, suggestFilename } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
 import { finalResponse } from "../exercises";
-import { markIfNew } from "../log/progress";
-import type { Example, Step } from "../content/types";
+import type { Step } from "../content/types";
 import { CliError, bold, dim, glyph, green, json, out } from "../output";
 
-/** snake_case for Python filenames. */
-function snake(title: string): string {
-  return title
-    .replace(/[^A-Za-z0-9 ]+/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((w) => w.toLowerCase())
-    .join("_");
-}
-
-function pascal(title: string): string {
-  return title
-    .replace(/[^A-Za-z0-9 ]+/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join("");
-}
-
-/**
- * Pick a filename that will actually compile and run.
- *
- * For Java the file must be named after the public class or `javac` rejects it,
- * so the class name is read out of the response rather than guessed from the
- * exercise title.
- */
-export function defaultFilename(example: Example, step: Step): string {
-  if (example.language === "java") {
-    const m = step.response.match(/(?:public\s+)?(?:final\s+|abstract\s+)?class\s+([A-Za-z_$][\w$]*)/);
-    return `${m ? m[1] : pascal(example.title) || "Main"}.java`;
-  }
-  return `${snake(example.title) || "main"}.py`;
-}
 
 export function apply(args: Args): void {
   const format = formatFlag(args, ["text", "json"]);
@@ -93,7 +63,7 @@ export function apply(args: Args): void {
     return;
   }
 
-  const path = resolvePath(target ?? defaultFilename(example, step));
+  const path = resolvePath(target ?? suggestFilename(example, step));
   const force = boolFlag(args, "force");
 
   if (existsSync(path) && !force) {
@@ -107,22 +77,17 @@ export function apply(args: Args): void {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, step.response.endsWith("\n") ? step.response : step.response + "\n");
 
-  const recorded = markIfNew(example.id, { via: "apply" });
-
   if (format === "json") {
     json({
       applied: { exerciseId: example.id, stepId: step.id, path, bytes: step.response.length },
-      recorded: recorded !== null,
+      // Writing a file is not completing an exercise; `aifirst run` records.
+      recorded: false,
     });
     return;
   }
 
   out();
   out(`  ${green(glyph.done)} wrote ${bold(path)}  ${dim(step.id)}`);
-  if (recorded) out(dim(`  recorded ${example.id} as done`));
-  else out(dim(`  ${example.id} was already recorded`));
-
-  const runHint = example.language === "java" ? `java ${path}` : `python3 ${path}`;
-  out(dim(`  ${glyph.arrow} ${runHint}`));
+  out(dim(`  ${glyph.arrow} aifirst run ${example.id}   run it and record it`));
   out();
 }

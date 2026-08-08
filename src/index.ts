@@ -6,6 +6,7 @@
 import { parse, boolFlag, formatFlag } from "./cli";
 import type { Args } from "./cli";
 import { apply } from "./commands/apply";
+import { book } from "./commands/book";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
 import { init } from "./commands/init";
@@ -13,6 +14,7 @@ import { list } from "./commands/list";
 import { done, reset, skip } from "./commands/mark";
 import { next } from "./commands/next";
 import { progress } from "./commands/progress";
+import { run } from "./commands/run";
 import { search } from "./commands/search";
 import { show, prompt } from "./commands/show";
 import { skill } from "./commands/skill";
@@ -31,6 +33,9 @@ const COMMANDS: Record<string, Handler> = {
   show,
   prompt,
   apply,
+  run,
+  book,
+  books: book,
   search,
   find: search,
   done,

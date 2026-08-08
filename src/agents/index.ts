@@ -8,7 +8,7 @@ import { CliError } from "../output";
 import { antigravityCliAgent, antigravityIdeAgent } from "./antigravity";
 import { claudeAgent } from "./claude";
 import { codexAgent } from "./codex";
-import type { Agent, AgentKey, Detection } from "./types";
+import type { Agent, AgentKey, Detection, PermissionResult, PermissionState } from "./types";
 import { vscodeAgent } from "./vscode";
 
 export const AGENTS: Agent[] = [
@@ -65,4 +65,4 @@ export function keysFromFlags(flags: Map<string, string | boolean>): string[] {
   return AGENTS.filter((a) => flags.get(a.key) === true).map((a) => a.key);
 }
 
-export type { Agent, AgentKey, Detection };
+export type { Agent, AgentKey, Detection, PermissionResult, PermissionState };

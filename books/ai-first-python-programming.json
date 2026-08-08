@@ -1,5 +1,7 @@
 {
   "title": "AI First Python Programming",
+  "tag": "py",
+  "language": "python",
   "sections": [
     {
       "title": "Section 1: Python Basics",
@@ -144,7 +146,8 @@
               "response": [
                 "name = input(\"What is your name? \")",
                 "print(f\"Hello, {name}!\")"
-              ]
+              ],
+              "stdin": "Ada\n"
             },
             {
               "id": "py-2-09",
@@ -155,7 +158,8 @@
                 "pet_type = input(\"What type of pet do you have? \")",
                 "pet_name = input(\"What is your pet's name? \")",
                 "print(f\"You have a {pet_type} named {pet_name}.\")"
-              ]
+              ],
+              "stdin": "cat\nMochi\n"
             },
             {
               "id": "py-2-10",
@@ -171,7 +175,8 @@
                 "total_calories = num_treats * calories_per_treat",
                 "",
                 "print(f\"The dog consumed {total_calories} calories.\")"
-              ]
+              ],
+              "stdin": "3\n25\n"
             }
           ]
         },
@@ -191,7 +196,8 @@
                     "temp = float(input(\"Temperature (°C): \"))",
                     "if temp < 10:",
                     "    print(\"Wear a hat!\")"
-                  ]
+                  ],
+                  "stdin": "5\n"
                 },
                 {
                   "id": "py-3-01.2",
@@ -202,7 +208,8 @@
                     "    print(\"Wear a hat!\")",
                     "else:",
                     "    print(\"No hat needed.\")"
-                  ]
+                  ],
+                  "stdin": "20\n"
                 },
                 {
                   "id": "py-3-01.3",
@@ -215,7 +222,8 @@
                     "    print(\"Wear sunscreen!\")",
                     "else:",
                     "    print(\"No hat needed.\")"
-                  ]
+                  ],
+                  "stdin": "35\n"
                 }
               ]
             },
@@ -237,7 +245,8 @@
                 "    else:",
                 "        dessert = \"apple pie\"",
                 "print(\"You should have:\", dessert)"
-              ]
+              ],
+              "stdin": "y\ny\n"
             },
             {
               "id": "py-3-03",
@@ -307,7 +316,8 @@
                 "    fed += max(0, feed)",
                 "    print(f\"Fed {feed} seed(s). Total fed: {fed}.\")",
                 "print(\"Parrot is full!\")"
-              ]
+              ],
+              "stdin": "10\n"
             },
             {
               "id": "py-3-09",
@@ -339,7 +349,8 @@
                 "        print(\"Stopped.\")",
                 "        break",
                 "    count += 1"
-              ]
+              ],
+              "stdin": "stop\n"
             }
           ]
         }

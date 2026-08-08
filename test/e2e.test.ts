@@ -158,13 +158,15 @@ describe("search", () => {
 });
 
 describe("apply", () => {
-  it("writes the response and records progress", async () => {
+  it("writes the response but deliberately does not record progress", async () => {
+    // Writing a file is not completing an exercise. Recording here was the
+    // original behaviour, and it let an assistant tick off work it never ran.
     const r = await aifirst(["apply", "py-1-01", "--into", "hello.py"]);
     expect(r.code).toBe(0);
     expect(readFileSync(join(sandbox, "hello.py"), "utf8")).toBe('print("Hello, World!")\n');
 
-    const p = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(p.stdout).overall.done).toBe(1);
+    const p = await aifirst(["progress", "--all", "--format", "json"]);
+    expect(JSON.parse(p.stdout).overall.done).toBe(0);
   });
 
   it("refuses to overwrite existing work", async () => {
@@ -285,6 +287,7 @@ describe("done, skip and reset", () => {
 
 describe("next", () => {
   it("advances past completed exercises", async () => {
+    await aifirst(["book", "py"]);
     const first = JSON.parse((await aifirst(["next", "--format", "json"])).stdout).next.id;
     await aifirst(["done", first]);
     const second = JSON.parse((await aifirst(["next", "--format", "json"])).stdout).next.id;
@@ -292,6 +295,7 @@ describe("next", () => {
   });
 
   it("does not offer a skipped exercise again", async () => {
+    await aifirst(["book", "py"]);
     const first = JSON.parse((await aifirst(["next", "--format", "json"])).stdout).next.id;
     await aifirst(["skip", first]);
     expect(JSON.parse((await aifirst(["next", "--format", "json"])).stdout).next.id).not.toBe(first);
@@ -326,7 +330,9 @@ describe("list", () => {
 
 describe("init and doctor", () => {
   it("doctor exits non-zero before anything is set up", async () => {
-    const r = await aifirst(["doctor", "--format", "json"]);
+    // PATH is cleared so an agent or editor installed on this machine cannot make
+    // the sandbox look configured.
+    const r = await aifirst(["doctor", "--format", "json"], { path: "/nonexistent" });
     expect(r.code).toBe(1);
     expect(JSON.parse(r.stdout).ok).toBe(false);
   });

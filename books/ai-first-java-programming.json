@@ -1,5 +1,7 @@
 {
   "title": "AI First Java Programming",
+  "tag": "java",
+  "language": "java",
   "sections": [
     {
       "title": "Section 1: Diving into AI First Java Programming",
@@ -240,7 +242,8 @@
                 "        scanner.close();",
                 "    }",
                 "}"
-              ]
+              ],
+              "stdin": "Ada\n"
             }
           ]
         },
@@ -479,7 +482,8 @@
                 "        scanner.close();",
                 "    }",
                 "}"
-              ]
+              ],
+              "stdin": "2\n"
             }
           ]
         },

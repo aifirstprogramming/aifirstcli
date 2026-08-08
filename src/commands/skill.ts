@@ -125,10 +125,16 @@ async function skillRemove(args: Args): Promise<void> {
   // Removal acts only on what was explicitly named or is actually installed, so
   // it can't wander into an agent the learner never set up.
   const agents = await targets(args);
-  const results: { key: string; removed: string[] }[] = [];
+  const results: { key: string; removed: string[]; permissionsRevoked: string[] }[] = [];
 
   for (const agent of agents) {
-    results.push({ key: agent.key, removed: await agent.remove().catch(() => []) });
+    results.push({
+      key: agent.key,
+      removed: await agent.remove().catch(() => []),
+      // Otherwise an uninstall would leave allowlist entries behind for a command
+      // that is no longer there.
+      permissionsRevoked: await agent.revokePermissions().catch(() => []),
+    });
   }
 
   if (format === "json") {
@@ -138,7 +144,11 @@ async function skillRemove(args: Args): Promise<void> {
   out();
   for (const r of results) {
     const agent = agentByKey(r.key);
-    out(`  ${green(glyph.done)} ${agent.label} ${dim(r.removed.length ? `removed ${r.removed.length} path(s)` : "nothing to remove")}`);
+    const bits = [
+      r.removed.length ? `removed ${r.removed.length} path(s)` : "nothing to remove",
+      ...(r.permissionsRevoked.length ? ["revoked pre-approved commands"] : []),
+    ];
+    out(`  ${green(glyph.done)} ${agent.label} ${dim(bits.join(", "))}`);
   }
   out();
   out(dim(`  Your learner log was not touched. ${bold("aifirst reset --all")} clears that.`));

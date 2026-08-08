@@ -1,47 +1,56 @@
 /**
  * `aifirst init`.
  *
- * The one command a book reader is told to run. Detects every supported agent,
- * shows what it found, asks once, and installs the book skills into all of them.
+ * The one command a book reader is told to run. It detects the AI tools they
+ * have, asks which book they're reading, and — with one confirmation — installs
+ * the book skills and pre-approves the `aifirst` commands so the reader isn't
+ * approving a prompt for every step of every exercise.
  *
- * Explicit flags (`--claude`, `--codex`, ...) narrow the set and skip the prompt,
- * which is also how a learner installs for an agent they haven't set up yet.
+ * Pre-approval is the only thing this CLI writes outside its own directories, so
+ * the files it will touch are listed before the question, and `--no-permissions`
+ * skips it entirely.
  */
 
 import type { Args } from "../cli";
 import { boolFlag, formatFlag } from "../cli";
 import { AGENTS, detectAll, keysFromFlags, selectAgents } from "../agents";
-import type { Agent } from "../agents";
+import type { Agent, PermissionResult } from "../agents";
+import { bookChoices, resolveScope } from "../books";
+import { ALL_BOOKS, setBook } from "../config";
 import { resolveContent } from "../content";
 import { recordPack } from "../log/progress";
+import { WITHHELD_COMMANDS } from "../permissions";
 import { bold, cyan, dim, glyph, green, json, out, red, yellow } from "../output";
-import { confirm, isInteractive } from "../prompt";
+import { choose, confirm, isInteractive } from "../prompt";
 import { INSTALL_HOST } from "../version";
 
 export async function init(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
   const explicit = keysFromFlags(args.flags);
   const assumeYes = boolFlag(args, "yes");
+  const skipPermissions = boolFlag(args, "no-permissions");
 
   const detected = await detectAll();
   const targets = selectAgents(explicit, detected);
+  const content = resolveContent();
 
   if (format === "json") {
-    // Non-interactive by nature: JSON callers must opt in explicitly rather than
-    // have us silently write to their agent configs.
     if (!assumeYes && explicit.length === 0) {
       json({
         detected: detected.map((d) => ({ key: d.agent.key, ...d.detection })),
         installed: [],
-        note: "Pass --yes to install, or name agents explicitly (--claude, --codex, ...).",
+        books: bookChoices(content.content),
+        note: "Pass --yes to install, or name agents explicitly (--claude, --codex, ...). Set the book with: aifirst book <tag>",
       });
       return;
     }
-    const results = await installAll(targets);
-    recordPack(resolveContent().version);
+    const results = await installAll(targets, skipPermissions);
+    recordPack(content.version);
     json({
       detected: detected.map((d) => ({ key: d.agent.key, ...d.detection })),
       installed: results,
+      book: resolveScope(content.content).kind === "unset" ? null : undefined,
+      books: bookChoices(content.content),
     });
     return;
   }
@@ -75,10 +84,26 @@ export async function init(args: Args): Promise<void> {
     return;
   }
 
-  out(dim(`  This writes book skills into:`));
-  for (const agent of targets) out(dim(`    ${agent.target}`));
-  out();
-  out(dim(`  Nothing else is modified — no settings, models, or credentials.`));
+  // --- What we are about to change ----------------------------------------
+
+  out(dim(`  This will:`));
+  out(dim(`    install book skills into`));
+  for (const agent of targets) out(dim(`      ${agent.target}`));
+
+  const permissionTargets = skipPermissions
+    ? []
+    : targets.filter((a) => a.permissionTarget).map((a) => a.permissionTarget!);
+  if (permissionTargets.length > 0) {
+    out();
+    out(dim(`    pre-approve the everyday aifirst commands in`));
+    for (const t of permissionTargets) out(dim(`      ${t}`));
+    out(
+      dim(
+        `      so you aren't asked to approve every step. ` +
+          `${Object.keys(WITHHELD_COMMANDS).join(", ")} still ask.`,
+      ),
+    );
+  }
   out();
 
   if (!assumeYes && explicit.length === 0) {
@@ -89,7 +114,7 @@ export async function init(args: Args): Promise<void> {
       return;
     }
     const ok = await confirm(
-      `Install AI First skills into ${targets.length} tool${targets.length === 1 ? "" : "s"}?`,
+      `Set up ${targets.length} tool${targets.length === 1 ? "" : "s"}?`,
       "Re-run as: aifirst init --yes",
     );
     if (!ok) {
@@ -101,7 +126,7 @@ export async function init(args: Args): Promise<void> {
     out();
   }
 
-  const results = await installAll(targets);
+  const results = await installAll(targets, skipPermissions);
 
   for (const r of results) {
     const agent = AGENTS.find((a) => a.key === r.key)!;
@@ -112,16 +137,42 @@ export async function init(args: Args): Promise<void> {
     out(`  ${green(glyph.done)} ${agent.label}`);
     for (const path of r.written) out(dim(`      ${shorten(path)}`));
     for (const note of r.notes ?? []) out(dim(`      ${note}`));
+
+    if (r.permissions?.state === "allowlisted" && r.permissions.changed.length > 0) {
+      out(dim(`      pre-approved aifirst commands in ${shorten(r.permissions.changed[0])}`));
+    }
+    if (r.permissions?.manual) {
+      out(`      ${yellow(r.permissions.manual)}`);
+    }
+    for (const note of r.permissions?.notes ?? []) out(dim(`      ${note}`));
   }
 
-  const content = resolveContent();
   recordPack(content.version);
 
+  // --- Which book? ---------------------------------------------------------
+
+  if (resolveScope(content.content).kind === "unset") {
+    const choices = bookChoices(content.content);
+    const picked = await choose("Which book are you reading?", [
+      ...choices.map((c) => ({ key: c.tag, label: `${c.title} ${dim(`(${c.exercises} exercises)`)}` })),
+      { key: ALL_BOOKS, label: "All of them" },
+    ]);
+
+    if (picked) {
+      const book = choices.find((c) => c.tag === picked);
+      setBook(picked === ALL_BOOKS ? ALL_BOOKS : book!.id);
+      out();
+      out(`  ${green(glyph.done)} ${picked === ALL_BOOKS ? "showing all books" : `reading ${bold(book!.title)}`}`);
+    } else {
+      out();
+      out(dim(`  No book chosen — set it any time with: aifirst book <tag>`));
+    }
+  }
+
   out();
-  out(`  ${bold("Ready.")} ${dim(`${content.content.examples.length} exercises, content pack ${content.version}`)}`);
+  out(`  ${bold("Ready.")}`);
   out();
   out(`  ${cyan(glyph.arrow)} ${bold("aifirst next")}      ${dim("your next exercise")}`);
-  out(`  ${cyan(glyph.arrow)} ${bold("aifirst list")}      ${dim("browse the books")}`);
   out(`  ${cyan(glyph.arrow)} ${bold("aifirst doctor")}    ${dim("check the setup")}`);
   out();
   out(dim(`  Docs: ${INSTALL_HOST}`));
@@ -133,6 +184,7 @@ interface InstallReport {
   written: string[];
   notes?: string[];
   error?: string;
+  permissions?: PermissionResult;
 }
 
 /**
@@ -140,14 +192,21 @@ interface InstallReport {
  *
  * One unwritable agent directory must not prevent the others from being set up —
  * a partially working install is far better than none for someone trying to
- * follow along with a book.
+ * follow along with a book. A failure to pre-approve is likewise non-fatal: the
+ * skills still work, the learner just sees approval prompts.
  */
-async function installAll(targets: Agent[]): Promise<InstallReport[]> {
+async function installAll(targets: Agent[], skipPermissions: boolean): Promise<InstallReport[]> {
   const reports: InstallReport[] = [];
   for (const agent of targets) {
     try {
       const result = await agent.install();
-      reports.push({ key: agent.key, written: result.written, notes: result.notes });
+      const report: InstallReport = { key: agent.key, written: result.written, notes: result.notes };
+      if (!skipPermissions) {
+        report.permissions = await agent
+          .grantPermissions()
+          .catch((e): PermissionResult => ({ state: "missing", changed: [], notes: [(e as Error).message] }));
+      }
+      reports.push(report);
     } catch (e) {
       reports.push({ key: agent.key, written: [], error: (e as Error).message });
     }

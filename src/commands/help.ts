@@ -14,14 +14,16 @@ export function help(): void {
   out();
   out(`  ${bold("Getting started")}`);
   out(`    ${cyan("aifirst init")}              set up your AI tools with the book skills`);
+  out(`    ${cyan("aifirst book")} ${dim("[py|java]")}      which book you're reading`);
   out(`    ${cyan("aifirst next")}              show your next exercise`);
   out(`    ${cyan("aifirst progress")}          how far you've got`);
   out();
   out(`  ${bold("Exercises")}`);
-  out(`    ${cyan("aifirst list")} ${dim("[py|java]")}      browse books and chapters`);
+  out(`    ${cyan("aifirst run")} ${dim("<id>")}           write it, run it, record it`);
   out(`    ${cyan("aifirst show")} ${dim("<id>")}          the book's prompt and exact code`);
+  out(`    ${cyan("aifirst list")} ${dim("[py|java]")}      browse books and chapters`);
   out(`    ${cyan("aifirst prompt")} ${dim("<id>")}        just the prompt, to paste into a chat`);
-  out(`    ${cyan("aifirst apply")} ${dim("<id>")}         write the book's code to a file`);
+  out(`    ${cyan("aifirst apply")} ${dim("<id>")}         write the code without running it`);
   out(`    ${cyan("aifirst search")} ${dim('"<text>"')}     find the exercise for a prompt`);
   out();
   out(`  ${bold("Progress")}`);
