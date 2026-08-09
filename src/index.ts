@@ -7,6 +7,7 @@ import { parse, boolFlag, formatFlag } from "./cli";
 import type { Args } from "./cli";
 import { apply } from "./commands/apply";
 import { book } from "./commands/book";
+import { diff } from "./commands/diff";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
 import { init } from "./commands/init";
@@ -33,6 +34,8 @@ const COMMANDS: Record<string, Handler> = {
   show,
   prompt,
   apply,
+  diff,
+  compare: diff,
   run,
   book,
   books: book,

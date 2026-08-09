@@ -23,6 +23,10 @@ export const ALLOWED_COMMANDS = [
   "book",
   "run",
   "apply",
+  // Reads a file and compares it to the book. Added because without it an
+  // assistant builds a shell pipeline to do the same thing, and process
+  // substitution puts an approval prompt in the middle of an exercise.
+  "diff",
   "done",
   "skip",
 ] as const;

@@ -78,6 +78,7 @@ Never guess, and never hand them an exercise from a book they may not own.
 | \`aifirst search "<prompt>" --format json\` | Find the exercise matching prompt text. |
 | \`aifirst list [py\|java] --format json\` | Browse books, chapters, exercises. |
 | \`aifirst apply <id> --into <file>\` | Write the code without running it. |
+| \`aifirst diff <id> [file] --format json\` | Does their file match the book? |
 | \`aifirst progress --format json\` | Their ledger so far. |
 | \`aifirst book <tag>\` | Set or switch which book they are reading. |
 
@@ -137,6 +138,12 @@ The leading \`!\` runs it in their own shell and shows you the output.
 - **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe
   their progress; it clears their whole log. It will ask for approval — do not
   approve it on their behalf.
+- **Compare with \`aifirst diff\`, never with a shell pipeline.** To check whether
+  a learner's file matches the book, run \`aifirst diff <id> <file>\`. It is
+  pre-approved and reports the differing lines. Reaching for \`diff\`,
+  \`<(...)\`, a temp file, or piping \`show --format json\` through python to
+  reconstruct the code all do the same job less well, and process substitution
+  triggers a permission prompt in the middle of an exercise.
 - **Do not overwrite their work.** \`run\` and \`apply\` refuse to replace a file
   whose contents differ. Do not add \`--force\` on their behalf.
 - If \`aifirst\` is missing, point them at
