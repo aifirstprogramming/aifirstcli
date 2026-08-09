@@ -79,6 +79,7 @@ Never guess, and never hand them an exercise from a book they may not own.
 | \`aifirst list [py\|java] --format json\` | Browse books, chapters, exercises. |
 | \`aifirst apply <id> --into <file>\` | Write the code without running it. |
 | \`aifirst diff <id> [file] --format json\` | Does their file match the book? |
+| \`aifirst at [<id>]\` | Show or move where they are in the book. |
 | \`aifirst progress --format json\` | Their ledger so far. |
 | \`aifirst book <tag>\` | Set or switch which book they are reading. |
 
@@ -86,6 +87,11 @@ Exercise ids look like \`py-2-06\` or \`java-3-05\`; \`py-2-06.2\` addresses ste
 a multi-step exercise.
 
 ## Workflows
+
+**They ask to work in a particular chapter** ("let's do chapter 7")
+\`aifirst at <first id in that chapter>\`, then \`aifirst next\`. The bookmark
+stays there, so asking what is next later continues in that chapter rather than
+jumping back.
 
 **They ask what is next** ("where was I", "what should I do now")
 \`aifirst next --format json\`. Show the prompt and let them try it themselves
@@ -138,6 +144,14 @@ The leading \`!\` runs it in their own shell and shows you the output.
 - **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe
   their progress; it clears their whole log. It will ask for approval — do not
   approve it on their behalf.
+- **\`next\` resumes where they are, not from the earliest gap.** A bookmark
+  advances as exercises are recorded, so someone working in chapter 7 is offered
+  chapter 7 next even with gaps behind them. When it passes over earlier
+  unfinished exercises it says how many, and \`--earliest\` goes back for them.
+  If they want to read a different chapter, move the bookmark with
+  \`aifirst at <id>\` — do **not** skip the exercises in between to get there.
+  Skipping is a claim about those exercises and it goes in their ledger; the
+  bookmark says nothing about them.
 - **Compare with \`aifirst diff\`, never with a shell pipeline.** To check whether
   a learner's file matches the book, run \`aifirst diff <id> <file>\`. It is
   pre-approved and reports the differing lines. Reaching for \`diff\`,

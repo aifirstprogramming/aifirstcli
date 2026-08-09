@@ -14,7 +14,7 @@ import type { Args } from "../cli";
 import { boolFlag, formatFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
 import { resolveContent } from "../content";
-import { exampleJson, next as nextExercise, report } from "../exercises";
+import { exampleJson, report, resume } from "../exercises";
 import { read } from "../log/progress";
 import { bold, cyan, dim, glyph, green, json, out } from "../output";
 
@@ -49,7 +49,8 @@ export function next(args: Args): void {
     return;
   }
 
-  const ex = nextExercise(content, log, scope);
+  const picked = resume(content, log, scope, { earliest: boolFlag(args, "earliest") });
+  const ex = picked.example;
   const counts = report(content, log, scope).overall;
 
   if (!ex) {
@@ -86,7 +87,16 @@ export function next(args: Args): void {
   }
 
   if (format === "json") {
-    json({ next: exampleJson(ex, log), complete: false, counts });
+    json({
+      next: exampleJson(ex, log),
+      complete: false,
+      counts,
+      // Where this resumed from, and what it passed over, so an assistant can say
+      // so rather than presenting a chapter-7 exercise as if it were the only one
+      // outstanding.
+      ...(picked.from ? { resumedFrom: picked.from } : {}),
+      ...(picked.earlierUnfinished > 0 ? { earlierUnfinished: picked.earlierUnfinished } : {}),
+    });
     return;
   }
 
@@ -107,5 +117,14 @@ export function next(args: Args): void {
   out(dim(`     aifirst run ${ex.id}     write it, run it, and record it`));
   out();
   out(dim(`  ${counts.done}/${counts.total} exercises done in ${ex.bookTitle}`));
+  if (picked.earlierUnfinished > 0) {
+    const n = picked.earlierUnfinished;
+    out(
+      dim(
+        `  ${n} earlier exercise${n === 1 ? "" : "s"} still unfinished — ` +
+          `aifirst next --earliest to go back for ${n === 1 ? "it" : "them"}`,
+      ),
+    );
+  }
   out();
 }

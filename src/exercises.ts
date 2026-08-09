@@ -62,11 +62,57 @@ export function chapters(content: Content): ChapterView[] {
  * a cue to silently start a different book the reader may not even own.
  */
 export function next(content: Content, log: ProgressLog, scope: Scope): Example | null {
-  for (const ex of ordered(content)) {
-    if (!inScope(scope, ex.bookId)) continue;
-    if (!log.exercises[ex.id]) return ex;
+  return resume(content, log, scope).example;
+}
+
+export interface Resume {
+  /** The exercise to offer, or null when everything in scope is handled. */
+  example: Example | null;
+  /**
+   * Unfinished exercises that sit *before* the bookmark and are being passed
+   * over. Reported rather than silently skipped: a learner who left gaps should
+   * be told they exist, not discover them at the end of the book.
+   */
+  earlierUnfinished: number;
+  /** The bookmark this resumed from, when there was one. */
+  from?: string;
+}
+
+/**
+ * The next exercise to work on, resuming from where the learner is.
+ *
+ * Strict id order was the original rule, and it meant someone working through
+ * chapter 7 was handed a chapter 2 exercise every time they asked what was next —
+ * the earliest gap always won. Reading a book does not work that way: you are
+ * where you are, whether or not you did every exercise behind you.
+ *
+ * So the search starts at the bookmark and only falls back to the earliest gap
+ * when there is nothing left ahead. Passing `earliest` restores the old rule for
+ * a learner who does want to sweep up what they missed.
+ */
+export function resume(
+  content: Content,
+  log: ProgressLog,
+  scope: Scope,
+  options: { earliest?: boolean } = {},
+): Resume {
+  const inBook = ordered(content).filter((e) => inScope(scope, e.bookId));
+  const unfinished = inBook.filter((e) => !log.exercises[e.id]);
+  if (unfinished.length === 0) return { example: null, earlierUnfinished: 0 };
+
+  const from = log.position;
+  if (options.earliest || !from) return { example: unfinished[0], earlierUnfinished: 0 };
+
+  const ahead = unfinished.filter((e) => compareIds(e.id, from) >= 0);
+  if (ahead.length === 0) {
+    // Nothing left ahead: fall back rather than claiming the book is finished.
+    return { example: unfinished[0], earlierUnfinished: 0, from };
   }
-  return null;
+  return {
+    example: ahead[0],
+    earlierUnfinished: unfinished.length - ahead.length,
+    from,
+  };
 }
 
 export interface Counts {

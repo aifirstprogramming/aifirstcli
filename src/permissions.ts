@@ -27,6 +27,8 @@ export const ALLOWED_COMMANDS = [
   // assistant builds a shell pipeline to do the same thing, and process
   // substitution puts an approval prompt in the middle of an exercise.
   "diff",
+  // Shows or moves the bookmark. Writes only that, never a completion.
+  "at",
   "done",
   "skip",
 ] as const;

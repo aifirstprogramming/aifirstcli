@@ -16,6 +16,7 @@
  *    and writes atomically via a temp file plus rename.
  */
 
+import { compareIds } from "@aifirst/content";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { progressFile } from "../paths";
@@ -50,6 +51,18 @@ export interface ProgressLog {
   version: 1;
   content?: { pack?: string };
   exercises: Record<string, Entry>;
+  /**
+   * Where the learner is in the book, as an exercise id.
+   *
+   * Separate from what they have completed, because those are different
+   * questions. Someone reading chapter 7 is in chapter 7 whether or not they did
+   * every exercise in chapter 2, and `next` walking strict id order pulled them
+   * back to the earliest gap every time.
+   *
+   * Advances on its own as exercises are recorded, and only ever forward: going
+   * back to fill in an earlier exercise should not lose your place.
+   */
+  position?: string;
 }
 
 export function emptyLog(): ProgressLog {
@@ -80,6 +93,8 @@ export function read(path = progressFile()): ProgressLog {
       version: 1,
       content: parsed.content,
       exercises: sanitize(parsed.exercises as Record<string, unknown>),
+      // Rebuilt field by field, so anything not named here is dropped on load.
+      ...(typeof parsed.position === "string" ? { position: parsed.position } : {}),
     };
   } catch {
     return emptyLog();
@@ -146,6 +161,11 @@ export function mark(id: string, options: MarkOptions = {}): Entry {
   const at = (options.now ?? new Date()).toISOString();
   let entry!: Entry;
   update((log) => {
+    // Working on an exercise is what moves the bookmark, so a learner never has
+    // to maintain it by hand. Forward only: filling in an earlier gap should not
+    // drag their place back to chapter 2.
+    if (!log.position || compareIds(id, log.position) > 0) log.position = id;
+
     const existing = log.exercises[id];
     entry = {
       status: options.status ?? "done",
@@ -176,7 +196,19 @@ export function markIfNew(id: string, options: MarkOptions = {}): Entry | null {
 export function clear(id?: string, path?: string): void {
   update((log) => {
     if (id) delete log.exercises[id];
-    else log.exercises = {};
+    else {
+      log.exercises = {};
+      // Wiping progress wipes the bookmark too; leaving it would point into a
+      // book the learner has, as far as the log knows, not started.
+      log.position = undefined;
+    }
+  }, path);
+}
+
+/** Move the bookmark by hand. Unlike the automatic advance, this can go back. */
+export function setPosition(id: string | undefined, path?: string): void {
+  update((log) => {
+    log.position = id;
   }, path);
 }
 
