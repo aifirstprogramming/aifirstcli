@@ -93,6 +93,11 @@ const VALUE_FLAGS = new Set([
   "agent",
   "step",
   "dir",
+  // `diff --file <path>` appeared to work without this, but only because diff also
+  // accepts the path as a second positional; `--file x.py py-1-01` took x.py as the
+  // exercise id. A flag that takes a value has to be declared here.
+  "file",
+  "port",
 ]);
 
 const SHORT_FLAGS: Record<string, string> = {

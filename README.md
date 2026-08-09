@@ -78,6 +78,10 @@ aifirst prompt <id>                 just the prompt, to paste into a chat
 aifirst apply <id> [--into <file>]  write the code without running it
 aifirst search "<prompt text>"      find the exercise for a prompt
 aifirst done|skip <id>              record progress by hand
+aifirst at [<id>]                   show or move where you are in the book
+aifirst diff <id> [file]            does your file match the book?
+aifirst serve [--port N]            book mode: serve the book with no model
+aifirst book-mode on|off|status     point Claude Code at it, or put it back
 aifirst reset <id>|--all
 aifirst progress [--format text|json|md]
 aifirst doctor
@@ -117,6 +121,47 @@ The matching that turns a prompt into a response lives in
 [`@aifirst/content`](https://github.com/aifirstprogramming/aifirstcontent) and is shared with the VS
 Code extension, so both surfaces resolve a given prompt the same way by construction rather than by
 convention.
+
+
+## Book mode: work the book at no cost
+
+Every exercise ships its prompt, its code, its explanation and the command that runs
+it. None of that needs a model at request time — which means working through the book
+does not have to cost anything.
+
+`aifirst serve` runs a local server that speaks the Anthropic Messages API, and
+`aifirst book-mode on` points Claude Code at it:
+
+```sh
+aifirst serve            # one terminal — leave it running
+aifirst book-mode on     # another
+```
+
+Now type a prompt from the page into Claude Code. It comes back to the local server,
+which matches the prompt against the book through the same matcher the CLI and the
+VS Code extension use, replies with the book's code and its explanation, and asks
+Claude Code to run `aifirst run <id>` so the exercise executes and your progress is
+recorded. **No model runs and nothing leaves the machine**, which is why it is free.
+
+```sh
+aifirst book-mode status # where Claude Code is pointed, and whether the server is up
+aifirst book-mode off    # back to the real Claude, at the usual cost
+```
+
+`off` restores `~/.claude/settings.json` exactly; there is a backup at
+`settings.json.aifirst-backup` either way, and `aifirst doctor` tells you when book
+mode is on so a forgotten setting is never a mystery.
+
+### What it will not do
+
+It answers from the books or not at all. Ask it why your own code is failing and it
+says so and tells you how to leave — it does **not** quietly forward the question to
+Anthropic, because a mode you turned on to spend nothing should not spend anything.
+
+Book mode is a convenience, not a supported Claude Code configuration. It works by
+speaking the public Messages API to a client that is free to change; if a Claude Code
+update breaks it, `aifirst book-mode off` puts everything back and the rest of the
+CLI is unaffected.
 
 ## What "done" means
 

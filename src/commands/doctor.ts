@@ -17,6 +17,7 @@ import { read } from "../log/progress";
 import { progressFile, stateDir } from "../paths";
 import { bold, dim, glyph, green, json, out, red, table, yellow } from "../output";
 import { VERSION } from "../version";
+import { bookModeBaseUrl } from "../bookmode/port";
 
 export async function doctor(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -154,6 +155,16 @@ export async function doctor(args: Args): Promise<void> {
     out();
     process.exitCode = 1;
     return;
+  }
+
+  // A reader who forgets book mode is on will find Claude oddly unhelpful and have
+  // no idea why. Saying so here is the cheapest way to close that loop.
+  const base = bookModeBaseUrl();
+  if (base) {
+    out(`  ${yellow("Book mode is on.")} ${dim(`Claude Code is asking ${base}, not Anthropic.`)}`);
+    out(dim(`  ${glyph.arrow} aifirst serve            must be running for it to answer`));
+    out(dim(`  ${glyph.arrow} aifirst book-mode off    to go back to the real Claude`));
+    out();
   }
 
   out(`  ${green("All good.")} ${dim(`${glyph.arrow} aifirst next`)}`);

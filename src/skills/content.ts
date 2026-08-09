@@ -144,6 +144,11 @@ The leading \`!\` runs it in their own shell and shows you the output.
 - **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe
   their progress; it clears their whole log. It will ask for approval — do not
   approve it on their behalf.
+- **If you are answering through book mode, you already know.** Book mode replaces
+  the model with the content pack: the reader's prompt is matched against the book
+  and the stored answer is returned. There is nothing for you to add to it, and
+  nothing to apologise for when it declines an off-book question — that is the
+  feature. It exists so a reader can work the book at no cost.
 - **\`next\` resumes where they are, not from the earliest gap.** A bookmark
   advances as exercises are recorded, so someone working in chapter 7 is offered
   chapter 7 next even with gaps behind them. When it passes over earlier

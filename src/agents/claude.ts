@@ -27,6 +27,33 @@ const backupFile = () => join(paths.root(), "settings.json.aifirst-backup");
  * hooks and model configuration, and clobbering it to add a permission entry
  * would be a catastrophic trade.
  */
+export function claudeSettingsPath(): string {
+  return settingsFile();
+}
+
+/**
+ * Change one part of `settings.json`, keeping everything else.
+ *
+ * Exposed so book mode writes the file the same way permissions do — one backup,
+ * and a refusal rather than a clobber when the file cannot be parsed. Returns false
+ * when it declined to touch anything.
+ */
+export function updateClaudeSettings(mutate: (data: Record<string, unknown>) => void): boolean {
+  const settings = readSettings();
+  if (!settings) return false;
+  if (settings.raw !== undefined && !existsSync(backupFile())) {
+    writeFileSync(backupFile(), settings.raw);
+  }
+  mutate(settings.data);
+  writeFileTree(settingsFile(), JSON.stringify(settings.data, null, 2) + "\n");
+  return true;
+}
+
+/** Read one part of `settings.json`; undefined when it is missing or unparseable. */
+export function readClaudeSettings(): Record<string, unknown> | undefined {
+  return readSettings()?.data;
+}
+
 function readSettings(): { data: Record<string, unknown>; raw?: string } | undefined {
   const raw = readIfExists(settingsFile());
   if (raw === undefined) return { data: {} };

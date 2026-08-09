@@ -8,6 +8,7 @@ import type { Args } from "./cli";
 import { apply } from "./commands/apply";
 import { at } from "./commands/at";
 import { book } from "./commands/book";
+import { bookMode } from "./commands/bookmode";
 import { diff } from "./commands/diff";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
@@ -18,6 +19,7 @@ import { next } from "./commands/next";
 import { progress } from "./commands/progress";
 import { run } from "./commands/run";
 import { search } from "./commands/search";
+import { serve } from "./commands/serve";
 import { show, prompt } from "./commands/show";
 import { skill } from "./commands/skill";
 import { update } from "./commands/update";
@@ -42,8 +44,11 @@ const COMMANDS: Record<string, Handler> = {
   run,
   book,
   books: book,
+  "book-mode": bookMode,
+  bookmode: bookMode,
   search,
   find: search,
+  serve,
   done,
   skip,
   reset,

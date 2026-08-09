@@ -36,6 +36,8 @@ export const ALLOWED_COMMANDS = [
 /** Deliberately excluded, documented so the reasoning survives. */
 export const WITHHELD_COMMANDS: Record<string, string> = {
   reset: "clears the learner's progress",
+  "book-mode": "rewrites agent configuration",
+  serve: "opens a local socket",
   skill: "rewrites agent configuration",
   update: "replaces the binary",
   init: "writes to agent configuration",
