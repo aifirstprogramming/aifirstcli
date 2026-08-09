@@ -48,7 +48,7 @@ aifirst run py-2-06 --format json
 \`\`\`
 
 One command: it writes the book's code to a sensibly named file, executes it, and
-records the exercise on success. Report the program's real output, then explain the
+records the exercise on success. Report the program's real output, then give the
 code. Do not tell the learner an exercise is complete unless \`recorded\` is true or
 it was already recorded.
 
@@ -91,7 +91,8 @@ a multi-step exercise.
 before revealing the book's answer.
 
 **They name an exercise** ("show me py-2-06", "let's do chapter 2 exercise 6")
-\`aifirst run <id> --format json\`, then present the output and explain the code. If
+\`aifirst run <id> --format json\`, then present the output and the exercise's
+stored \`explanation\`. If
 they only want to look at it, use \`show\`.
 
 **They paste a prompt from the book**
@@ -120,6 +121,12 @@ The leading \`!\` runs it in their own shell and shows you the output.
 - **Verbatim means verbatim.** No renamed variables, no added comments, no
   reformatting, no "improved" version, no switching quote style. The learner is
   comparing against a printed page.
+- **The explanation is the book's too.** Every exercise ships an \`explanation\`
+  with a \`summary\` and line-by-line notes. Present those; do not write your own
+  walkthrough alongside or instead. They are the same words the VS Code extension
+  shows, and that agreement is the point — the extension has no model and cannot
+  write one. Answer follow-up questions freely; just do not replace the canonical
+  text with a fresh paraphrase.
 - **Only \`run\` records progress.** \`show\` and \`apply\` deliberately do not.
   Reading a prompt or writing a file is not completing an exercise, and a ledger
   that claims otherwise is worthless to the learner.
@@ -186,7 +193,7 @@ with \`aifirst book <tag>\` before going further.
 Present the exercise title and its first prompt. Let me attempt the prompt myself
 first — do not reveal the book's answer until I ask or I've tried. When I ask for it,
 run \`aifirst run <id> --format json\`, which writes the code, runs it, and records
-the exercise. Show me the real output, then explain the code.
+the exercise. Show me the real output, then the book's explanation.
 `,
     },
     {
@@ -200,7 +207,8 @@ Run \`aifirst run $ARGUMENTS --format json\`.
 
 That writes the book's code, executes it, and records the exercise only if it ran.
 Show me the program's actual output, then the code **verbatim** — no reformatting, no
-renaming, no added comments — and explain it. For a multi-step exercise, note that
+renaming, no added comments — followed by the exercise's own \`explanation\` rather
+than one you write. For a multi-step exercise, note that
 each step modifies the previous result.
 
 If it fails with \`needs_interactive_run\`, the exercise reads input: ask me to run
@@ -255,7 +263,9 @@ write the code yourself. Run \`aifirst run <id> --format json\` — which writes
 book's code, runs it, and records the exercise only if it ran — or
 \`aifirst show <id> --format json\` if they only want to see it. Reproduce the
 \`response\` field verbatim; the learner is comparing it against a printed page, so
-any reformatting or renaming is a defect.
+any reformatting or renaming is a defect. Each step also carries an
+\`explanation\` — present that rather than writing your own, so the wording matches
+the book and the VS Code extension.
 
 Never mark an exercise done yourself: \`aifirst run\` records it. If
 \`aifirst next\` reports \`needsBookChoice\`, ask which book they are reading and

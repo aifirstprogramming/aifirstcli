@@ -11,7 +11,7 @@
 import { compareIds } from "@aifirst/content";
 import { inScope } from "./books";
 import type { Scope } from "./books";
-import type { Content, Example, Step } from "./content/types";
+import type { Content, Example, Explanation, Step } from "./content/types";
 import type { Entry, ProgressLog } from "./log/progress";
 
 /** All examples in stable id order. */
@@ -154,6 +154,13 @@ export interface StepJson {
   total: number;
   prompt: string;
   response: string;
+  /**
+   * The book's own walkthrough, pre-computed and shipped in the content pack.
+   *
+   * Passed through so an assistant presents the same words a reader would see in
+   * the VS Code extension, which has no model and cannot write one.
+   */
+  explanation?: Explanation;
 }
 
 export interface ExampleJson {
@@ -177,6 +184,7 @@ export function stepJson(step: Step): StepJson {
     total: step.total,
     prompt: step.prompt,
     response: step.response,
+    ...(step.explanation ? { explanation: step.explanation } : {}),
   };
 }
 

@@ -110,3 +110,32 @@ export function bar(fraction: number, width = 20): string {
   const empty = unicode ? "░" : ".";
   return green(full.repeat(filled)) + dim(empty.repeat(width - filled));
 }
+
+/**
+ * Render the book's stored walkthrough.
+ *
+ * Printed from the content pack rather than written on the fly: an explanation
+ * that changed wording every time would undercut the promise that the tool agrees
+ * with the printed page, and the VS Code extension has no model to write one.
+ */
+export function explanationBlock(explanation: {
+  summary: string;
+  lines: { code: string; text: string }[];
+  run?: string;
+}): string[] {
+  const rows: string[] = [];
+  rows.push(`  ${cyan("Explanation")}`);
+  rows.push(`  ${explanation.summary}`);
+  if (explanation.lines.length > 0) {
+    rows.push("");
+    for (const line of explanation.lines) {
+      rows.push(`  ${dim(line.code.trim())}`);
+      rows.push(`      ${line.text}`);
+    }
+  }
+  if (explanation.run) {
+    rows.push("");
+    rows.push(`  ${dim(`run with: ${explanation.run}`)}`);
+  }
+  return rows;
+}

@@ -97,14 +97,14 @@ describe("show", () => {
   });
 
   it("shows every step of a multi-step exercise", async () => {
-    const r = await aifirst(["show", "py-2-06", "--format", "json"]);
+    const r = await aifirst(["show", "py-3-01", "--format", "json"]);
     const parsed = JSON.parse(r.stdout);
     expect(parsed.multiStep).toBe(true);
-    expect(parsed.steps).toHaveLength(2);
+    expect(parsed.steps).toHaveLength(3);
   });
 
   it("addresses a single step by id", async () => {
-    const r = await aifirst(["show", "py-2-06.1", "--format", "json"]);
+    const r = await aifirst(["show", "py-3-01.1", "--format", "json"]);
     expect(JSON.parse(r.stdout).steps).toHaveLength(1);
   });
 
@@ -191,17 +191,17 @@ describe("apply", () => {
   });
 
   it("applies the final step of a progressive exercise", async () => {
-    const r = await aifirst(["apply", "py-2-06", "--into", "price.py", "--format", "json"]);
-    expect(JSON.parse(r.stdout).applied.stepId).toBe("py-2-06.2");
+    const r = await aifirst(["apply", "py-3-01", "--into", "price.py", "--format", "json"]);
+    expect(JSON.parse(r.stdout).applied.stepId).toBe("py-3-01.3");
   });
 
   it("can apply a specific step", async () => {
-    const r = await aifirst(["apply", "py-2-06", "--step", "1", "--into", "price.py", "--format", "json"]);
-    expect(JSON.parse(r.stdout).applied.stepId).toBe("py-2-06.1");
+    const r = await aifirst(["apply", "py-3-01", "--step", "1", "--into", "price.py", "--format", "json"]);
+    expect(JSON.parse(r.stdout).applied.stepId).toBe("py-3-01.1");
   });
 
   it("rejects a step that does not exist", async () => {
-    const r = await aifirst(["apply", "py-2-06", "--step", "9", "--into", "x.py"]);
+    const r = await aifirst(["apply", "py-3-01", "--step", "9", "--into", "x.py"]);
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("no step 9");
   });
@@ -221,7 +221,7 @@ describe("apply", () => {
 describe("progress", () => {
   it("counts only authored exercises", async () => {
     const r = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(r.stdout).overall.total).toBe(38);
+    expect(JSON.parse(r.stdout).overall.total).toBe(137);
   });
 
   it("does not count empty chapters toward a denominator", async () => {
@@ -312,7 +312,7 @@ describe("list", () => {
     const r = await aifirst(["list", "py", "--chapter", "2", "--format", "json"]);
     const chapters = JSON.parse(r.stdout).books[0].chapters;
     expect(chapters).toHaveLength(1);
-    expect(chapters[0].exercises.length).toBe(10);
+    expect(chapters[0].exercises.length).toBe(6);
   });
 
   it("shows empty chapters rather than hiding them", async () => {

@@ -8,7 +8,7 @@ import book_ai_first_python_programming from "../../books/ai-first-python-progra
 import type { RawEntry } from "./types";
 
 /** Version of the content pack baked into this binary. */
-export const EMBEDDED_PACK_VERSION = "1.1.0";
+export const EMBEDDED_PACK_VERSION = "1.2.1";
 
 export const EMBEDDED_BOOKS: RawEntry[] = [
   { filename: "ai-first-java-programming.json", book: book_ai_first_java_programming as never },

@@ -91,20 +91,20 @@ describe("run", () => {
   it("feeds the authored sample to an exercise that reads input", async () => {
     const r = await aifirst(["run", "py-3-10", "--format", "json"]);
     const out = JSON.parse(r.stdout);
-    expect(out.stdin).toBe("stop\n");
+    expect(out.stdin).toBe("\n\n\nstop\n");
     expect(out.ran.ok).toBe(true);
     expect(out.ran.stdout).toContain("Stopped.");
     expect(out.recorded).toBe(true);
   });
 
   it("runs the final step of a progressive exercise", async () => {
-    const r = await aifirst(["run", "py-2-06", "--format", "json"]);
-    expect(JSON.parse(r.stdout).stepId).toBe("py-2-06.2");
+    const r = await aifirst(["run", "py-3-01", "--format", "json"]);
+    expect(JSON.parse(r.stdout).stepId).toBe("py-3-01.3");
   });
 
   it("can run one named step", async () => {
-    const r = await aifirst(["run", "py-2-06.1", "--format", "json"]);
-    expect(JSON.parse(r.stdout).stepId).toBe("py-2-06.1");
+    const r = await aifirst(["run", "py-3-01.1", "--format", "json"]);
+    expect(JSON.parse(r.stdout).stepId).toBe("py-3-01.1");
   });
 
   it("does not record an exercise whose program fails", async () => {
@@ -204,8 +204,8 @@ describe("book scoping", () => {
     const n = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
     expect(n.next.language).toBe("python");
     // 21 Python exercises, not 38 across both books.
-    expect(n.counts.total).toBe(21);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(21);
+    expect(n.counts.total).toBe(51);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(51);
   });
 
   it("never hands a Python reader a Java exercise", async () => {
@@ -224,7 +224,7 @@ describe("book scoping", () => {
     await aifirst(["book", "java"]);
     const n = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
     expect(n.next.language).toBe("java");
-    expect(n.counts.total).toBe(17);
+    expect(n.counts.total).toBe(86);
   });
 
   it("congratulates at the end of a book instead of crossing into another", async () => {
@@ -254,7 +254,7 @@ describe("book scoping", () => {
 
   it("all unscopes", async () => {
     await aifirst(["book", "all"]);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(38);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(137);
   });
 
   it("keeps the book choice when progress is reset", async () => {

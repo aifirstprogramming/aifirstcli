@@ -8,8 +8,10 @@ export type {
   Chapter,
   Content,
   Example,
+  Explanation,
   Language,
   RawBook,
+  Scaffold,
   Section,
   Step,
 } from "@aifirst/content";

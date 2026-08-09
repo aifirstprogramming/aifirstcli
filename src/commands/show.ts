@@ -14,7 +14,7 @@ import { formatFlag } from "../cli";
 import { resolveContent } from "../content";
 import { exampleJson, stepJson } from "../exercises";
 import { read } from "../log/progress";
-import { CliError, bold, codeBlock, cyan, dim, glyph, json, out } from "../output";
+import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, json, out } from "../output";
 
 function requireId(args: Args, command: string): string {
   const id = args.positionals[0];
@@ -55,6 +55,11 @@ export function show(args: Args): void {
     out();
     out(`  ${cyan("Response")} ${dim(`(${ex.language})`)}`);
     out(codeBlock(step.response));
+
+    if (step.explanation) {
+      out();
+      for (const line of explanationBlock(step.explanation)) out(line);
+    }
   }
 
   out();
