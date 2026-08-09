@@ -30,6 +30,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [v0.5.0 release](plans/2026-08-09-v0.5.0-release.md) — one exercise, one file | 2026-08-09 | Shipped as v0.5.0 |
 | [Book mode](plans/2026-08-09-book-mode.md) — work the book in Claude Code with no model and no API calls | 2026-08-09 | Shipped as v0.6.0 |
 | [Derive content count in CI](plans/2026-08-09-derive-content-count-in-ci.md): compute the smoke test's expected total from books/*.json instead of hardcoding it | 2026-08-09 | Shipped |
+| [Content sync listener](plans/2026-08-09-content-sync-listener.md): react to `aifirstcontent`'s `repository_dispatch`, bump the pin, regenerate books, gate, and commit to main | 2026-08-09 | Shipped |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the

@@ -1,0 +1,136 @@
+name: Content sync
+
+on:
+  repository_dispatch:
+    types: [content-released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Content release tag (e.g. v1.4.0); required for manual dispatch"
+        required: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Default GITHUB_TOKEN is read-only for this repo, so committing the sync
+    # and opening a failure issue both need explicit write scopes here.
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve content tag
+        id: tag
+        run: |
+          TAG="${{ github.event.client_payload.tag || github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            echo "::error::No tag provided from repository_dispatch payload or workflow_dispatch input."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Count non-retired examples in the pack currently on main, so the commit
+      # message can quote both the pre-sync and post-sync totals.
+      - name: Count examples before sync
+        id: before
+        run: |
+          OLD=$(node -p "let t=0;const fs=require('fs');for(const f of fs.readdirSync('books').filter(x=>x.endsWith('.json'))){const d=JSON.parse(fs.readFileSync('books/'+f));for(const s of d.sections||[])for(const c of s.chapters||[])for(const e of c.examples||[])if(e.status!=='retired')t++;}t")
+          echo "count=$OLD" >> "$GITHUB_OUTPUT"
+          OLD_PIN=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).dependencies['@aifirst/content']")
+          echo "pin=$OLD_PIN" >> "$GITHUB_OUTPUT"
+
+      - name: Bump @aifirst/content pin to ${{ steps.tag.outputs.tag }}
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.dependencies['@aifirst/content']='github:aifirstprogramming/aifirstcontent#'+process.env.TAG;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n');"
+
+      # Lockfile just changed with the pin, so the frozen flag would refuse.
+      - name: Install with updated pin
+        run: bun install
+
+      # Trusting the package.json string after a bump masked a stale install on
+      # a sibling repo. Read what actually resolved and fail loud if it disagrees.
+      - name: Verify installed content version matches tag
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          INSTALLED=$(node -p "JSON.parse(require('fs').readFileSync('node_modules/@aifirst/content/package.json','utf8')).version")
+          EXPECTED="${TAG#v}"
+          if [ "$INSTALLED" != "$EXPECTED" ]; then
+            echo "::error::installed @aifirst/content is $INSTALLED but tag $TAG expects $EXPECTED"
+            exit 1
+          fi
+          echo "installed @aifirst/content matches tag $TAG"
+
+      - name: Regenerate books and embedded content
+        run: bun scripts/sync-content.ts
+
+      - name: Full gate (sync-check, typecheck, tests)
+        run: bun run check
+
+      # Proves the freshly-synced content actually embeds and the binary runs
+      # standalone, which the unit tests cannot see.
+      - name: Build and smoke test
+        id: smoke
+        shell: bash
+        run: |
+          bun scripts/build.ts --local
+          BIN=$(ls bin/aifirst-* | head -n1)
+          "$BIN" --version
+          "$BIN" show py-1-01 --format json | grep -q 'Hello, World!'
+          EXPECTED=$(node -p "let t=0;const fs=require('fs');for(const f of fs.readdirSync('books').filter(x=>x.endsWith('.json'))){const d=JSON.parse(fs.readFileSync('books/'+f));for(const s of d.sections||[])for(const c of s.chapters||[])for(const e of c.examples||[])if(e.status!=='retired')t++;}t")
+          "$BIN" progress --format json | grep -q "\"total\": $EXPECTED"
+          echo "new_count=$EXPECTED" >> "$GITHUB_OUTPUT"
+
+      - name: Commit sync to main
+        if: success()
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          OLD_COUNT: ${{ steps.before.outputs.count }}
+          OLD_PIN: ${{ steps.before.outputs.pin }}
+          NEW_COUNT: ${{ steps.smoke.outputs.new_count }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes after sync to $TAG; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json bun.lock books src/content/embedded.generated.ts
+          {
+            echo "Sync content to $TAG ($OLD_COUNT -> $NEW_COUNT examples)"
+            echo
+            echo "Bumped @aifirst/content from $OLD_PIN to"
+            echo "github:aifirstprogramming/aifirstcontent#$TAG and regenerated the"
+            echo "committed books and the embedded content module against the new pack."
+            echo
+            echo "Non-retired example count went from $OLD_COUNT to $NEW_COUNT."
+          } > commit-message.txt
+          git commit -F commit-message.txt
+          rm commit-message.txt
+          git push origin main
+
+      - name: Open failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="Content sync to $TAG failed. Failing run: $RUN_URL"
+          gh issue create \
+            --title "Content sync to $TAG failed" \
+            --body "$BODY" \
+            --repo "${{ github.repository }}"
