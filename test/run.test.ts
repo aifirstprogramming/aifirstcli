@@ -227,6 +227,9 @@ describe("book scoping", () => {
     expect(n.counts.total).toBe(86);
   });
 
+  // Clearing a book is one subprocess per exercise -- 86 of them for Java now that
+  // chapters 4-9 are imported. That is well past bun's 5s default on a Windows
+  // runner, and the test is measuring behaviour at the end of a book, not speed.
   it("congratulates at the end of a book instead of crossing into another", async () => {
     await aifirst(["book", "java"]);
     // Clear the whole Java book.
@@ -242,7 +245,7 @@ describe("book scoping", () => {
     // It offers the other book rather than silently serving it.
     expect(out.otherBooks.map((b: { tag: string }) => b.tag)).toContain("py");
     expect(r.code).toBe(0);
-  });
+  }, 180_000);
 
   it("book with no argument reports the current choice", async () => {
     expect(JSON.parse((await aifirst(["book", "--format", "json"])).stdout).needsBookChoice).toBe(true);
