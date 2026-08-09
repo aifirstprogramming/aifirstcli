@@ -204,8 +204,8 @@ describe("book scoping", () => {
     const n = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
     expect(n.next.language).toBe("python");
     // 21 Python exercises, not 38 across both books.
-    expect(n.counts.total).toBe(51);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(51);
+    expect(n.counts.total).toBe(52);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(52);
   });
 
   it("never hands a Python reader a Java exercise", async () => {
@@ -224,7 +224,7 @@ describe("book scoping", () => {
     await aifirst(["book", "java"]);
     const n = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
     expect(n.next.language).toBe("java");
-    expect(n.counts.total).toBe(86);
+    expect(n.counts.total).toBe(87);
   });
 
   // Clearing a book is one subprocess per exercise -- 86 of them for Java now that
@@ -257,7 +257,7 @@ describe("book scoping", () => {
 
   it("all unscopes", async () => {
     await aifirst(["book", "all"]);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(137);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(139);
   });
 
   it("keeps the book choice when progress is reset", async () => {

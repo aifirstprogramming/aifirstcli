@@ -345,6 +345,7 @@
               "id": "java-2-07",
               "title": "Java Data Types: Boolean",
               "description": "Explore the boolean data type in Java.",
+              "status": "retired",
               "prompt": "Write intro code using a boolean data type without using logic like an if statement.",
               "response": [
                 "public class BooleanType {",
@@ -642,6 +643,52 @@
                   }
                 ],
                 "run": "java WelcomeNameInput.java"
+              }
+            },
+            {
+              "id": "java-2-13",
+              "title": "Example showing boolean data type",
+              "kind": "program",
+              "prompt": "Write intro code using a boolean data type without conditional logic.",
+              "response": [
+                "public class BooleanType {",
+                "    public static void main(String[] args) {",
+                "        boolean isJavaFun = true;",
+                "        boolean hasBugs = false;",
+                "",
+                "        System.out.println(\"isJavaFun = \" + isJavaFun);",
+                "        System.out.println(\"hasBugs = \" + hasBugs);",
+                "",
+                "        boolean readyToShip = isJavaFun && !hasBugs;",
+                "        System.out.println(\"readyToShip = \" + readyToShip);",
+                "    }",
+                "}"
+              ],
+              "explanation": {
+                "summary": "This program stores two true/false values in boolean variables, prints them, and then combines them with logical operators to produce a third boolean. It shows that boolean values can be computed and displayed like any other data, without needing an if statement.",
+                "lines": [
+                  {
+                    "code": "        boolean isJavaFun = true;",
+                    "text": "A boolean variable holds only one of two values, true or false. Note that true is a Java keyword, not the text \"true\" in quotes."
+                  },
+                  {
+                    "code": "        boolean hasBugs = false;",
+                    "text": "The second boolean starts out false, which will matter when the two are combined below."
+                  },
+                  {
+                    "code": "        System.out.println(\"isJavaFun = \" + isJavaFun);",
+                    "text": "When a boolean is joined to a string with +, Java automatically converts it to the words true or false for display."
+                  },
+                  {
+                    "code": "        boolean readyToShip = isJavaFun && !hasBugs;",
+                    "text": "The && operator yields true only when both sides are true, and ! flips a boolean to its opposite. So this reads as \"Java is fun and there are no bugs,\" which works out to true."
+                  },
+                  {
+                    "code": "        System.out.println(\"readyToShip = \" + readyToShip);",
+                    "text": "Printing the computed result shows that logical expressions produce a boolean value you can store and reuse, with no conditional statement involved."
+                  }
+                ],
+                "run": "java BooleanType.java"
               }
             }
           ]
@@ -4155,6 +4202,7 @@
               "id": "java-7-01",
               "title": "Output from Library class",
               "kind": "snippet",
+              "status": "retired",
               "prompt": "In the current folder, please create a subfolder with a small, intro Maven and Java app that includes JUnit as a dependency and a main class named Library that uses a List<String> to store book titles. Add at least three titles, then print each one on its own line using a for loop.",
               "response": [
                 "The Adventures of Sherlock Holmes",
@@ -4187,8 +4235,7 @@
                   }
                 ],
                 "entrypoint": "Library.java"
-              },
-              "status": "retired"
+              }
             },
             {
               "id": "java-7-02",
@@ -6044,7 +6091,7 @@
               "kind": "program",
               "prompt": "Create a Java program that uses an ArrayDeque<String> to simulate browser history. Add five page URLs. Simulate going back by polling from the front, then clear the two oldest entries from the back. Print the remaining history.",
               "response": [
-                "Import java.util.Deque;",
+                "import java.util.Deque;",
                 "import java.util.ArrayDeque;",
                 "",
                 "public class BrowserHistoryExample {",
@@ -6077,53 +6124,51 @@
                 "}"
               ],
               "explanation": {
-                "summary": "This program models a browser's history with an ArrayDeque of URLs, adding pages to the front as they are visited, then removing the current page from the front (going back) and discarding the two oldest pages from the back. It shows that a Deque lets you add and remove at either end.",
+                "summary": "This program models a web browser's history with an ArrayDeque, a collection you can add to and remove from at either end. New pages are pushed onto the front, going back removes the front entry, and the oldest entries are trimmed off the back.",
                 "lines": [
                   {
-                    "code": "Import java.util.Deque;",
-                    "text": "Java keywords are case-sensitive, so this must be written as `import` with a lowercase i; as printed, the compiler rejects the file. The runnable copy of this exercise fixes the capital letter."
+                    "code": "import java.util.Deque;",
+                    "text": "Deque (pronounced \"deck\") is the interface for a double-ended queue, which allows insertion and removal at both the front and the back."
+                  },
+                  {
+                    "code": "import java.util.ArrayDeque;",
+                    "text": "ArrayDeque is the array-backed implementation of Deque, and it is the usual choice when you need fast operations at both ends."
                   },
                   {
                     "code": "        Deque<String> history = new ArrayDeque<>();",
-                    "text": "The variable is declared with the Deque interface but built with the ArrayDeque implementation, so the code depends only on the double-ended queue behaviour and not on the class behind it."
+                    "text": "Declaring the variable with the Deque interface type keeps the program tied to the behaviour rather than the implementation, so ArrayDeque could be swapped out later."
                   },
                   {
                     "code": "        history.addFirst(\"https://example.com/home\");",
-                    "text": "addFirst pushes a URL onto the front of the deque, which is how a browser records the page you just visited."
+                    "text": "addFirst pushes a URL onto the front of the deque, matching how a browser treats the most recently visited page as the current one."
                   },
                   {
                     "code": "        history.addFirst(\"https://example.com/blog\");",
-                    "text": "Because every page was added at the front, the blog page is now the newest entry and home is the oldest."
+                    "text": "Because each page was added to the front, the blog page ends up first and the home page last, so the deque reads newest to oldest."
                   },
                   {
                     "code": "        history.forEach(System.out::println);",
-                    "text": "forEach walks the deque from front to back, so the pages print newest first; System.out::println is a method reference standing in for a one-line lambda."
+                    "text": "forEach walks the deque from front to back, and the method reference System.out::println is shorthand for a lambda that prints each element."
                   },
                   {
                     "code": "        String lastVisited = history.pollFirst();",
-                    "text": "pollFirst removes and returns the front element, simulating the Back button leaving the current page. It returns null instead of throwing if the deque is empty."
+                    "text": "pollFirst removes and returns the front element, which simulates the Back button leaving the current page. It returns null on an empty deque instead of throwing an exception."
                   },
                   {
                     "code": "        System.out.println(\"\\nGo back: remove current page (front): \" + lastVisited);",
-                    "text": "The \\n escape prints a blank line before the text, which keeps the three sections of output visually separate."
+                    "text": "The \\n escape sequence inserts a blank line before the text, separating the sections of output visually."
                   },
                   {
                     "code": "        String oldest1 = history.pollLast();",
-                    "text": "pollLast removes from the opposite end, so this trims the oldest visited page — the kind of housekeeping a browser does when its history grows too long."
-                  }
-                ],
-                "run": "javac -d out -sourcepath . fixed/BrowserHistoryExample.java && java -cp out fixed/BrowserHistoryExample"
-              },
-              "scaffold": {
-                "files": [
+                    "text": "pollLast removes from the opposite end, where the oldest visited pages sit, which is how a browser caps the size of its stored history."
+                  },
                   {
-                    "path": "fixed/BrowserHistoryExample.java",
-                    "content": "import java.util.Deque;\nimport java.util.ArrayDeque;\n\npublic class BrowserHistoryExample {\n    public static void main(String[] args) {\n        Deque<String> history = new ArrayDeque<>();\n\n        // Add five page URLs\n        history.addFirst(\"https://example.com/home\");\n        history.addFirst(\"https://example.com/about\");\n        history.addFirst(\"https://example.com/services\");\n        history.addFirst(\"https://example.com/contact\");\n        history.addFirst(\"https://example.com/blog\");\n\n        System.out.println(\"Browser history:\");\n        history.forEach(System.out::println);\n\n        // Simulate going back (poll from the front)\n        String lastVisited = history.pollFirst();\n        System.out.println(\"\\nGo back: remove current page (front): \" + lastVisited);\n        System.out.println(\"Current history: \");\n        history.forEach(System.out::println);\n\n        // Clear the two oldest entries from the back\n        String oldest1 = history.pollLast();\n        String oldest2 = history.pollLast();\n        System.out.println(\"\\nClear oldest pages from the back: \" + oldest1 + \", \" + oldest2);\n        System.out.println(\"Current history: \");\n        history.forEach(System.out::println);\n    }\n}\n"
+                    "code": "        String oldest2 = history.pollLast();",
+                    "text": "A second call to pollLast trims the next-oldest entry, leaving only the two most recent pages in the deque."
                   }
                 ],
-                "entrypoint": "fixed/BrowserHistoryExample.java"
-              },
-              "status": "draft"
+                "run": "java BrowserHistoryExample.java"
+              }
             },
             {
               "id": "java-8-10",

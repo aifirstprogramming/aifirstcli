@@ -38,7 +38,7 @@ jobs:
           BIN=$(ls bin/aifirst-* | head -n1)
           "$BIN" --version
           "$BIN" show py-1-01 --format json | grep -q 'Hello, World!'
-          "$BIN" progress --format json | grep -q '"total": 137'
+          "$BIN" progress --format json | grep -q '"total": 139'
 
   shellcheck:
     runs-on: ubuntu-latest

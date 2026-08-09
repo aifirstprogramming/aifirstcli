@@ -25,7 +25,7 @@
     "checkout and `bun link @aifirst/content` here."
   ],
   "dependencies": {
-    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.2.1"
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.3.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

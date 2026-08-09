@@ -221,7 +221,7 @@ describe("apply", () => {
 describe("progress", () => {
   it("counts only authored exercises", async () => {
     const r = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(r.stdout).overall.total).toBe(137);
+    expect(JSON.parse(r.stdout).overall.total).toBe(139);
   });
 
   it("does not count empty chapters toward a denominator", async () => {

@@ -468,6 +468,7 @@
               "id": "py-2-13",
               "title": "Pet Fetch",
               "kind": "program",
+              "status": "retired",
               "prompt": "Write a 5 line program to calculate the number of balls thrown. Take user input for the number of balls the dog retrieved, the number of balls the cat retrieved, and the number of balls that never got retrieved.",
               "response": [
                 "Enter number of balls dog retrieved: 8",
@@ -506,8 +507,7 @@
                   }
                 ],
                 "entrypoint": "main.py"
-              },
-              "status": "retired"
+              }
             }
           ]
         },
@@ -1075,6 +1075,43 @@
                   }
                 ],
                 "entrypoint": "main.py"
+              }
+            },
+            {
+              "id": "py-3-13",
+              "title": "Counting Down and For Loop Syntax",
+              "kind": "program",
+              "prompt": "Write a short rocket program that counts from 5 to 1.",
+              "response": [
+                "import time",
+                "",
+                "for i in range(5, 0, -1):",
+                "    print(i)",
+                "    time.sleep(1)",
+                "",
+                "print(\"🚀 Blastoff!\")"
+              ],
+              "explanation": {
+                "summary": "This program counts backwards from 5 down to 1, pausing one second between each number, then announces a rocket blastoff.",
+                "lines": [
+                  {
+                    "code": "import time",
+                    "text": "The time module comes with Python and provides tools for working with clocks and delays; importing it makes those tools available in this file."
+                  },
+                  {
+                    "code": "for i in range(5, 0, -1):",
+                    "text": "The three arguments to range are the start, the stop, and the step: begin at 5, count by -1, and halt before reaching 0, so i takes the values 5, 4, 3, 2, 1."
+                  },
+                  {
+                    "code": "    time.sleep(1)",
+                    "text": "Pausing the program for one second turns a wall of instant output into a countdown the reader can actually watch tick by."
+                  },
+                  {
+                    "code": "print(\"🚀 Blastoff!\")",
+                    "text": "Because this line sits outside the loop's indentation, it runs once after the countdown finishes rather than on every pass."
+                  }
+                ],
+                "run": "python3 counting_down_and_for_loop_syntax.py"
               }
             }
           ]
