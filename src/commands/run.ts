@@ -17,7 +17,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
-import { resolve, runCommand, suggestFilename } from "@aifirst/content";
+import { exercisePath, resolve, runCommand } from "@aifirst/content";
 import type { Content } from "../content/types";
 import { which } from "../agents/util";
 import type { Args } from "../cli";
@@ -26,7 +26,7 @@ import { resolveContent } from "../content";
 import type { Example, Step } from "../content/types";
 import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
-import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
+import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 
 const TIMEOUT_MS = 30_000;
 
@@ -153,7 +153,7 @@ export async function run(args: Args): Promise<void> {
   const step = pickStep(args, example, hit.kind === "step" ? hit.step : undefined);
 
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(stringFlag(args, "into") ?? suggestFilename(example, step));
+  const path = resolvePath(stringFlag(args, "into") ?? exercisePath(example, step));
   const force = boolFlag(args, "force");
 
   // Write it, but never over something different that the learner wrote.
@@ -325,7 +325,13 @@ export async function run(args: Args): Promise<void> {
     out(dim(`  input: ${JSON.stringify(step.stdin)}`));
   }
 
+  out();
+  out(`  ${cyan("Code")} ${dim(`(${example.language})`)}`);
+  out(codeBlock(step.response));
+
   if (!useTty) {
+    out();
+    out(`  ${cyan("Output")}`);
     out();
     for (const line of output.split("\n")) out(`  ${line}`);
   }

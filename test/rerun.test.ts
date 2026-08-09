@@ -8,10 +8,15 @@ import { join } from "node:path";
  * exercises, and java-6-01/05/07/09 all declare `public class Thermostat`, so javac
  * requires the same filename each time.
  *
- * In 0.3.0 that combination produced a false completion: the file-exists refusal
- * told the reader to pass `--force`, and `--force` skipped the refusal without
- * writing anything, so the *previous* exercise's file ran and the current one was
- * recorded as done. A learner banked a green tick for code that never ran.
+ * In 0.3.0 that produced a false completion: the file-exists refusal told the reader
+ * to pass `--force`, and `--force` skipped the refusal without writing anything, so
+ * the *previous* exercise's file ran and the current one was recorded as done. A
+ * learner banked a green tick for code that never ran.
+ *
+ * Each such exercise now gets its own directory, so the collision cannot arise at
+ * all. These tests keep the guarantees that came out of the bug: work the tool did
+ * not write is never replaced, --force writes, and `recorded` always means this
+ * exercise's code is what ran.
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
@@ -48,26 +53,31 @@ async function aifirst(args: string[]): Promise<Run> {
   return { stdout, stderr, code: proc.exitCode ?? 0 };
 }
 
-/** The two Python chapter 7 exercises that share assert.py. */
+/**
+ * These two used to share assert.py. They now get a directory each, so the
+ * collision is designed out rather than handled -- but the guarantees that came
+ * out of the bug still hold, and these tests are what say so.
+ */
 const FIRST = "py-7-01";
 const SECOND = "py-7-02";
-const SHARED = "assert.py";
 
-describe("an exercise that reuses the previous one's filename", () => {
-  it("replaces the previous exercise's code and runs the right one", async () => {
+describe("two exercises that would share a filename", () => {
+  it("keeps both, in their own directories", async () => {
     await aifirst(["run", FIRST]);
     const r = await aifirst(["run", SECOND, "--format", "json"]);
     const out = JSON.parse(r.stdout);
 
     expect(out.wrote).toBe(true);
-    expect(out.replaced).toBe(FIRST);
-    expect(out.ran.ok).toBe(true);
+    // Nothing was replaced: the paths differ, so neither destroys the other.
+    expect(out.replaced).toBeUndefined();
     expect(out.recorded).toBe(true);
 
-    // The decisive check: what is on disk is the exercise that was recorded.
-    const onDisk = readFileSync(join(sandbox, SHARED), "utf8");
-    const canonical = JSON.parse((await aifirst(["show", SECOND, "--format", "json"])).stdout).steps[0].response;
-    expect(onDisk.trimEnd()).toBe(canonical.trimEnd());
+    // Both versions survive, and each holds its own exercise's code.
+    for (const id of [FIRST, SECOND]) {
+      const shown = JSON.parse((await aifirst(["show", id, "--format", "json"])).stdout);
+      const onDisk = readFileSync(join(sandbox, id, "assert.py"), "utf8");
+      expect(onDisk.trimEnd()).toBe(shown.steps[0].response.trimEnd());
+    }
   });
 
   it("records each exercise on its own merits, not the previous one's file", async () => {
@@ -126,6 +136,6 @@ describe("what `recorded` means", () => {
     const out = JSON.parse(r.stdout);
     expect(out.wrote).toBe(false);
     expect(out.ran.ok).toBe(true);
-    expect(existsSync(join(sandbox, SHARED))).toBe(true);
+    expect(existsSync(join(sandbox, FIRST, "assert.py"))).toBe(true);
   });
 });

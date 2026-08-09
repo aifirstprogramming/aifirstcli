@@ -15,7 +15,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
-import { resolve, suggestFilename } from "@aifirst/content";
+import { exercisePath, resolve } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
@@ -63,7 +63,7 @@ export function apply(args: Args): void {
     return;
   }
 
-  const path = resolvePath(target ?? suggestFilename(example, step));
+  const path = resolvePath(target ?? exercisePath(example, step));
   const force = boolFlag(args, "force");
 
   if (existsSync(path) && !force) {

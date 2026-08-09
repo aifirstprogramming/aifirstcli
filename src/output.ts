@@ -128,7 +128,11 @@ export function explanationBlock(explanation: {
   rows.push(`  ${explanation.summary}`);
   if (explanation.lines.length > 0) {
     rows.push("");
+    // "Worth noticing" rather than a numbered walkthrough: these are the few points
+    // the chapter is making, not a line-by-line transcript.
+    rows.push(`  ${dim("Worth noticing")}`);
     for (const line of explanation.lines) {
+      rows.push("");
       rows.push(`  ${dim(line.code.trim())}`);
       rows.push(`      ${line.text}`);
     }
