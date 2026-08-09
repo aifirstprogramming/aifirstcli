@@ -30,6 +30,22 @@ import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, r
 
 const TIMEOUT_MS = 30_000;
 
+/** Trailing-newline differences are not a difference in the code. */
+function sameCode(a: string, b: string): boolean {
+  return a.replace(/\r\n/g, "\n").replace(/\n+$/, "") === b.replace(/\r\n/g, "\n").replace(/\n+$/, "");
+}
+
+/**
+ * Which exercise's canonical code is this, if any?
+ *
+ * Used to tell "the tool wrote this for the previous exercise" from "the learner
+ * wrote this themselves". The first is safe to replace; the second is the most
+ * valuable thing in the directory.
+ */
+function canonicalOwner(text: string, content: Content): string | undefined {
+  return content.steps.find((s) => sameCode(s.response, text))?.id;
+}
+
 /**
  * Write the extra files a non-runnable exercise needs.
  *
@@ -141,14 +157,30 @@ export async function run(args: Args): Promise<void> {
   const force = boolFlag(args, "force");
 
   // Write it, but never over something different that the learner wrote.
+  //
+  // "Something different" excludes code this tool wrote for another exercise.
+  // Whole chapters evolve a single file: Python 7 builds one test file across five
+  // exercises, and java-6-01/05/07/09 all declare `public class Thermostat`, so
+  // javac *requires* the same filename each time. Refusing to replace our own
+  // previous output would make those chapters unrunnable without a manual delete.
   let wrote = false;
+  let replaced: string | undefined;
   if (existsSync(path)) {
     const existing = readFileSync(path, "utf8");
-    if (existing !== body && !force) {
+    const previous = canonicalOwner(existing, content);
+
+    if (sameCode(existing, body)) {
+      // Already exactly this exercise's code; nothing to write.
+    } else if (force || previous) {
+      writeFileSync(path, body);
+      wrote = true;
+      replaced = previous;
+    } else {
       throw new CliError(
         `${path} already exists with different contents`,
         "file_exists",
-        `That may be your own attempt. Pass --force to replace it, or --into <file> to use another name.`,
+        `That looks like your own work, so it was left alone. Replace it with ` +
+          `--force, or write this exercise somewhere else with --into <file>.`,
       );
     }
   } else {
@@ -161,6 +193,21 @@ export async function run(args: Args): Promise<void> {
   const scaffoldFiles = writeScaffold(dirname(path), step, content);
 
   const commands = commandsFor(example, step, basename(path));
+  // Whatever happened above, the file about to run must hold this exercise's code.
+  //
+  // Recording a pass for a stale file is the one failure this command must not
+  // have -- a learner banking a green tick for code that never ran is worse than
+  // any error message. Before 0.3.1, `--force` skipped the refusal without writing,
+  // so a previous exercise's file ran and was recorded as this one passing.
+  const onDisk = readFileSync(path, "utf8");
+  if (!sameCode(onDisk, body)) {
+    throw new CliError(
+      `${path} does not contain ${step.id}'s code, so running it would prove nothing`,
+      "stale_file",
+      `Write it first: aifirst run ${step.id} --force`,
+    );
+  }
+
   const command = commands[0];
   if (!command) {
     throw new CliError(
@@ -258,6 +305,7 @@ export async function run(args: Args): Promise<void> {
       wrote,
       ran: { ok, exitCode, timedOut, stdout, stderr, commands: commands.map((c) => c.join(" ")) },
       ...(scaffoldFiles.length > 0 ? { scaffold: scaffoldFiles } : {}),
+      ...(replaced ? { replaced } : {}),
       ...(step.stdin === undefined ? {} : { stdin: step.stdin }),
       recorded: recorded !== null,
     });
@@ -267,6 +315,9 @@ export async function run(args: Args): Promise<void> {
 
   out();
   out(`  ${wrote ? green(glyph.done) : dim(glyph.done)} ${wrote ? "wrote" : "using"} ${bold(path)}  ${dim(step.id)}`);
+  if (replaced) {
+    out(dim(`  replaced ${replaced}'s code, which this exercise builds on`));
+  }
   if (scaffoldFiles.length > 0) {
     out(dim(`  also wrote ${scaffoldFiles.join(", ")} — the code this exercise needs around it`));
   }

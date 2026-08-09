@@ -144,6 +144,14 @@ The leading \`!\` runs it in their own shell and shows you the output.
   \`<(...)\`, a temp file, or piping \`show --format json\` through python to
   reconstruct the code all do the same job less well, and process substitution
   triggers a permission prompt in the middle of an exercise.
+- **Consecutive exercises often share a filename, and that is handled.** Whole
+  chapters evolve one file — Python 7 builds a single test file across five
+  exercises, and several Java exercises all declare \`public class Thermostat\`,
+  which javac requires to live in \`Thermostat.java\`. \`aifirst run\` replaces its
+  own previous output automatically and tells you which exercise it replaced. Do
+  not delete the file first, and do not invent \`--into\` names to dodge the
+  collision; the learner ends up with scattered copies and loses the thread of
+  the chapter.
 - **Do not overwrite their work.** \`run\` and \`apply\` refuse to replace a file
   whose contents differ. Do not add \`--force\` on their behalf.
 - If \`aifirst\` is missing, point them at
