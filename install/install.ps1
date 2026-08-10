@@ -38,6 +38,92 @@ try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 } catch { }
 
+# --- Progress ---------------------------------------------------------------
+#
+# Invoke-WebRequest -UseBasicParsing gives no useful progress for a 92MB
+# download, and $ProgressPreference is commonly set to SilentlyContinue for
+# speed elsewhere, so it can't be relied on to show anything by default. We
+# stream the download ourselves and render the same bar() look the CLI uses
+# (src/output.ts: full/empty glyphs, width 20), so install, update and
+# learner progress share one visual language.
+#
+# A real console host is interactive; anything else (redirected error output, a
+# CI runner) gets periodic plain percentage lines instead. We render to
+# stderr, so it is stderr's redirection state that decides this, the same
+# rule install.sh applies via `[ -t 2 ]` rather than `[ -t 1 ]`.
+$IsInteractiveHost = -not [Console]::IsErrorRedirected -and $null -ne $Host.UI.RawUI
+
+function Get-Bar([double]$Fraction, [int]$Width = 20) {
+  $clamped = [Math]::Max(0, [Math]::Min(1, $Fraction))
+  $filled = [Math]::Round($clamped * $Width)
+  if ($env:AIFIRST_ASCII -eq '1') {
+    $full = '#'; $empty = '.'
+  } else {
+    $full = [char]0x2588; $empty = [char]0x2591
+  }
+  ([string]$full * $filled) + ([string]$empty * ($Width - $filled))
+}
+
+# Streams $Url into $Dest, rendering Get-Bar against Content-Length as bytes
+# arrive. Falls back to a byte count with no percentage when the server
+# doesn't report a length, same as the shell installer and update.ts.
+function Invoke-DownloadWithProgress([string]$Url, [string]$Dest) {
+  $request = [Net.HttpWebRequest]::Create($Url)
+  $request.UserAgent = 'aifirst-installer'
+  $response = $request.GetResponse()
+
+  $total = $response.ContentLength
+  $stream = $response.GetResponseStream()
+  $fileStream = [IO.File]::Create($Dest)
+  $buffer = New-Object byte[] 65536
+  $done = 0
+  $lastReport = [DateTime]::MinValue
+  try {
+    while ($true) {
+      $read = $stream.Read($buffer, 0, $buffer.Length)
+      if ($read -le 0) { break }
+      $fileStream.Write($buffer, 0, $read)
+      $done += $read
+
+      $now = Get-Date
+      if (($now - $lastReport).TotalMilliseconds -ge 150) {
+        $lastReport = $now
+        $doneMb = $done / 1MB
+        if ($total -gt 0) {
+          $pct = [Math]::Min(100, [int]($done * 100 / $total))
+          $totalMb = $total / 1MB
+          $line = "  {0} {1,3}%   {2:N1} / {3:N1} MB" -f (Get-Bar ($done / $total)), $pct, $doneMb, $totalMb
+        } else {
+          $line = "  {0}   {1:N1} MB" -f (Get-Bar 0), $doneMb
+        }
+        if ($IsInteractiveHost) {
+          [Console]::Error.Write("`r$line")
+        } else {
+          [Console]::Error.WriteLine($line)
+        }
+      }
+    }
+  } finally {
+    $fileStream.Close()
+    $stream.Close()
+    $response.Close()
+  }
+
+  $doneMb = $done / 1MB
+  if ($total -gt 0) {
+    $pct = [Math]::Min(100, [int]($done * 100 / $total))
+    $totalMb = $total / 1MB
+    $line = "  {0} {1,3}%   {2:N1} / {3:N1} MB" -f (Get-Bar 1.0), $pct, $doneMb, $totalMb
+  } else {
+    $line = "  {0}   {1:N1} MB" -f (Get-Bar 1.0), $doneMb
+  }
+  if ($IsInteractiveHost) {
+    [Console]::Error.Write("`r$line`n")
+  } else {
+    [Console]::Error.WriteLine($line)
+  }
+}
+
 # --- Detect architecture ---------------------------------------------------
 
 $arch = switch ($env:PROCESSOR_ARCHITECTURE) {
@@ -90,7 +176,7 @@ New-Item -ItemType Directory -Path $tmp -Force | Out-Null
 try {
   $binaryPath = Join-Path $tmp $asset
   try {
-    Invoke-WebRequest -Uri "$base/$asset" -OutFile $binaryPath -UseBasicParsing
+    Invoke-DownloadWithProgress -Url "$base/$asset" -Dest $binaryPath
   } catch {
     Die "could not download $asset from $tag.`n    That build may not exist for this platform. See $Docs"
   }
@@ -98,7 +184,7 @@ try {
   # Refuse to install an unverified binary: this file is about to be executed.
   $sumsPath = Join-Path $tmp 'SHA256SUMS'
   try {
-    Invoke-WebRequest -Uri "$base/SHA256SUMS" -OutFile $sumsPath -UseBasicParsing
+    Invoke-DownloadWithProgress -Url "$base/SHA256SUMS" -Dest $sumsPath
   } catch {
     Die "could not download SHA256SUMS; refusing to install an unverified binary"
   }
@@ -137,7 +223,7 @@ try {
     Write-Info "standard build did not start; trying the baseline build for older CPUs"
     $asset = "aifirst-windows-x64-baseline.exe"
     $binaryPath = Join-Path $tmp $asset
-    Invoke-WebRequest -Uri "$base/$asset" -OutFile $binaryPath -UseBasicParsing
+    Invoke-DownloadWithProgress -Url "$base/$asset" -Dest $binaryPath
 
     $expected = $null
     foreach ($line in Get-Content $sumsPath) {
