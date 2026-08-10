@@ -32,6 +32,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Derive content count in CI](plans/2026-08-09-derive-content-count-in-ci.md): compute the smoke test's expected total from books/*.json instead of hardcoding it | 2026-08-09 | Shipped |
 | [Content sync listener](plans/2026-08-09-content-sync-listener.md): react to `aifirstcontent`'s `repository_dispatch`, bump the pin, regenerate books, gate, and commit to main | 2026-08-09 | Shipped |
 | [Installer progress missing redirect](plans/2026-08-10-installer-progress-missing-redirect.md): follow GitHub release redirects in `download_with_progress` instead of silently writing an empty file | 2026-08-10 | Shipped |
+| [Installer Ctrl-C runaway](plans/2026-08-10-installer-ctrlc-runaway.md): kill the backgrounded downloader and re-raise SIGINT on Ctrl-C instead of leaving it orphaned | 2026-08-10 | Shipped |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the
