@@ -22,7 +22,7 @@ import { EMBEDDED_PACK_VERSION } from "../content";
 import { read as readConfig } from "../config";
 import { contentDir } from "../paths";
 import { isWindows } from "../paths";
-import { CliError, bold, dim, glyph, green, json, out, yellow } from "../output";
+import { CliError, bar, bold, dim, glyph, green, json, out, yellow } from "../output";
 import type { Format } from "../output";
 import { CONTENT_REPO, INSTALL_HOST, REPO, VERSION } from "../version";
 import { run } from "../agents/util";
@@ -48,6 +48,75 @@ async function latestRelease(repo: string): Promise<Release> {
 }
 
 const stripV = (tag: string) => tag.replace(/^v/, "");
+
+/**
+ * Streams a download, rendering `bar()` against Content-Length as bytes
+ * arrive, so `aifirst update` never goes quiet the way the buffered
+ * `arrayBuffer()`/`text()` calls it replaces did.
+ *
+ * On a TTY the line redraws in place; otherwise (CI, output piped to a
+ * file) it prints periodic plain lines instead, matching the installer's
+ * non-interactive behaviour. Bun's `Response.body` is always a
+ * `ReadableStream` for a real network response, but tests can still hand
+ * back a `Response` with no body (e.g. `new Response(null)`), so that case
+ * falls back to a single buffered read rather than throwing.
+ */
+export async function fetchWithProgress(url: string, init: RequestInit, label: string): Promise<Uint8Array> {
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    throw new CliError(`Failed to download ${label} (${res.status})`, "network");
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  const totalHeader = Number(res.headers.get("content-length"));
+  const total = Number.isFinite(totalHeader) && totalHeader > 0 ? totalHeader : undefined;
+  const isTTY = Boolean(process.stderr.isTTY);
+  const renderIntervalMs = isTTY ? 100 : 2000;
+
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  let lastRender = 0;
+
+  const render = (final: boolean) => {
+    const now = Date.now();
+    if (!final && now - lastRender < renderIntervalMs) return;
+    lastRender = now;
+    const doneMb = (received / 1_048_576).toFixed(1);
+    const line =
+      total !== undefined
+        ? `  ${bar(received / total)} ${String(Math.min(100, Math.round((received / total) * 100))).padStart(3)}%   ${doneMb} / ${(total / 1_048_576).toFixed(1)} MB`
+        : `  ${bar(0)}   ${doneMb} MB`;
+    if (isTTY) {
+      process.stderr.write(`\r${line}`);
+      if (final) process.stderr.write("\n");
+    } else {
+      process.stderr.write(`${line}\n`);
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      received += value.byteLength;
+      render(false);
+    }
+  }
+  render(true);
+
+  const result = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
 
 export async function update(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -112,11 +181,12 @@ async function updateContent(format: Format, checkOnly: boolean): Promise<void> 
 
   try {
     for (const asset of books) {
-      const res = await fetch(asset.browser_download_url, {
-        headers: { "User-Agent": `aifirst/${VERSION}` },
-      });
-      if (!res.ok) throw new CliError(`Failed to download ${asset.name} (${res.status})`, "network");
-      writeFileSync(join(stagedBooks, asset.name), await res.text());
+      const bytes = await fetchWithProgress(
+        asset.browser_download_url,
+        { headers: { "User-Agent": `aifirst/${VERSION}` } },
+        asset.name,
+      );
+      writeFileSync(join(stagedBooks, asset.name), bytes);
     }
 
     // The real gate: it must load through the same strict loader the CLI uses.
@@ -216,10 +286,11 @@ async function updateBinary(format: Format, checkOnly: boolean): Promise<void> {
   }
 
   const [binary, sums] = await Promise.all([
-    fetch(asset.browser_download_url, { headers: { "User-Agent": `aifirst/${VERSION}` } }).then((r) => {
-      if (!r.ok) throw new CliError(`Failed to download ${asset.name} (${r.status})`, "network");
-      return r.arrayBuffer();
-    }),
+    fetchWithProgress(
+      asset.browser_download_url,
+      { headers: { "User-Agent": `aifirst/${VERSION}` } },
+      asset.name,
+    ),
     (async () => {
       const sumsAsset = release.assets.find((a) => a.name === "SHA256SUMS");
       if (!sumsAsset) return undefined;
