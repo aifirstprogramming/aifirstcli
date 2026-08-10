@@ -32,14 +32,124 @@ die()  { printf '%s\n' "${RED}error${RESET} $*" >&2; exit 1; }
 # --- prerequisites ---------------------------------------------------------
 
 if command -v curl >/dev/null 2>&1; then
+  HAVE_CURL=1
   DOWNLOAD="curl -fsSL"
-  DOWNLOAD_TO="curl -fsSL -o"
 elif command -v wget >/dev/null 2>&1; then
+  HAVE_CURL=0
   DOWNLOAD="wget -qO-"
-  DOWNLOAD_TO="wget -qO"
 else
   die "need curl or wget to download aifirst"
 fi
+
+# --- download progress -------------------------------------------------
+#
+# curl's and wget's own meters were measured and rejected (see the plan at
+# docs/ai/plans/2026-08-09-installer-progress.md): they look different from
+# each other, and curl's --progress-bar still writes carriage returns even
+# when stderr is redirected to a file. Instead we render the same bar()
+# style the CLI itself uses (src/output.ts), by hand, in shell.
+#
+# Progress always goes to stderr (stdout is the piped script). [ -t 2 ], not
+# [ -t 1 ], decides whether we redraw one line or print periodic plain ones.
+
+if [ "${AIFIRST_ASCII:-}" = "1" ]; then
+  BAR_FULL="#"
+  BAR_EMPTY="."
+else
+  BAR_FULL=$(printf '\342\226\210')
+  BAR_EMPTY=$(printf '\342\226\221')
+fi
+
+# Best-effort Content-Length lookup so the bar can show a percentage. Prints
+# nothing (not an error) when it can't be determined; the download still
+# proceeds and renders a plain byte count instead of a fraction.
+content_length_for() {
+  if [ "$HAVE_CURL" = "1" ]; then
+    curl -fsSL -I "$1" 2>/dev/null | tr -d '\r' | sed -n 's/^[Cc]ontent-[Ll]ength: *\([0-9][0-9]*\)/\1/p' | tail -n1
+  else
+    wget --spider -S "$1" 2>&1 | tr -d '\r' | sed -n 's/^[[:space:]]*Content-[Ll]ength: *\([0-9][0-9]*\)/\1/p' | tail -n1
+  fi
+}
+
+# One progress line: $1 = bytes so far, $2 = total bytes (0 if unknown),
+# $3 = "1" to redraw the current line with \r, "0" to print a fresh line.
+# All the arithmetic runs in awk so a 92MB transfer never risks overflowing
+# 32-bit shell integer math.
+render_progress() {
+  info_line=$(awk -v d="$1" -v t="$2" -v w=20 -v full="$BAR_FULL" -v empty="$BAR_EMPTY" '
+    BEGIN {
+      if (t > 0) {
+        p = int(d * 100 / t)
+        if (p > 100) p = 100
+      } else {
+        p = 0
+      }
+      filled = int(p * w / 100)
+      bar = ""
+      for (i = 0; i < filled; i++) bar = bar full
+      for (i = filled; i < w; i++) bar = bar empty
+      done_mb = d / 1048576
+      if (t > 0) {
+        total_mb = t / 1048576
+        printf "%s %3d%%   %.1f / %.1f MB", bar, p, done_mb, total_mb
+      } else {
+        printf "%s   %.1f MB", bar, done_mb
+      }
+    }')
+
+  if [ "$3" = "1" ]; then
+    printf '\r  %s' "$info_line" >&2
+  else
+    printf '  %s\n' "$info_line" >&2
+  fi
+}
+
+# Downloads $1 into $2 in the background while polling its growing size to
+# drive render_progress. Exit status matches the downloader's, so callers
+# keep the existing -f/--fail semantics: a 404 still fails the install.
+download_with_progress() {
+  dl_url=$1
+  dl_dest=$2
+
+  dl_total=$(content_length_for "$dl_url")
+  case "$dl_total" in '' | *[!0-9]*) dl_total=0 ;; esac
+
+  : > "$dl_dest"
+  if [ "$HAVE_CURL" = "1" ]; then
+    # -s suppresses curl's own meter; we render our own from the growing
+    # file size below. -S keeps error text on a real failure.
+    curl -f -s -S -o "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
+  else
+    wget -q -O "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
+  fi
+  dl_pid=$!
+
+  dl_tty=0
+  [ -t 2 ] && dl_tty=1
+  dl_interval=1
+  [ "$dl_tty" = "1" ] || dl_interval=2
+
+  while kill -0 "$dl_pid" 2>/dev/null; do
+    sleep "$dl_interval"
+    dl_done=$(wc -c < "$dl_dest" 2>/dev/null | tr -d ' ')
+    [ -n "$dl_done" ] || dl_done=0
+    render_progress "$dl_done" "$dl_total" "$dl_tty"
+  done
+
+  dl_status=0
+  wait "$dl_pid" || dl_status=$?
+
+  dl_done=$(wc -c < "$dl_dest" 2>/dev/null | tr -d ' ')
+  [ -n "$dl_done" ] || dl_done=0
+  render_progress "$dl_done" "$dl_total" "$dl_tty"
+  [ "$dl_tty" = "1" ] && printf '\n' >&2
+
+  if [ "$dl_status" -ne 0 ] && [ -s "$TMP/dl.err" ]; then
+    tr -d '\r' < "$TMP/dl.err" >&2
+  fi
+
+  return "$dl_status"
+}
 
 # --- detect platform -------------------------------------------------------
 
@@ -99,12 +209,12 @@ TMP=$(mktemp -d 2>/dev/null || mktemp -d -t aifirst)
 # shellcheck disable=SC2064
 trap "rm -rf '$TMP'" EXIT INT TERM
 
-$DOWNLOAD_TO "$TMP/$ASSET" "$BASE/$ASSET" \
+download_with_progress "$BASE/$ASSET" "$TMP/$ASSET" \
   || die "could not download $ASSET from $TAG.
     That build may not exist for this platform. See $DOCS"
 
 # Refuse to install an unverified binary: this file is about to be executed.
-if $DOWNLOAD_TO "$TMP/SHA256SUMS" "$BASE/SHA256SUMS" 2>/dev/null; then
+if download_with_progress "$BASE/SHA256SUMS" "$TMP/SHA256SUMS"; then
   expected=$(grep " \*\{0,1\}$ASSET\$" "$TMP/SHA256SUMS" | awk '{print $1}' | head -n1)
   if [ -z "$expected" ]; then
     die "$ASSET is not listed in SHA256SUMS; refusing to install"
