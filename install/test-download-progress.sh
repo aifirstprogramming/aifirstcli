@@ -394,6 +394,59 @@ case "$RESULT10" in
     ;;
 esac
 
+# --- test 11: cleanup() kills the backgrounded downloader when called
+# directly (MUT1 regression guard) --------------------------------------
+# No pty, no signal delivery at all: source cleanup() and call it as a plain
+# function. The only way DL_PID can die here is the explicit kill line
+# inside cleanup() itself, since nothing else in this test can touch it.
+
+DL_PID=""
+# shellcheck disable=SC2034  # read by cleanup() once sourced from $CLEANUP_LIB below, not visible to shellcheck in this file
+TMP=$(mktemp -d)
+sleep 30 &
+DL_PID=$!
+# shellcheck source=/dev/null
+. "$CLEANUP_LIB"
+cleanup
+sleep 0.3
+if kill -0 "$DL_PID" 2>/dev/null; then
+  fail "cleanup_kills_backgrounded_downloader_direct_invocation" "child $DL_PID still alive after direct cleanup() call"
+  kill "$DL_PID" 2>/dev/null || true
+else
+  pass "cleanup_kills_backgrounded_downloader_direct_invocation"
+fi
+
+# --- test 12: SIGINT to a non-pty backgrounded runner produces a
+# signal-terminated exit (MUT3 regression guard) -------------------------
+# No controlling terminal in this process tree at all (plain subprocess,
+# not a pty): the only way the runner's exit is reported as signaled is the
+# trap's own re-raise, not any tty-level signal fan-out.
+
+RUNNER12="$WORK/runner12.sh"
+cat > "$RUNNER12" <<EOF
+#!/bin/sh
+set -eu
+. "$CLEANUP_LIB"
+TMP=\$(mktemp -d)
+DL_PID=""
+$INT_TRAP_LINE
+$EXIT_TRAP_LINE
+sleep 30 &
+DL_PID=\$!
+wait "\$DL_PID"
+echo "RUNNER_EXIT=\$?"
+EOF
+chmod +x "$RUNNER12"
+RESULT12=$(python3 "$FIXTURE_DIR/kill_int_no_pty_driver.py" "$RUNNER12" 0.5)
+case "$RESULT12" in
+  *signaled=True*signal=2*)
+    pass "sigint_without_pty_produces_signal_terminated_exit ($RESULT12)"
+    ;;
+  *)
+    fail "sigint_without_pty_produces_signal_terminated_exit" "$RESULT12"
+    ;;
+esac
+
 if [ "$FAIL" = "1" ]; then
   echo "one or more download_with_progress regression tests FAILED"
   exit 1
