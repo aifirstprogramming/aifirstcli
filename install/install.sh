@@ -121,24 +121,30 @@ download_with_progress() {
   else
     wget -q -O "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
   fi
-  dl_pid=$!
+  DL_PID=$!
 
   dl_tty=0
   [ -t 2 ] && dl_tty=1
   dl_interval=1
   [ "$dl_tty" = "1" ] || dl_interval=2
 
-  while kill -0 "$dl_pid" 2>/dev/null; do
+  while kill -0 "$DL_PID" 2>/dev/null; do
     sleep "$dl_interval"
+    # The download's own cleanup (or an external actor) can remove $dl_dest
+    # out from under us; without this the loop spins forever on a bash
+    # redirection error instead of stopping.
+    [ -e "$dl_dest" ] || break
     dl_done=$(wc -c < "$dl_dest" 2>/dev/null | tr -d ' ')
     [ -n "$dl_done" ] || dl_done=0
     render_progress "$dl_done" "$dl_total" "$dl_tty"
   done
 
   dl_status=0
-  wait "$dl_pid" || dl_status=$?
+  wait "$DL_PID" || dl_status=$?
+  DL_PID=""
 
-  dl_done=$(wc -c < "$dl_dest" 2>/dev/null | tr -d ' ')
+  dl_done=0
+  [ -e "$dl_dest" ] && dl_done=$(wc -c < "$dl_dest" 2>/dev/null | tr -d ' ')
   [ -n "$dl_done" ] || dl_done=0
   render_progress "$dl_done" "$dl_total" "$dl_tty"
   [ "$dl_tty" = "1" ] && printf '\n' >&2
@@ -205,8 +211,18 @@ say ""
 # --- download and verify ---------------------------------------------------
 
 TMP=$(mktemp -d 2>/dev/null || mktemp -d -t aifirst)
-# shellcheck disable=SC2064
-trap "rm -rf '$TMP'" EXIT INT TERM
+DL_PID=""
+
+# Kill the backgrounded downloader on interrupt: a non-interactive shell makes
+# bash ignore SIGINT for background children, so Ctrl-C alone never reaches curl.
+cleanup() {
+  [ -n "${DL_PID:-}" ] && kill "$DL_PID" 2>/dev/null
+  rm -rf "$TMP"
+}
+# Re-raise SIGINT after cleanup so the calling shell sees a real signal
+# termination (exit 130), not a plain nonzero exit.
+trap 'cleanup; trap - INT; kill -INT $$' INT
+trap cleanup EXIT TERM
 
 download_with_progress "$BASE/$ASSET" "$TMP/$ASSET" \
   || die "could not download $ASSET from $TAG.
