@@ -116,9 +116,8 @@ download_with_progress() {
 
   : > "$dl_dest"
   if [ "$HAVE_CURL" = "1" ]; then
-    # -s suppresses curl's own meter; we render our own from the growing
-    # file size below. -S keeps error text on a real failure.
-    curl -f -s -S -o "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
+    # -L: GitHub release URLs redirect; without it curl silently writes an empty body.
+    curl -fsSL -o "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
   else
     wget -q -O "$dl_dest" "$dl_url" 2>"$TMP/dl.err" &
   fi
