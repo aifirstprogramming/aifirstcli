@@ -399,22 +399,35 @@ esac
 # No pty, no signal delivery at all: source cleanup() and call it as a plain
 # function. The only way DL_PID can die here is the explicit kill line
 # inside cleanup() itself, since nothing else in this test can touch it.
-
-DL_PID=""
-# shellcheck disable=SC2034  # read by cleanup() once sourced from $CLEANUP_LIB below, not visible to shellcheck in this file
-TMP=$(mktemp -d)
-sleep 30 &
-DL_PID=$!
-# shellcheck source=/dev/null
-. "$CLEANUP_LIB"
-cleanup
-sleep 0.3
-if kill -0 "$DL_PID" 2>/dev/null; then
-  fail "cleanup_kills_backgrounded_downloader_direct_invocation" "child $DL_PID still alive after direct cleanup() call"
-  kill "$DL_PID" 2>/dev/null || true
-else
-  pass "cleanup_kills_backgrounded_downloader_direct_invocation"
-fi
+#
+# Runs in a subshell so sourcing $CLEANUP_LIB's cleanup() only shadows this
+# subshell's function table, never the harness's own cleanup() (used by this
+# script's own `trap cleanup EXIT INT TERM` above) or its exit status.
+TEST11_RESULT=$(
+  DL_PID=""
+  # shellcheck disable=SC2034  # read by cleanup() once sourced from $CLEANUP_LIB below, not visible to shellcheck in this file
+  TMP=$(mktemp -d)
+  sleep 30 &
+  DL_PID=$!
+  # shellcheck source=/dev/null
+  . "$CLEANUP_LIB"
+  cleanup
+  sleep 0.3
+  if kill -0 "$DL_PID" 2>/dev/null; then
+    echo "still-alive $DL_PID"
+    kill "$DL_PID" 2>/dev/null || true
+  else
+    echo "dead"
+  fi
+)
+case "$TEST11_RESULT" in
+  dead)
+    pass "cleanup_kills_backgrounded_downloader_direct_invocation"
+    ;;
+  *)
+    fail "cleanup_kills_backgrounded_downloader_direct_invocation" "child $TEST11_RESULT after direct cleanup() call"
+    ;;
+esac
 
 # --- test 12: SIGINT to a non-pty backgrounded runner produces a
 # signal-terminated exit (MUT3 regression guard) -------------------------
