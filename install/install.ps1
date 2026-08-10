@@ -54,7 +54,7 @@ try {
 $IsInteractiveHost = -not [Console]::IsErrorRedirected -and $null -ne $Host.UI.RawUI
 
 function Get-Bar([double]$Fraction, [int]$Width = 20) {
-  $clamped = [Math]::Max(0, [Math]::Min(1, $Fraction))
+  $clamped = [Math]::Max(0.0, [Math]::Min($Fraction, 1.0))
   $filled = [Math]::Round($clamped * $Width)
   if ($env:AIFIRST_ASCII -eq '1') {
     $full = '#'; $empty = '.'
