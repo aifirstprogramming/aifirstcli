@@ -173,3 +173,112 @@ shellcheck --shell=sh install/install.sh install/test-download-progress.sh: one 
 bun scripts/build.ts --local: aifirst-linux-x64 built, 92.1 MB
 ./bin/aifirst-linux-x64 --version: 0.6.0
 ```
+
+## Rework: test 11 was shadowing the harness's own cleanup()
+
+The independent-verifier rejected the first attempt. Test 11 did `. "$CLEANUP_LIB"` at the top
+level of `install/test-download-progress.sh`, which redefines `cleanup()` in the whole script's
+function table, not just for that test. That permanently replaces the harness's own `cleanup()`
+(the one the file's own `trap cleanup EXIT INT TERM` depends on to kill fixture-server PIDs and
+remove the scratch `WORK` dir) with `install.sh`'s `cleanup()` for the rest of the script's
+lifetime. Two effects followed: fixture HTTP servers on ports 8551-8560 leaked past every run
+because the swapped-in `cleanup()` doesn't know about `$PIDS`, and the script's own exit code
+came from the swapped-in `cleanup()`'s return value instead of the trap's real intent, producing
+exit 1 on a run where every individual test printed `ok`.
+
+**Fix:** moved test 11's body into a `$(...)` subshell. Sourcing `$CLEANUP_LIB` inside a subshell
+only redefines `cleanup()` in that subshell's own function table; the parent script (and its
+`trap cleanup EXIT INT TERM`) never sees the substitution. The subshell communicates its result
+back to the parent via stdout (`echo dead` or `echo "still-alive $DL_PID"`), which the parent
+then asserts on with a `case` statement.
+
+### What I verified for the rework (freshly run, not carried forward)
+
+Clean full run, twice in a row on a freshly restarted container, confirming no leaked fixture
+processes and a correct exit code:
+
+```
+ok   redirect_follows_and_downloads_full_bytes (1049353 bytes)
+ok   progress_shows_intermediate_values (5 distinct mid-range percentages)
+ok   non_tty_output_has_no_carriage_returns
+ok   corrupted_download_rejected (checksum mismatch correctly detected)
+ok   http_404_still_fails (non-zero exit, empty file)
+ok   sigint_during_curl_download_exits_promptly_no_spam (elapsed=1.34 signaled=True signal=2 exit=-1)
+ok   sigint_during_curl_download_exits_promptly_no_spam (no orphaned curl)
+ok   sigint_during_wget_download_exits_promptly_no_spam (elapsed=1.01 signaled=True signal=2 exit=-1)
+ok   sigint_during_wget_download_exits_promptly_no_spam (no orphaned wget)
+ok   single_sigint_is_sufficient (elapsed=1.39 signaled=True signal=2 exit=-1, one \x03 sent)
+ok   dest_file_deleted_mid_transfer_breaks_loop (no timeout, no spam)
+ok   double_sigint_does_not_double_cleanup_error (elapsed=1.34 signaled=True signal=2 exit=-1)
+ok   cleanup_kills_backgrounded_downloader_direct_invocation
+ok   sigint_without_pty_produces_signal_terminated_exit (signaled=True signal=2 exit=-1)
+all download_with_progress regression tests passed
+```
+
+`echo $?` reported `0` on both runs. `pgrep -fa python3` / `pgrep -fa curl` / `pgrep -fa wget`
+immediately after each run returned nothing (only the `pgrep` invocation itself, which always
+matches its own command line).
+
+**MUT1 self-verification, re-run against the fixed test file** (delete
+`[ -n "${DL_PID:-}" ] && kill "$DL_PID" 2>/dev/null` from `cleanup()` in the tracked
+`install/install.sh`, run the suite, revert):
+
+Mutated run, new test correctly fails, everything else still green, overall exit code correctly 1:
+```
+ok   redirect_follows_and_downloads_full_bytes (1049353 bytes)
+ok   progress_shows_intermediate_values (5 distinct mid-range percentages)
+ok   non_tty_output_has_no_carriage_returns
+ok   corrupted_download_rejected (checksum mismatch correctly detected)
+ok   http_404_still_fails (non-zero exit, empty file)
+ok   sigint_during_curl_download_exits_promptly_no_spam (elapsed=1.35 signaled=True signal=2 exit=-1)
+ok   sigint_during_curl_download_exits_promptly_no_spam (no orphaned curl)
+ok   sigint_during_wget_download_exits_promptly_no_spam (elapsed=1.01 signaled=True signal=2 exit=-1)
+ok   sigint_during_wget_download_exits_promptly_no_spam (no orphaned wget)
+ok   single_sigint_is_sufficient (elapsed=1.01 signaled=True signal=2 exit=-1, one \x03 sent)
+ok   dest_file_deleted_mid_transfer_breaks_loop (no timeout, no spam)
+ok   double_sigint_does_not_double_cleanup_error (elapsed=1.01 signaled=True signal=2 exit=-1)
+FAIL cleanup_kills_backgrounded_downloader_direct_invocation: child still-alive 4432 after direct cleanup() call
+ok   sigint_without_pty_produces_signal_terminated_exit (signaled=True signal=2 exit=-1)
+one or more download_with_progress regression tests FAILED
+```
+`echo $?` reported `1`. `pgrep` checks immediately after showed no leaked fixture processes.
+
+Reverted (`git checkout -- install/install.sh`), same test passes again:
+```
+ok   cleanup_kills_backgrounded_downloader_direct_invocation
+ok   sigint_without_pty_produces_signal_terminated_exit (signaled=True signal=2 exit=-1)
+all download_with_progress regression tests passed
+```
+`echo $?` reported `0`.
+
+**MUT3 self-verification, re-run against the fixed test file** (replace
+`trap 'cleanup; trap - INT; kill -INT $$' INT` with plain `trap 'cleanup' INT`, run the suite,
+revert):
+
+Mutated run, new test correctly fails, everything else still green:
+```
+ok   redirect_follows_and_downloads_full_bytes (1049353 bytes)
+ok   progress_shows_intermediate_values (5 distinct mid-range percentages)
+ok   non_tty_output_has_no_carriage_returns
+ok   corrupted_download_rejected (checksum mismatch correctly detected)
+ok   http_404_still_fails (non-zero exit, empty file)
+ok   sigint_during_curl_download_exits_promptly_no_spam (elapsed=1.35 signaled=True signal=2 exit=-1)
+ok   sigint_during_curl_download_exits_promptly_no_spam (no orphaned curl)
+ok   sigint_during_wget_download_exits_promptly_no_spam (elapsed=1.01 signaled=True signal=2 exit=-1)
+ok   sigint_during_wget_download_exits_promptly_no_spam (no orphaned wget)
+ok   single_sigint_is_sufficient (elapsed=1.39 signaled=True signal=2 exit=-1, one \x03 sent)
+ok   dest_file_deleted_mid_transfer_breaks_loop (no timeout, no spam)
+ok   double_sigint_does_not_double_cleanup_error (elapsed=1.34 signaled=True signal=2 exit=-1)
+ok   cleanup_kills_backgrounded_downloader_direct_invocation
+FAIL sigint_without_pty_produces_signal_terminated_exit: signaled=False signal=0 exit=1
+one or more download_with_progress regression tests FAILED
+```
+`echo $?` reported `1`. `pgrep` checks immediately after showed no leaked fixture processes.
+
+Reverted, same test passes again:
+```
+ok   cleanup_kills_backgrounded_downloader_direct_invocation
+ok   sigint_without_pty_produces_signal_terminated_exit (signaled=True signal=2 exit=-1)
+all download_with_progress regression tests passed
+```
+`echo $?` reported `0`. `git diff install/install.sh` empty after revert.
