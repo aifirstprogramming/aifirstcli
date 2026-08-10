@@ -198,6 +198,202 @@ else
   fi
 fi
 
+# --- library: pull install.sh's top-level cleanup/trap block too -----------
+# Tests 6-9 need the real trap wiring (cleanup, DL_PID, re-raised SIGINT), not
+# just download_with_progress in isolation, since the bug lives in how the
+# top-level trap and the polling loop interact.
+
+CLEANUP_LIB="$WORK/cleanup_lib.sh"
+awk '
+  /^content_length_for\(\)/,/^}$/ { print }
+  /^render_progress\(\)/,/^}$/    { print }
+  /^download_with_progress\(\)/,/^}$/ { print }
+  /^cleanup\(\)/,/^}$/ { print }
+' "$INSTALL_SH" > "$CLEANUP_LIB"
+grep -q '^cleanup()' "$CLEANUP_LIB" || { echo "failed to extract cleanup from install.sh" >&2; exit 1; }
+
+# Pull install.sh's own top-level trap lines verbatim rather than hardcoding
+# them in the runner below, so a regression in the trap wiring itself (e.g. a
+# dropped re-raise) is something this harness can actually catch.
+INT_TRAP_LINE=$(grep -m1 "^trap .* INT$" "$INSTALL_SH")
+EXIT_TRAP_LINE=$(grep -m1 "^trap cleanup EXIT TERM$" "$INSTALL_SH")
+[ -n "$INT_TRAP_LINE" ] || { echo "failed to extract INT trap from install.sh" >&2; exit 1; }
+[ -n "$EXIT_TRAP_LINE" ] || { echo "failed to extract EXIT/TERM trap from install.sh" >&2; exit 1; }
+
+# A slow-server harness that mirrors install.sh's own top-level shape: a real
+# script (not a sourced function) with its own TMP, DL_PID, cleanup and traps,
+# run under a pty so a genuine \x03 hits the real foreground process group.
+make_ctrlc_runner() {
+  # make_ctrlc_runner <path> <url> <dest> <install-dir-unused>
+  runner=$1
+  url=$2
+  dest=$3
+  cat > "$runner" <<EOF
+#!/bin/sh
+set -eu
+. "$CLEANUP_LIB"
+HAVE_CURL=\${FORCE_WGET:-0}
+if [ "\$HAVE_CURL" = "1" ]; then HAVE_CURL=0; else HAVE_CURL=1; fi
+BAR_FULL=\$(printf '\\342\\226\\210')
+BAR_EMPTY=\$(printf '\\342\\226\\221')
+TMP=\$(mktemp -d)
+DL_PID=""
+$INT_TRAP_LINE
+$EXIT_TRAP_LINE
+download_with_progress "$url" "$dest"
+echo "DOWNLOAD_EXIT=\$?"
+EOF
+  chmod +x "$runner"
+}
+
+# --- test 6: Ctrl-C during download exits promptly with no spam (curl) -----
+
+SLOW_PORT=8560
+start_server "$SLOW_PORT" python3 "$FIXTURE_DIR/throttled_server.py" "$SLOW_PORT" "$WORK/asset.bin"
+
+DEST6="$WORK/ctrlc_curl.bin"
+RUNNER6="$WORK/runner6.sh"
+make_ctrlc_runner "$RUNNER6" "http://127.0.0.1:$SLOW_PORT/asset.bin" "$DEST6"
+LOG6="$WORK/ctrlc_curl.log"
+RESULT6=$(python3 "$FIXTURE_DIR/pty_sigint_driver.py" "sh '$RUNNER6'" "$LOG6" 0.6)
+spam6=$(grep -c 'cannot open.*No such file' "$LOG6" 2>/dev/null || true)
+[ -n "$spam6" ] || spam6=0
+tmp6=$(sed -n 's/.*TMP=\(\S*\).*/\1/p' "$RUNNER6" 2>/dev/null || true)
+
+case "$RESULT6" in
+  *signaled=True*signal=2*)
+    if [ "$spam6" = "0" ]; then
+      pass "sigint_during_curl_download_exits_promptly_no_spam ($RESULT6)"
+    else
+      fail "sigint_during_curl_download_exits_promptly_no_spam" "$spam6 spam lines in $LOG6"
+    fi
+    ;;
+  *)
+    fail "sigint_during_curl_download_exits_promptly_no_spam" "$RESULT6"
+    ;;
+esac
+
+# No orphaned curl should survive, immediately and after a short delay.
+if pgrep -f "127.0.0.1:$SLOW_PORT" >/dev/null 2>&1; then
+  fail "sigint_during_curl_download_exits_promptly_no_spam" "curl still running immediately after exit"
+else
+  sleep 1
+  if pgrep -f "127.0.0.1:$SLOW_PORT" >/dev/null 2>&1; then
+    fail "sigint_during_curl_download_exits_promptly_no_spam" "curl re-appeared 1s after exit"
+  else
+    pass "sigint_during_curl_download_exits_promptly_no_spam (no orphaned curl)"
+  fi
+fi
+
+# --- test 7: Ctrl-C during download exits promptly with no spam (wget) -----
+
+DEST7="$WORK/ctrlc_wget.bin"
+RUNNER7="$WORK/runner7.sh"
+make_ctrlc_runner "$RUNNER7" "http://127.0.0.1:$SLOW_PORT/asset.bin" "$DEST7"
+LOG7="$WORK/ctrlc_wget.log"
+RESULT7=$(FORCE_WGET=1 python3 "$FIXTURE_DIR/pty_sigint_driver.py" "FORCE_WGET=1 sh '$RUNNER7'" "$LOG7" 0.6)
+spam7=$(grep -c 'cannot open.*No such file' "$LOG7" 2>/dev/null || true)
+[ -n "$spam7" ] || spam7=0
+
+case "$RESULT7" in
+  *signaled=True*signal=2*)
+    if [ "$spam7" = "0" ]; then
+      pass "sigint_during_wget_download_exits_promptly_no_spam ($RESULT7)"
+    else
+      fail "sigint_during_wget_download_exits_promptly_no_spam" "$spam7 spam lines in $LOG7"
+    fi
+    ;;
+  *)
+    fail "sigint_during_wget_download_exits_promptly_no_spam" "$RESULT7"
+    ;;
+esac
+
+if pgrep -f "wget.*127.0.0.1:$SLOW_PORT" >/dev/null 2>&1; then
+  fail "sigint_during_wget_download_exits_promptly_no_spam" "wget still running immediately after exit"
+else
+  pass "sigint_during_wget_download_exits_promptly_no_spam (no orphaned wget)"
+fi
+
+# --- test 8: a single Ctrl-C is sufficient ----------------------------------
+# The driver above already sends exactly one \x03; this test asserts the
+# process is gone (not merely "should be gone") before we'd even consider a
+# second signal, by checking there is nothing left to send it to.
+
+DEST8="$WORK/ctrlc_single.bin"
+RUNNER8="$WORK/runner8.sh"
+make_ctrlc_runner "$RUNNER8" "http://127.0.0.1:$SLOW_PORT/asset.bin" "$DEST8"
+LOG8="$WORK/ctrlc_single.log"
+RESULT8=$(python3 "$FIXTURE_DIR/pty_sigint_driver.py" "sh '$RUNNER8'" "$LOG8" 0.6)
+case "$RESULT8" in
+  *signaled=True*signal=2*)
+    pass "single_sigint_is_sufficient ($RESULT8, one \\x03 sent)"
+    ;;
+  *)
+    fail "single_sigint_is_sufficient" "$RESULT8"
+    ;;
+esac
+
+# --- test 9: destination deleted mid-transfer breaks the loop (no signal) --
+# Directly exercises the defensive `[ -e "$dl_dest" ] || break` addition,
+# independent of the kill/signal path.
+
+DEST9="$WORK/deleted_mid_transfer.bin"
+RUNNER9="$WORK/runner9.sh"
+cat > "$RUNNER9" <<EOF
+#!/bin/sh
+set -eu
+. "$CLEANUP_LIB"
+HAVE_CURL=1
+BAR_FULL=\$(printf '\342\226\210')
+BAR_EMPTY=\$(printf '\342\226\221')
+TMP=\$(mktemp -d)
+DL_PID=""
+trap cleanup EXIT TERM
+download_with_progress "http://127.0.0.1:$SLOW_PORT/asset.bin" "$DEST9" &
+runner_pid=\$!
+sleep 0.5
+rm -f "$DEST9"
+wait "\$runner_pid"
+echo "LOOP_EXIT=\$?"
+EOF
+chmod +x "$RUNNER9"
+LOG9="$WORK/deleted_mid_transfer.log"
+loop9_status=0
+# The full throttled transfer takes about 11s regardless of whether the loop
+# breaks early, since curl itself is unaffected by the missing dest file.
+# This timeout is a safety net against a genuine hang. The spam count below
+# is the actual assertion.
+timeout 20 sh "$RUNNER9" >"$LOG9" 2>&1 || loop9_status=$?
+spam9=$(grep -c 'cannot open.*No such file' "$LOG9" 2>/dev/null || true)
+[ -n "$spam9" ] || spam9=0
+if [ "$loop9_status" != "124" ] && [ "$spam9" = "0" ]; then
+  pass "dest_file_deleted_mid_transfer_breaks_loop (no timeout, no spam)"
+else
+  fail "dest_file_deleted_mid_transfer_breaks_loop" "status=$loop9_status spam=$spam9 (see $LOG9)"
+fi
+
+# --- test 10: a second Ctrl-C right after the first does not double-cleanup -
+
+DEST10="$WORK/ctrlc_double.bin"
+RUNNER10="$WORK/runner10.sh"
+make_ctrlc_runner "$RUNNER10" "http://127.0.0.1:$SLOW_PORT/asset.bin" "$DEST10"
+LOG10="$WORK/ctrlc_double.log"
+RESULT10=$(python3 "$FIXTURE_DIR/pty_sigint_driver.py" "sh '$RUNNER10'" "$LOG10" 0.6 --double)
+rm_errors10=$(grep -ci "rm: cannot remove\|cannot open.*No such file" "$LOG10" 2>/dev/null || true)
+[ -n "$rm_errors10" ] || rm_errors10=0
+case "$RESULT10" in
+  *signaled=True*signal=2*)
+    if [ "$rm_errors10" = "0" ]; then
+      pass "double_sigint_does_not_double_cleanup_error ($RESULT10)"
+    else
+      fail "double_sigint_does_not_double_cleanup_error" "$rm_errors10 error lines in $LOG10"
+    fi
+    ;;
+  *)
+    fail "double_sigint_does_not_double_cleanup_error" "$RESULT10"
+    ;;
+esac
+
 if [ "$FAIL" = "1" ]; then
   echo "one or more download_with_progress regression tests FAILED"
   exit 1
