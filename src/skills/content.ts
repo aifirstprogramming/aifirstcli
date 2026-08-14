@@ -242,7 +242,7 @@ argument-hint: <exercise-id, e.g. py-2-06>
 Run \`aifirst run $ARGUMENTS --format json\`.
 
 That writes the book's code, executes it, and records the exercise only if it ran.
-Present the code **verbatim** — no reformatting, no renaming, no added comments —
+Present the code **verbatim** (no reformatting, no renaming, no added comments),
 then the exercise's own \`Explanation:\` rather than one you write, then the
 program's actual output. For a multi-step exercise, note that each step modifies
 the previous result.
@@ -300,7 +300,7 @@ book's code, runs it, and records the exercise only if it ran — or
 \`aifirst show <id> --format json\` if they only want to see it. Reproduce the
 \`response\` field verbatim; the learner is comparing it against a printed page, so
 any reformatting or renaming is a defect. Each step also carries an \`explanation\`,
-stored AI First content library material — present that rather than writing your
+stored AI First content library material; present that rather than writing your
 own. Present the code first, then the \`Explanation:\`, then the program's real
 output, and report completion only after the output.
 
