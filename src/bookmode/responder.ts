@@ -11,8 +11,10 @@
  * here and tested without a socket. `serve.ts` only encodes what this returns.
  */
 
-import { exercisePath, findMatchingStep } from "@aifirst/content";
-import type { Content, Example, Step } from "../content/types";
+import { findMatchingStep } from "@aifirst/content";
+import { chatCommandError, isLocalCommand, localHelp, parseChatCommand } from "./commands";
+import { renderStep } from "./render";
+import type { Content } from "../content/types";
 import type { ProgressLog } from "../log/progress";
 
 /** The subset of an Anthropic request this needs. Everything else is ignored. */
@@ -119,40 +121,6 @@ export function carriesToolResult(messages: RequestMessage[] | undefined): boole
   return toolResult(messages) !== undefined;
 }
 
-function fence(language: string): string {
-  return language === "java" ? "java" : "python";
-}
-
-/** The answer for a matched exercise: the book's code, then the book's notes. */
-function answer(example: Example, step: Step): string {
-  const parts: string[] = [];
-  const where = exercisePath(example, step);
-
-  parts.push(`**${example.title}**  ·  ${example.id}`);
-  parts.push(`${example.bookTitle} — ${example.chapterTitle}`);
-  parts.push("");
-  parts.push(`\`\`\`${fence(example.language)}`);
-  parts.push(step.response);
-  parts.push("```");
-
-  const explanation = step.explanation;
-  if (explanation) {
-    parts.push("");
-    parts.push(explanation.summary);
-    if (explanation.lines.length > 0) {
-      parts.push("");
-      parts.push("Worth noticing:");
-      for (const line of explanation.lines) {
-        parts.push("");
-        parts.push(`- \`${line.code.trim()}\` — ${line.text}`);
-      }
-    }
-  }
-
-  parts.push("");
-  parts.push(`Writing it to \`${where}\` and running it.`);
-  return parts.join("\n");
-}
 
 /**
  * What to say once the exercise has run — or failed to.
@@ -213,6 +181,42 @@ function refusal(typed: string): string {
   ].join("\n");
 }
 
+function chatReply(typed: string, content: Content, log: ProgressLog): Reply | undefined {
+  const command = parseChatCommand(typed);
+  if (!command) {
+    return /\baifirst\b/i.test(typed)
+      ? { text: chatCommandError(""), stopReason: "end_turn" }
+      : undefined;
+  }
+  if (!isLocalCommand(command.command)) {
+    return { text: chatCommandError(command.command), stopReason: "end_turn" };
+  }
+  if (command.command === "help") return { text: localHelp(), stopReason: "end_turn" };
+
+  if (command.command === "show" || command.command === "prompt") {
+    const id = command.positionals[0];
+    const step = id ? content.steps.find((item) => item.id === id) : undefined;
+    const example = step ? content.examples.find((item) => item.id === step.exampleId) : undefined;
+    if (step && example) return { text: renderStep(example, step), stopReason: "end_turn", exerciseId: step.id };
+    return { text: "local learning could not find that exercise. Try `aifirst show py-1-01`.", stopReason: "end_turn" };
+  }
+
+  if (command.command === "next") {
+    const next = content.examples.find((example) => !log.exercises[example.id]);
+    if (!next) return { text: "No next exercise is available.", stopReason: "end_turn" };
+    return {
+      text: `Next exercise: ${next.id}, ${next.title}. Use \`aifirst show ${next.id}\` for the walkthrough.`,
+      stopReason: "end_turn",
+      exerciseId: next.id,
+    };
+  }
+
+  return {
+    text: `local learning accepts \`aifirst ${command.command}\`. Run the same command in your terminal for its full output.`,
+    stopReason: "end_turn",
+  };
+}
+
 export interface RespondOptions {
   /** Restrict matching to the reader's book, so a Python reader never gets Java. */
   language?: string;
@@ -231,6 +235,8 @@ export function respond(
   }
 
   const typed = readerText(request.messages);
+  const chat = chatReply(typed, content, log);
+  if (chat) return chat;
   const step = typed ? findMatchingStep(typed, content.steps, options.language) : null;
   if (!step) {
     return { text: refusal(typed), stopReason: "end_turn" };
@@ -249,14 +255,14 @@ export function respond(
     // No shell tool on offer: still give the reader the answer and the command,
     // rather than a tool call the client cannot execute.
     return {
-      text: `${answer(example, step)}\n\nRun it with:\n\n\`\`\`\n${command}\n\`\`\``,
+      text: `${renderStep(example, step)}\n\nRun it with:\n\n\`\`\`\n${command}\n\`\`\``,
       stopReason: "end_turn",
       exerciseId: step.id,
     };
   }
 
   return {
-    text: answer(example, step),
+    text: renderStep(example, step),
     toolUse: { name: tool, input: { command, description: `Run ${step.id} and record it` } },
     stopReason: "tool_use",
     exerciseId: step.id,

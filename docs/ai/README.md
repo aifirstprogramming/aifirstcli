@@ -34,6 +34,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Installer progress missing redirect](plans/2026-08-10-installer-progress-missing-redirect.md): follow GitHub release redirects in `download_with_progress` instead of silently writing an empty file | 2026-08-10 | Shipped |
 | [Installer Ctrl-C runaway](plans/2026-08-10-installer-ctrlc-runaway.md): kill the backgrounded downloader and re-raise SIGINT on Ctrl-C instead of leaving it orphaned | 2026-08-10 | Shipped |
 | [Installer Ctrl-C mutation coverage](plans/2026-08-10-installer-ctrlc-mutation-coverage.md): add tty-independent tests that actually catch a dropped kill line or a dropped SIGINT re-raise, closing a gap two of the existing pty-driven tests missed | 2026-08-10 | Shipped |
+| [Local learning wrapper](plans/2026-08-13-local-learning-wrapper.md): run Claude Code against a temporary loopback book responder without using the reader's normal profile or credentials | 2026-08-13 | Shipped on the feature branch |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the

@@ -27,6 +27,7 @@ Then:
 aifirst init      # sets up the AI tools it finds, and asks which book you're reading
 aifirst next      # your next exercise
 aifirst run <id>  # write the book's code, run it, record it
+aifirst learn     # open a temporary local Claude Code session for the book
 ```
 
 Nothing else is required — no Node, no Python, no JVM. The binary is self-contained and ships with all
@@ -82,6 +83,7 @@ aifirst at [<id>]                   show or move where you are in the book
 aifirst diff <id> [file]            does your file match the book?
 aifirst serve [--port N]            book mode: serve the book with no model
 aifirst book-mode on|off|status     point Claude Code at it, or put it back
+aifirst learn [--recover] [-- <claude args...>]
 aifirst reset <id>|--all
 aifirst progress [--format text|json|md]
 aifirst doctor
@@ -162,6 +164,30 @@ Book mode is a convenience, not a supported Claude Code configuration. It works 
 speaking the public Messages API to a client that is free to change; if a Claude Code
 update breaks it, `aifirst book-mode off` puts everything back and the rest of the
 CLI is unaffected.
+
+### Local learning session
+
+`aifirst learn` starts the local book responder and opens Claude Code against it
+for the current terminal session:
+
+```sh
+aifirst learn
+```
+
+It starts Claude Code with `--bare` and a temporary settings file. The session
+does not change `~/.claude/settings.json`, use the normal Claude profile, or
+receive normal Claude authentication variables. The responder binds an unused
+loopback port, so another local book server does not block it.
+
+In the session, use complete commands such as `aifirst next` and
+`aifirst show py-1-01`. Stored exercise replies show Code first and Explanation
+second. General questions and commands that alter configuration or state stay
+in the terminal instead of running through the local chat.
+
+When Claude Code exits, the temporary responder, settings directory, and
+session record are removed. If the terminal or process is interrupted, run
+`aifirst learn --recover` after confirming no local learning session is still
+active. `aifirst doctor` reports active, stale, and malformed session state.
 
 ## What "done" means
 

@@ -18,6 +18,7 @@ import { progressFile, stateDir } from "../paths";
 import { bold, dim, glyph, green, json, out, red, table, yellow } from "../output";
 import { VERSION } from "../version";
 import { bookModeBaseUrl } from "../bookmode/port";
+import { learningSessionStatus } from "../learn/session";
 
 export async function doctor(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -60,6 +61,7 @@ export async function doctor(args: Args): Promise<void> {
       log: { path: progressFile(), exists: existsSync(progressFile()), counts },
       agents: skills,
       permissionsOptOut: optedOut,
+      learningSession: learningSessionStatus(),
       ok: configured.length > 0 && drifted.length === 0 && unapproved.length === 0,
     });
     if (configured.length === 0 || drifted.length > 0 || unapproved.length > 0) process.exitCode = 1;
@@ -96,6 +98,20 @@ export async function doctor(args: Args): Promise<void> {
     ),
   );
   out();
+
+  const learning = learningSessionStatus();
+  if (learning.state !== "none") {
+    out(`  ${bold("Local learning")}`);
+    if (learning.state === "active") {
+      out(dim("    a temporary Claude Code session is active"));
+    } else if (learning.state === "stale") {
+      out(yellow("    stale session state found"));
+      out(dim(`    ${glyph.arrow} aifirst learn --recover`));
+    } else {
+      out(yellow("    session state is ambiguous and was left untouched"));
+    }
+    out();
+  }
 
   out(`  ${bold("Tools")}`);
   for (const s of skills) {

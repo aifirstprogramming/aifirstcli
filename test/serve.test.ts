@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import type { BookServer } from "../src/commands/serve";
 import { respond, toolResult } from "../src/bookmode/responder";
 import { bodyReply, streamReply } from "../src/bookmode/sse";
 import { resolveContent } from "../src/content";
@@ -118,30 +119,21 @@ describe("what happened to the command", () => {
 });
 
 describe("the server", () => {
-  let server: ReturnType<typeof Bun.serve> | undefined;
+  let server: BookServer | undefined;
   let base = "";
   let fetchCalls = 0;
   const realFetch = globalThis.fetch;
 
   beforeAll(async () => {
-    const { serve } = await import("../src/commands/serve");
+    const { startBookServer } = await import("../src/commands/serve");
     // Count any outbound call the serving path makes. Book mode's whole claim is
     // that nothing leaves the machine, so this is asserted rather than intended.
     globalThis.fetch = ((...args: Parameters<typeof realFetch>) => {
       fetchCalls++;
       return realFetch(...args);
     }) as typeof realFetch;
-    // Args.flags is a Map, not a plain object.
-    void serve({
-      command: "serve",
-      positionals: [],
-      flags: new Map<string, string | boolean>([
-        ["port", "8299"],
-        ["quiet", true],
-      ]),
-    } as never);
-    base = "http://127.0.0.1:8299";
-    await Bun.sleep(300);
+    server = startBookServer({ port: 0, quiet: true });
+    base = server.baseUrl;
   });
 
   afterAll(() => {
@@ -159,6 +151,11 @@ describe("the server", () => {
   it("answers the health probe a client makes before talking", async () => {
     const r = await realFetch(`${base}/api/hello`);
     expect(r.status).toBe(200);
+  });
+
+  it("uses an ephemeral loopback port", () => {
+    expect(new URL(base).hostname).toBe("127.0.0.1");
+    expect(new URL(base).port).not.toBe("0");
   });
 
   it("serves a book prompt over the stream", async () => {

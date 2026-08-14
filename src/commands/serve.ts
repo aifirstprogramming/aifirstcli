@@ -38,10 +38,12 @@ function readerLanguage(): string | undefined {
   return scope.kind === "book" ? scope.book.language : undefined;
 }
 
-export function serve(args: Args): void {
-  const port = numberFlag(args, "port") ?? DEFAULT_PORT;
-  const quiet = boolFlag(args, "quiet");
+export interface BookServer {
+  baseUrl: string;
+  stop(): void;
+}
 
+export function startBookServer({ port = 0, quiet = false }: { port?: number; quiet?: boolean } = {}): BookServer {
   const server = Bun.serve({
     // Never 0.0.0.0. See the note at the top of this file.
     hostname: "127.0.0.1",
@@ -108,14 +110,22 @@ export function serve(args: Args): void {
     },
   });
 
-  out();
-  out(`  ${green(glyph.done)} book mode is serving on ${bold(`http://127.0.0.1:${server.port}`)}`);
-  out(dim(`  no model, no network — every answer comes from the content pack`));
-  out();
-  out(dim(`  ${cyan(glyph.arrow)} leave this running, and in another terminal:`));
-  out(dim(`     aifirst book-mode on     point Claude Code at it`));
-  out(dim(`     aifirst book-mode off    put it back`));
-  out();
-  out(dim("  Ctrl-C to stop."));
-  out();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  if (!quiet) {
+    out();
+    out(`  ${green(glyph.done)} book mode is serving on ${bold(baseUrl)}`);
+    out(dim("  no model, no network — every answer comes from the content pack"));
+    out();
+    out(dim(`  ${cyan(glyph.arrow)} leave this running, and in another terminal:`));
+    out(dim(`     aifirst book-mode on     point Claude Code at it`));
+    out(dim(`     aifirst book-mode off    put it back`));
+    out();
+    out(dim("  Ctrl-C to stop."));
+    out();
+  }
+  return { baseUrl, stop: () => server.stop(true) };
+}
+
+export function serve(args: Args): void {
+  startBookServer({ port: numberFlag(args, "port") ?? DEFAULT_PORT, quiet: boolFlag(args, "quiet") });
 }

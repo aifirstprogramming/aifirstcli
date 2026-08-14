@@ -14,6 +14,7 @@ import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
 import { init } from "./commands/init";
 import { list } from "./commands/list";
+import { learn } from "./commands/learn";
 import { done, reset, skip } from "./commands/mark";
 import { next } from "./commands/next";
 import { progress } from "./commands/progress";
@@ -33,6 +34,7 @@ const COMMANDS: Record<string, Handler> = {
   doctor,
   list,
   ls: list,
+  learn,
   next,
   show,
   prompt,

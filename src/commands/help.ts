@@ -14,6 +14,7 @@ export function help(): void {
   out();
   out(`  ${bold("Getting started")}`);
   out(`    ${cyan("aifirst init")}              set up your AI tools with the book skills`);
+  out(`    ${cyan("aifirst learn")}             open a temporary local Claude Code session`);
   out(`    ${cyan("aifirst book")} ${dim("[py|java]")}      which book you're reading`);
   out(`    ${cyan("aifirst next")}              show your next exercise`);
   out(`    ${cyan("aifirst progress")}          how far you've got`);
