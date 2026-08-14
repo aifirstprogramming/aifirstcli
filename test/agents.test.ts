@@ -7,8 +7,37 @@ import { antigravityIdeAgent } from "../src/agents/antigravity";
 import { claudeAgent } from "../src/agents/claude";
 import { codexAgent } from "../src/agents/codex";
 import { CliError } from "../src/output";
-import { commandFiles, parseSkillVersion, skillMarkdown } from "../src/skills/content";
+import { antigravityRules, commandFiles, parseSkillVersion, skillMarkdown } from "../src/skills/content";
 import { VERSION } from "../src/version";
+
+/** Phrases the old, defect wording used; none of the four generated surfaces may contain them. */
+const FORBIDDEN_BOOK_PROVENANCE_PHRASES = [
+  "The explanation is the book's too",
+  "the book's explanation",
+  "wording matches the book",
+];
+
+function assertNoForbiddenProvenancePhrases(text: string): void {
+  for (const phrase of FORBIDDEN_BOOK_PROVENANCE_PHRASES) {
+    expect(text).not.toContain(phrase);
+  }
+}
+
+/** Old, defect wording reproduced as an in-memory fixture for the mutation guard below. */
+const OLD_OUTPUT_FIRST_MAIN_FLOW_FIXTURE =
+  "One command: it writes the book's code to a sensibly named file, executes it, and " +
+  "records the exercise on success. Report the program's real output, then give the " +
+  "code. Do not tell the learner an exercise is complete unless `recorded` is true or " +
+  "it was already recorded.";
+
+function orderedIndices(text: string, codeAnchor: string, outputAnchor: string): { code: number; explanation: number; output: number } {
+  return {
+    code: text.indexOf(codeAnchor),
+    explanation: text.indexOf("Explanation"),
+    output: text.indexOf(outputAnchor),
+  };
+}
+
 
 /**
  * Every test here points AIFIRST_HOME_OVERRIDE at a throwaway directory. Nothing
@@ -58,6 +87,28 @@ describe("skill markdown", () => {
   it("has a description narrow enough not to fire on unrelated questions", () => {
     expect(md).toContain("Skip for general Python or Java questions");
   });
+
+  it("orders code before Explanation before real output in the main-flow contract", () => {
+    const { code, explanation, output } = orderedIndices(
+      md,
+      "One command: it writes the book's code",
+      "the program's real output",
+    );
+    expect(code).toBeGreaterThan(-1);
+    expect(explanation).toBeGreaterThan(-1);
+    expect(output).toBeGreaterThan(-1);
+    expect(code).toBeLessThan(explanation);
+    expect(explanation).toBeLessThan(output);
+  });
+
+  it("does not claim the explanation is from the book", () => {
+    assertNoForbiddenProvenancePhrases(md);
+  });
+
+  it("describes the stored explanation as AI First content-library material", () => {
+    expect(md).toContain("content library");
+    expect(md).toContain("Present it verbatim");
+  });
 });
 
 describe("command files", () => {
@@ -71,6 +122,79 @@ describe("command files", () => {
   it("have unique names", () => {
     const names = commandFiles().map((c) => c.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("aifirst-next instructs code, Explanation, then output order and has no book-provenance claim", () => {
+    const cmd = commandFiles().find((c) => c.name === "aifirst-next");
+    expect(cmd).toBeDefined();
+    const body = cmd!.body;
+    const { code, explanation, output } = orderedIndices(body, "which writes the code", "the real");
+    expect(code).toBeGreaterThan(-1);
+    expect(explanation).toBeGreaterThan(-1);
+    expect(output).toBeGreaterThan(-1);
+    expect(code).toBeLessThan(explanation);
+    expect(explanation).toBeLessThan(output);
+    assertNoForbiddenProvenancePhrases(body);
+  });
+
+  it("aifirst-example instructs code, Explanation, then output order, uses the Explanation label, and has no book-provenance claim", () => {
+    const cmd = commandFiles().find((c) => c.name === "aifirst-example");
+    expect(cmd).toBeDefined();
+    const body = cmd!.body;
+    const { code, explanation, output } = orderedIndices(body, "Present the code **verbatim**", "program's actual output");
+    expect(code).toBeGreaterThan(-1);
+    expect(explanation).toBeGreaterThan(-1);
+    expect(output).toBeGreaterThan(-1);
+    expect(code).toBeLessThan(explanation);
+    expect(explanation).toBeLessThan(output);
+    expect(body).toContain("Explanation");
+    assertNoForbiddenProvenancePhrases(body);
+  });
+});
+
+describe("antigravityRules", () => {
+  const rules = antigravityRules();
+
+  it("drops the book-provenance claim for explanation while keeping order guidance", () => {
+    assertNoForbiddenProvenancePhrases(rules);
+    const codeIdx = rules.indexOf("Reproduce the");
+    const explanationIdx = rules.indexOf("Explanation");
+    const outputIdx = rules.indexOf("program's real");
+    expect(codeIdx).toBeGreaterThan(-1);
+    expect(explanationIdx).toBeGreaterThan(-1);
+    expect(outputIdx).toBeGreaterThan(-1);
+    expect(codeIdx).toBeLessThan(explanationIdx);
+    expect(explanationIdx).toBeLessThan(outputIdx);
+  });
+});
+
+describe("forbidden book-provenance phrases", () => {
+  it("are absent from every generated surface: skillMarkdown, all commandFiles bodies, and antigravityRules", () => {
+    assertNoForbiddenProvenancePhrases(skillMarkdown());
+    for (const cmd of commandFiles()) {
+      assertNoForbiddenProvenancePhrases(cmd.body);
+    }
+    assertNoForbiddenProvenancePhrases(antigravityRules());
+  });
+});
+
+describe("mutation guard", () => {
+  it("old output-first/book-provenance wording fails the new ordering assertion", () => {
+    const assertOrdering = () => {
+      const { code, explanation, output } = orderedIndices(
+        OLD_OUTPUT_FIRST_MAIN_FLOW_FIXTURE,
+        "One command: it writes the book's code",
+        "the program's real output",
+      );
+      expect(code).toBeGreaterThan(-1);
+      expect(explanation).toBeGreaterThan(-1);
+      expect(output).toBeGreaterThan(-1);
+      expect(code).toBeLessThan(explanation);
+      expect(explanation).toBeLessThan(output);
+    };
+    // Applying the exact assertion the fixed skillMarkdown() test uses, against the
+    // old wording, must throw: proves the guard is not vacuously true.
+    expect(assertOrdering).toThrow();
   });
 });
 
