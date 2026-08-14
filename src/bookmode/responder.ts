@@ -176,7 +176,7 @@ function refusal(typed: string): string {
     "",
     "You can:",
     "- ask for an exercise using its prompt from the page, or by id (`py-1-01`)",
-    "- run `aifirst next` to see what's next",
+    "- type `aifirst next` (no leading slash) to see what's next",
     "- run `aifirst book-mode off` to go back to the real Claude, which costs the usual",
   ].join("\n");
 }

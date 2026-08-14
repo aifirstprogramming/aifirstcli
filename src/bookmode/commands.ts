@@ -36,7 +36,9 @@ function shellWords(input: string): string[] {
 }
 
 export function localHelp(): string {
-  return "local learning accepts `aifirst next`, `aifirst show py-1-01`, and the other safe learner commands.";
+  return "local learning accepts `aifirst next`, `aifirst show py-1-01`, and the other safe learner " +
+    "commands, typed with no leading slash. Claude Code's own slash-command layer intercepts a leading " +
+    "`/` before it reaches local learning, so a slash form never arrives here to answer.";
 }
 
 export function chatCommandError(command: string): string {

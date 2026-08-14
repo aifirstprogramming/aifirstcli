@@ -180,7 +180,10 @@ receive normal Claude authentication variables. The responder binds an unused
 loopback port, so another local book server does not block it.
 
 In the session, use complete commands such as `aifirst next` and
-`aifirst show py-1-01`. Stored exercise replies show Code first and Explanation
+`aifirst show py-1-01`, typed with **no leading slash**. Claude Code's own
+slash-command layer intercepts anything starting with `/` before it can reach
+the local responder, so `/aifirst next` never gets there. Type the command
+plainly instead. Stored exercise replies show Code first and Explanation
 second. General questions and commands that alter configuration or state stay
 in the terminal instead of running through the local chat.
 
