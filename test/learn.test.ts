@@ -22,7 +22,7 @@ async function runLearn(root: string, status = 0) {
   const capture = join(root, "capture.txt");
   Bun.write(
     join(bin, "claude"),
-    `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$ANTHROPIC_API_KEY" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`,
+    `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`,
   );
   chmodSync(join(bin, "claude"), 0o755);
   const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
@@ -52,8 +52,8 @@ describe("learn", () => {
     const launch = readFileSync(result.capture, "utf8").split("\n");
     expect(launch.slice(0, 5)).toEqual(["--bare", "--settings", expect.stringContaining("/state/learn/profile-"), "--resume", "reader"]);
     expect(launch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-    expect(launch[6]).toMatch(/^synthetic-/);
-    expect(launch[7]).toBe("unset");
+    expect(launch[6]).toBe("1");
+    expect(launch[7]).toMatch(/^synthetic-/);
     expect(launch[8]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   });

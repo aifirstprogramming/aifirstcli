@@ -34,13 +34,13 @@ describe("local Claude session", () => {
       const launch = claudeLaunch(session, ["--resume", "abc"], "http://127.0.0.1:4567");
       expect(launch.args).toEqual(["--bare", "--settings", session.settings, "--resume", "abc"]);
       expect(launch.env.HOME).toBeUndefined();
-      expect(launch.env.IS_DEMO).toBeUndefined();
+      expect(launch.env.IS_DEMO).toBe("1");
       expect(launch.env.ANTHROPIC_BASE_URL).toBe("http://127.0.0.1:4567");
-      expect(launch.env.ANTHROPIC_API_KEY).toMatch(/^synthetic-/);
-      expect(launch.env.ANTHROPIC_AUTH_TOKEN).toBeUndefined();
+      expect(launch.env.ANTHROPIC_AUTH_TOKEN).toMatch(/^synthetic-/);
+      expect(launch.env.ANTHROPIC_API_KEY).toBeUndefined();
       expect(launch.env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
       expect(Object.values(launch.env).join("\n")).not.toContain(".claude");
-      expect(launch.env.ANTHROPIC_API_KEY).not.toContain(session.profile);
+      expect(Object.values(launch.env).join("\n")).not.toContain(session.profile);
       expect(existsSync(session.settings)).toBe(true);
       expect(readFileSync(session.settings, "utf8")).toBe("{}\n");
     } finally {

@@ -125,8 +125,9 @@ export function claudeLaunch(session: SessionRecord, passthrough: string[], base
     const value = process.env[name];
     if (value) env[name] = value;
   }
+  env.IS_DEMO = "1";
   env.ANTHROPIC_BASE_URL = baseUrl;
-  env.ANTHROPIC_API_KEY = `synthetic-${session.nonce}`;
+  env.ANTHROPIC_AUTH_TOKEN = `synthetic-${session.nonce}`;
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
   env.DISABLE_LOGIN_COMMAND = "1";
   return { args: ["--bare", "--settings", session.settings, ...passthrough], env };
