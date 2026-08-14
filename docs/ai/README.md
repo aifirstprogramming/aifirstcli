@@ -36,6 +36,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Installer Ctrl-C mutation coverage](plans/2026-08-10-installer-ctrlc-mutation-coverage.md): add tty-independent tests that actually catch a dropped kill line or a dropped SIGINT re-raise, closing a gap two of the existing pty-driven tests missed | 2026-08-10 | Shipped |
 | [Local learning wrapper](plans/2026-08-13-local-claude-wrapper-and-reader-output.md): isolate the child environment and record the native verification gate | 2026-08-13 | Shipped on the feature branch |
 | [Reader-friendly skill response order](plans/2026-08-13-reader-friendly-skill-response-order.md): present code, then the stored Explanation, then real output, and stop implying the explanation comes from the book | 2026-08-13 | Shipped on the feature branch |
+| [Learn command routing fix](plans/2026-08-14-learn-command-routing-fix.md): explain the no-slash-only chat command boundary Claude Code's own slash layer imposes, and add a live interactive regression test | 2026-08-14 | Shipped on the feature branch |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the
