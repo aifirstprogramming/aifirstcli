@@ -13,6 +13,7 @@
 
 import { findMatchingStep } from "@aifirst/content";
 import { chatCommandError, isLocalCommand, localHelp, parseChatCommand } from "./commands";
+import type { ContentSource, SourceState } from "./contentSource";
 import { renderStep } from "./render";
 import type { Content } from "../content/types";
 import type { ProgressLog } from "../log/progress";
@@ -222,12 +223,58 @@ export interface RespondOptions {
   language?: string;
 }
 
+/**
+ * The book pack's own matching logic, wrapped behind the ContentSource seam.
+ *
+ * A 1:1 wrap of what `respond()` did inline before this seam existed: find the
+ * matching step, render it, and offer the client's own shell tool to run it.
+ */
+export class BookContentSource implements ContentSource {
+  constructor(
+    private readonly content: Content,
+    private readonly tools: ToolDefinition[] | undefined,
+    private readonly language: string | undefined,
+  ) {}
+
+  next(typed: string) {
+    const step = typed ? findMatchingStep(typed, this.content.steps, this.language) : null;
+    if (!step) return undefined;
+
+    const example = this.content.examples.find((e) => e.id === step.exampleId);
+    if (!example) {
+      // A step whose example is missing is a content bug, not something to dress
+      // up as an answer.
+      return undefined;
+    }
+
+    const tool = shellTool(this.tools);
+    const command = `aifirst run ${step.id}`;
+    if (!tool) {
+      // No shell tool on offer: still give the reader the answer and the
+      // command, rather than a tool call the client cannot execute.
+      return {
+        text: `${renderStep(example, step)}\n\nRun it with:\n\n\`\`\`\n${command}\n\`\`\``,
+        stopReason: "end_turn" as const,
+        exerciseId: step.id,
+      };
+    }
+
+    return {
+      text: renderStep(example, step),
+      toolUse: { name: tool, input: { command, description: `Run ${step.id} and record it` } },
+      stopReason: "tool_use" as const,
+      exerciseId: step.id,
+    };
+  }
+}
+
 /** Decide what book mode replies to one request. */
 export function respond(
   request: MessagesRequest,
   content: Content,
   log: ProgressLog,
   options: RespondOptions = {},
+  source: ContentSource = new BookContentSource(content, request.tools, options.language),
 ): Reply {
   const result = toolResult(request.messages);
   if (result) {
@@ -237,34 +284,11 @@ export function respond(
   const typed = readerText(request.messages);
   const chat = chatReply(typed, content, log);
   if (chat) return chat;
-  const step = typed ? findMatchingStep(typed, content.steps, options.language) : null;
-  if (!step) {
+
+  const state: SourceState = {};
+  const reply = source.next(typed, state);
+  if (!reply) {
     return { text: refusal(typed), stopReason: "end_turn" };
   }
-
-  const example = content.examples.find((e) => e.id === step.exampleId);
-  if (!example) {
-    // A step whose example is missing is a content bug, not something to dress up
-    // as an answer.
-    return { text: refusal(typed), stopReason: "end_turn" };
-  }
-
-  const tool = shellTool(request.tools);
-  const command = `aifirst run ${step.id}`;
-  if (!tool) {
-    // No shell tool on offer: still give the reader the answer and the command,
-    // rather than a tool call the client cannot execute.
-    return {
-      text: `${renderStep(example, step)}\n\nRun it with:\n\n\`\`\`\n${command}\n\`\`\``,
-      stopReason: "end_turn",
-      exerciseId: step.id,
-    };
-  }
-
-  return {
-    text: renderStep(example, step),
-    toolUse: { name: tool, input: { command, description: `Run ${step.id} and record it` } },
-    stopReason: "tool_use",
-    exerciseId: step.id,
-  };
+  return reply;
 }
