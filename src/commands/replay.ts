@@ -3,7 +3,7 @@ import { join, basename } from "node:path";
 import type { Args } from "../cli";
 import { boolFlag, stringFlag } from "../cli";
 import { replayDir } from "../paths";
-import { CliError, json, out, table } from "../output";
+import { CliError, errLine, json, out, table } from "../output";
 import { buildReplayPack } from "../replay/importer";
 import { parseShowtailReport } from "../replay/showtailReport";
 import type { ReplayPack } from "../replay/types";
@@ -30,8 +30,12 @@ export function replay(args: Args): void {
     const pack = buildReplayPack(name, parseShowtailReport(JSON.parse(readFileSync(source, "utf8"))));
     mkdirSync(replayDir(), { recursive: true });
     writeFileSync(target, JSON.stringify(pack, null, 2) + "\n", { mode: 0o600 });
+    // Unconditional: the privacy warning must reach the user regardless of
+    // --format, so it goes to stderr and stays out of the JSON stdout contract
+    // that machine consumers parse.
+    errLine("WARNING: this report may contain another person's real prompts, files, and tool output. Showtail redaction is best-effort, not guaranteed.");
     if (output === "json") json({ imported: name, steps: pack.steps.length });
-    else { out("WARNING: this report may contain another person's real prompts, files, and tool output. Showtail redaction is best-effort, not guaranteed."); out(`Imported replay ${name} (${pack.steps.length} steps).`); }
+    else out(`Imported replay ${name} (${pack.steps.length} steps).`);
     return;
   }
   if (action === "list") {
