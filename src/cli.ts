@@ -98,6 +98,9 @@ const VALUE_FLAGS = new Set([
   // exercise id. A flag that takes a value has to be declared here.
   "file",
   "port",
+  "replay",
+  "name",
+  "force",
 ]);
 
 const SHORT_FLAGS: Record<string, string> = {

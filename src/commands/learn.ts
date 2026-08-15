@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 import type { Args } from "../cli";
-import { boolFlag, flag } from "../cli";
+import { boolFlag, flag, stringFlag } from "../cli";
 import { CliError, out } from "../output";
 import { startBookServer } from "./serve";
 import { claudeLaunch, cleanupSession, createSession, recoverStaleSession, updateSession } from "../learn/session";
@@ -28,7 +28,7 @@ export async function learn(args: Args): Promise<void> {
   const session = createSession();
   let server: ReturnType<typeof startBookServer> | undefined;
   try {
-    server = startBookServer({ port: 0, quiet: true });
+    server = startBookServer({ port: 0, quiet: true, replay: stringFlag(args, "replay") });
     const ready = await fetch(`${server.baseUrl}/api/hello`, { signal: AbortSignal.timeout(1500) });
     if (!ready.ok) throw new Error("The local learning responder did not become ready.");
     session.port = Number(new URL(server.baseUrl).port);

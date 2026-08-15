@@ -18,6 +18,7 @@ import { learn } from "./commands/learn";
 import { done, reset, skip } from "./commands/mark";
 import { next } from "./commands/next";
 import { progress } from "./commands/progress";
+import { replay } from "./commands/replay";
 import { run } from "./commands/run";
 import { search } from "./commands/search";
 import { serve } from "./commands/serve";
@@ -55,6 +56,7 @@ const COMMANDS: Record<string, Handler> = {
   skip,
   reset,
   progress,
+  replay,
   skill,
   skills: skill,
   update,

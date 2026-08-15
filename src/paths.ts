@@ -43,6 +43,11 @@ export function contentDir(): string {
   return join(stateDir(), "content");
 }
 
+/** Stored Showtail replay packs and their playback bookmarks. */
+export function replayDir(): string {
+  return join(stateDir(), "replay");
+}
+
 // ---------------------------------------------------------------------------
 // Agent locations
 // ---------------------------------------------------------------------------

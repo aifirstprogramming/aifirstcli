@@ -16,9 +16,10 @@
 import { baseUrl, DEFAULT_PORT } from "../bookmode/port";
 import { claudeSettingsPath, readClaudeSettings, updateClaudeSettings } from "../agents/claude";
 import type { Args } from "../cli";
-import { formatFlag, numberFlag } from "../cli";
+import { formatFlag, numberFlag, stringFlag } from "../cli";
 import { claudeEntries } from "../permissions";
 import { CliError, bold, cyan, dim, glyph, green, json, out, red } from "../output";
+import { loadReplayPack } from "./replay";
 
 /** The key we set, and the only one we will ever remove. */
 const KEY = "ANTHROPIC_BASE_URL";
@@ -69,6 +70,7 @@ export async function bookMode(args: Args): Promise<void> {
   const action = (args.positionals[0] ?? "status").toLowerCase();
   const port = numberFlag(args, "port") ?? DEFAULT_PORT;
   const url = baseUrl(port);
+  const replay = stringFlag(args, "replay");
 
   if (!["on", "off", "status"].includes(action)) {
     throw new CliError(`Unknown book-mode action "${action}"`, "bad_option", "Use: on, off, or status");
@@ -124,6 +126,7 @@ export async function bookMode(args: Args): Promise<void> {
   }
 
   // --- on -----------------------------------------------------------------
+  if (replay) loadReplayPack(replay);
   const live = await listening(url);
   const approved = preApproved();
 
@@ -138,7 +141,7 @@ export async function bookMode(args: Args): Promise<void> {
   }
 
   out();
-  out(`  ${green(glyph.done)} book mode on — Claude Code now asks ${bold(url)}`);
+  out(`  ${green(glyph.done)} book mode on — Claude Code now asks ${bold(url)}${replay ? ` for replay ${bold(replay)}` : ""}`);
   out(dim("  answers come from the content pack; no model runs and nothing leaves this machine"));
   out();
 

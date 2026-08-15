@@ -19,6 +19,8 @@
 import { DEFAULT_PORT } from "../bookmode/port";
 import type { MessagesRequest } from "../bookmode/responder";
 import { respond } from "../bookmode/responder";
+import { ReplayContentSource } from "../replay/contentSource";
+import { loadReplayPack } from "./replay";
 import { bodyReply, streamReply } from "../bookmode/sse";
 import { resolveScope } from "../books";
 import type { Args } from "../cli";
@@ -43,7 +45,8 @@ export interface BookServer {
   stop(): void;
 }
 
-export function startBookServer({ port = 0, quiet = false }: { port?: number; quiet?: boolean } = {}): BookServer {
+export function startBookServer({ port = 0, quiet = false, replay }: { port?: number; quiet?: boolean; replay?: string } = {}): BookServer {
+  const replaySource = replay ? new ReplayContentSource(loadReplayPack(replay)) : undefined;
   const server = Bun.serve({
     // Never 0.0.0.0. See the note at the top of this file.
     hostname: "127.0.0.1",
@@ -82,7 +85,7 @@ export function startBookServer({ port = 0, quiet = false }: { port?: number; qu
       // Read fresh each time: the reader may finish exercises while this runs, and
       // the closing message should tell them the truth about where they are.
       const { content } = resolveContent();
-      const reply = respond(request, content, readLog(), { language: readerLanguage() });
+      const reply = respond(request, content, readLog(), { language: readerLanguage() }, replaySource);
 
       const ids = {
         messageId: id("msg"),
@@ -127,5 +130,5 @@ export function startBookServer({ port = 0, quiet = false }: { port?: number; qu
 }
 
 export function serve(args: Args): void {
-  startBookServer({ port: numberFlag(args, "port") ?? DEFAULT_PORT, quiet: boolFlag(args, "quiet") });
+  startBookServer({ port: numberFlag(args, "port") ?? DEFAULT_PORT, quiet: boolFlag(args, "quiet"), replay: typeof args.flags.get("replay") === "string" ? args.flags.get("replay") as string : undefined });
 }
