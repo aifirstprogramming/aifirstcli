@@ -38,7 +38,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Reader-friendly skill response order](plans/2026-08-13-reader-friendly-skill-response-order.md): present code, then the stored Explanation, then real output, and stop implying the explanation comes from the book | 2026-08-13 | Shipped on the feature branch |
 | [Learn command routing fix](plans/2026-08-14-learn-command-routing-fix.md): explain the no-slash-only chat command boundary Claude Code's own slash layer imposes, and add a live interactive regression test | 2026-08-14 | Shipped on the feature branch |
 | [Showtail replay](plans/2026-08-14-showtail-replay-in-aifirst.md): import and replay cached Showtail transcripts through book mode and local learning | 2026-08-14 | Shipped on the feature branch |
-| [Bare-mode learning UX](plans/2026-08-16-bare-mode-learning-ux.md): make `aifirst learn` reproduce the installed-skill workflow — `next` gives complete code/instruction, Claude writes/executes/explains, and success advances the learner; `show` is read-only; `run` is explicit write/execute/record | 2026-08-16 | Shipped on the feature branch |
+| [Bare-mode learning UX](plans/2026-08-16-bare-mode-learning-ux.md): make `aifirst learn` reproduce the installed-skill workflow: `next` gives complete code/instruction, Claude writes/executes/explains, and success advances the learner; `show` is read-only; `run` is explicit write/execute/record | 2026-08-16 | Shipped on the feature branch |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the
