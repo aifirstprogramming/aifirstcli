@@ -136,22 +136,28 @@ describe("1. Python scenario — next full cycle", () => {
 // ===========================================================================
 
 describe("2. Java scenario — next with missing JDK", () => {
+  // This scenario asserts the missing-runtime error path. It has to force that
+  // path with PATH=/nonexistent rather than assume the CI/dev box lacks a JDK,
+  // since a real Java install (as in this devcontainer) would silently run the
+  // exercise instead of exercising the "not installed" branch.
   it("next java (text) shows error when Java is not installed", async () => {
-    const r = await aifirst(["next", "java"]);
+    const r = await aifirst(["next", "java"], { PATH: "/nonexistent" });
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("java");
-    expect(r.stderr).toContain("not found");
+    expect(r.stderr).toMatch(/not installed|not found/);
   });
 
   it("next java --format json shows error when Java is not installed", async () => {
-    const r = await aifirst(["next", "java", "--format", "json"]);
+    const r = await aifirst(["next", "java", "--format", "json"], { PATH: "/nonexistent" });
     expect(r.code).toBe(1);
     // Error goes to stderr (CliError), stdout may be empty or contain JSON
     const stdoutData = r.stdout.trim() ? JSON.parse(r.stdout) : null;
     const stderrData = r.stderr.trim() ? JSON.parse(r.stderr) : null;
     const data = stdoutData ?? stderrData;
     expect(data.error).toBeDefined();
-    expect(data.error.code).toBe("error");
+    // run's equivalent missing-runtime error uses "missing_runtime" rather than
+    // the generic "error" code; next follows the same convention here.
+    expect(data.error.code).toBe("missing_runtime");
     expect(data.error.message).toContain("java");
   });
 

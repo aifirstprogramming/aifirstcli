@@ -16,13 +16,14 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve as resolvePath } from "node:path";
-import { exercisePath } from "@aifirst/content";
+import { basename, dirname, resolve as resolvePath } from "node:path";
+import { exercisePath, runCommand } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
 import { resolveContent } from "../content";
 import { finalResponse, report, resume } from "../exercises";
+import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 
@@ -142,23 +143,31 @@ export async function next(args: Args): Promise<void> {
   const interactive = step.interactive;
   const useTty = interactive && step.stdin === undefined && hasTty;
 
-  // Figure out the run command.
+  // Figure out the run command. Use the shared @aifirst/content command builder so
+  // next and run never drift on how a language is invoked, and basename() instead
+  // of a hard-coded "/" split so this works on Windows paths too.
+  const entry = step.scaffold?.entrypoint;
+  const fileName = basename(path);
   let runCmd: string[];
-  if (ex.language === "python") {
-    const entry = step.scaffold?.entrypoint;
-    const fileName = path.split("/").pop() ?? path;
-    runCmd = entry ? ["python3", entry] : ["python3", fileName];
-  } else if (ex.language === "java") {
-    const entry = step.scaffold?.entrypoint;
-    const runFile = entry ?? path.split("/").pop() ?? path;
+  if (ex.language === "java") {
+    const runFile = entry ?? fileName;
     const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
-    if (extraSources) {
-      runCmd = ["java", "-cp", "out", runFile.replace(/\.java$/, "")];
-    } else {
-      runCmd = ["java", runFile];
-    }
+    runCmd = extraSources
+      ? ["java", "-cp", "out", runFile.replace(/\.java$/, "")]
+      : (runCommand("java", runFile) ?? ["java", runFile]);
+  } else if (entry) {
+    runCmd = runCommand(ex.language, entry) ?? ["python3", entry];
   } else {
-    runCmd = ["python3", path.split("/").pop() ?? path];
+    runCmd = runCommand(ex.language, fileName) ?? ["python3", fileName];
+  }
+
+  if (!which(runCmd[0])) {
+    const message = `${runCmd[0]} is not installed`;
+    const hint =
+      ex.language === "java"
+        ? `Install a JDK (11 or newer) to run Java exercises. The file is written at ${path}.`
+        : `Install Python 3 to run Python exercises. The file is written at ${path}.`;
+    throw new CliError(message, "missing_runtime", hint);
   }
 
   const proc = Bun.spawn(runCmd, {
