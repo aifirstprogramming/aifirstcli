@@ -1,0 +1,9 @@
+Capture status: native Claude --bare capture completed on 2026-08-16.
+
+stdout:
+Next exercise: py-2-01, Basket of Fruits. Use `aifirst show py-2-01` for the walkthrough.
+
+stderr:
+[empty]
+
+Notes: This redacted advancement capture follows a successful py-1-01 run and confirms that `next` selected a different unfinished exercise. No credentials, real prompts, or normal profile data are included.

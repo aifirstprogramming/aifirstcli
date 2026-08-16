@@ -1,0 +1,46 @@
+Capture status: native Claude --bare capture completed on 2026-08-16.
+
+stdout:
+**Hello World**  ·  java-1-01
+AI First Java Programming - Chapter 1: Your First Java Program
+
+## Code
+
+```java
+public class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Hello, World!");
+    }
+}
+```
+
+## Explanation
+
+This content-library walkthrough is stored with the exercise.
+
+This is the traditional first Java program: it prints the single line "Hello, World!" to the screen and then ends. Everything else in the file is the minimum structure Java requires before you are allowed to run one statement.
+
+- `public class HelloWorld {`: Every Java statement lives inside a class, and the class name must match the file name exactly, so this code has to be saved as HelloWorld.java. Getting this pair out of step is the most common first error a beginner meets.
+
+- `public static void main(String[] args) {`: This is the entry point: when you run the program, Java looks for a method with precisely this signature and starts there. The words are not decoration, and changing any of them means Java can no longer find where to begin.
+
+- `System.out.println("Hello, World!");`: System.out is the standard output stream (your console) and println writes the text followed by a newline. The text in double quotes is a string literal, printed exactly as typed, and the semicolon ends the statement.
+
+- `}`: Braces come in pairs and close in the reverse order they were opened: this last one closes the class, after the inner braces have closed main. Indentation is only for human readers, but keeping it tidy is how you spot a missing brace.
+
+Writing it to `HelloWorld.java` and running it.
+
+## Instruction
+
+Write a Hello World program in Java.
+
+toolUse:
+{"name":"Bash","input":{"command":"aifirst run java-1-01","description":"Run java-1-01 and record it"}}
+
+stopReason:
+tool_use
+
+stderr:
+[empty]
+
+Notes: The request used the no-slash `aifirst next` form. This capture records the exact direct `respond()` output for the Java branch, including its tool request and stop reason. No credentials, prompts from a real user, or normal Claude profile data are included.

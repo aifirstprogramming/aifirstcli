@@ -1,0 +1,9 @@
+Capture status: native Claude --bare capture completed on 2026-08-16.
+
+stdout:
+That did not run cleanly, so nothing has been recorded.
+
+stderr:
+[empty]
+
+Notes: The captured failure is intentionally redacted to the stable user-facing outcome. No credentials, real prompts, or normal Claude profile data are included.

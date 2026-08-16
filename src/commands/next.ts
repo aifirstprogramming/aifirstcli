@@ -11,7 +11,7 @@
  *
  * In bare-mode learning, `next` is the full cycle: it presents the exercise,
  * writes the canonical code, runs it, explains it, records success, and
- * advances to the next exercise — all in one call. `show` stays read-only;
+ * advances to the next exercise, all in one call. `show` stays read-only;
  * `run` stays explicit write/run/record.
  */
 
@@ -25,7 +25,7 @@ import { resolveContent } from "../content";
 import { finalResponse, report, resume } from "../exercises";
 import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
-import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
+import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -234,7 +234,14 @@ export async function next(args: Args): Promise<void> {
   }
   out();
   out(`  ${cyan("Code")} ${dim(`(${ex.language})`)}`);
-  out(codeBlock(step.response));
+  out(`\`\`\`${ex.language}`);
+  out(step.response);
+  out("```");
+
+  if (ok && step.explanation) {
+    out();
+    for (const line of explanationBlock(step.explanation)) out(line);
+  }
 
   if (!useTty) {
     out();
@@ -247,24 +254,20 @@ export async function next(args: Args): Promise<void> {
   if (ok) {
     out(
       recorded
-        ? `  ${green(glyph.done)} ran clean — recorded ${bold(ex.id)} as done`
-        : `  ${green(glyph.done)} ran clean — ${dim(`${ex.id} was already recorded`)}`,
+        ? `  ${green(glyph.done)} ran clean, recorded ${bold(ex.id)} as done`
+        : `  ${green(glyph.done)} ran clean, ${dim(`${ex.id} was already recorded`)}`,
     );
-    if (step.explanation) {
-      out();
-      for (const line of explanationBlock(step.explanation)) out(line);
-    }
   } else {
     out(
       `  ${red(glyph.todo)} ${timedOut ? `still running after ${TIMEOUT_MS / 1000}s` : `exited ${exitCode}`}` +
-        ` — not recorded`,
+        `, not recorded`,
     );
   }
 
   // Show what's next.
   if (nextEx) {
     out();
-    out(`  ${cyan("Next")}  ${dim(nextEx.id)} — ${nextEx.title}`);
+    out(`  ${cyan("Next")}  ${dim(nextEx.id)}: ${nextEx.title}`);
   } else {
     const finished = scope.kind === "book" ? scope.book : undefined;
     out();

@@ -1,7 +1,7 @@
 /**
- * Bare-Mode Learning UX — test-first coverage for all reference scenarios.
+ * Bare-Mode Learning UX: test-first coverage for all reference scenarios.
  *
- * The key change: `next` is now the FULL CYCLE — it writes the canonical code,
+ * The key change: `next` is now the FULL CYCLE. It writes the canonical code,
  * runs it, explains it, records success, and advances to the next exercise.
  * `show` stays read-only. `run` stays explicit write/run/record.
  *
@@ -68,10 +68,10 @@ async function aifirst(args: string[], extraEnv: Record<string, string> = {}): P
 }
 
 // ===========================================================================
-// 1. Python Scenario — next does full write/run/record/advance cycle
+// 1. Python Scenario: next does full write/run/record/advance cycle
 // ===========================================================================
 
-describe("1. Python scenario — next full cycle", () => {
+describe("1. Python scenario: next full cycle", () => {
   it("next py (text) writes, runs, records, and shows code/output/explanation/next", async () => {
     const r = await aifirst(["next", "py"]);
     expect(r.code).toBe(0);
@@ -132,10 +132,10 @@ describe("1. Python scenario — next full cycle", () => {
 });
 
 // ===========================================================================
-// 2. Java Scenario — next writes but fails when JDK is missing
+// 2. Java Scenario: next writes but fails when JDK is missing
 // ===========================================================================
 
-describe("2. Java scenario — next with missing JDK", () => {
+describe("2. Java scenario: next with missing JDK", () => {
   // This scenario asserts the missing-runtime error path. It has to force that
   // path with PATH=/nonexistent rather than assume the CI/dev box lacks a JDK,
   // since a real Java install (as in this devcontainer) would silently run the
@@ -171,10 +171,10 @@ describe("2. Java scenario — next with missing JDK", () => {
 });
 
 // ===========================================================================
-// 3. Failure Scenario — existing file with different contents
+// 3. Failure Scenario: existing file with different contents
 // ===========================================================================
 
-describe("3. Failure scenario — existing file with different contents", () => {
+describe("3. Failure scenario: existing file with different contents", () => {
   it("next refuses to replace file with different contents (no --force)", async () => {
     writeFileSync(join(sandbox, "hello_world.py"), "# my own attempt\n");
     const r = await aifirst(["next", "py"]);
@@ -195,7 +195,7 @@ describe("3. Failure scenario — existing file with different contents", () => 
   });
 
   it("next with already-correct file is idempotent (no re-record)", async () => {
-    // Run next twice — each run advances, so second time file already has right code
+    // Run next twice. Each run advances, so the second time the file already has right code.
     await aifirst(["next", "py"]); // py-1-01, recorded
     const second = JSON.parse((await aifirst(["next", "py", "--format", "json"])).stdout);
     expect(second.exerciseId).toBe("py-2-01");
@@ -205,10 +205,10 @@ describe("3. Failure scenario — existing file with different contents", () => 
 });
 
 // ===========================================================================
-// 4. Show-Only Scenario — read-only, no advancement
+// 4. Show-Only Scenario: read-only, no advancement
 // ===========================================================================
 
-describe("4. Show-only scenario — read-only, no advancement", () => {
+describe("4. Show-only scenario: read-only, no advancement", () => {
   it("show does NOT write file or record progress", async () => {
     await aifirst(["show", "py-1-01"]);
     const progress = JSON.parse((await aifirst(["progress", "--format", "json"])).stdout);
@@ -535,10 +535,10 @@ describe("10. Text output format details", () => {
     expect(r.stdout).toMatch(/\s*1\s+print/);
   });
 
-  it("next text output shows Code block with line numbers", async () => {
+  it("next text output shows Code block with copyable code", async () => {
     const r = await aifirst(["next", "py"]);
     expect(r.stdout).toContain("Code");
-    expect(r.stdout).toMatch(/\s*1\s+print/);
+    expect(r.stdout).toContain('print("Hello, World!")');
   });
 
   it("next text output shows Output section", async () => {
@@ -550,6 +550,17 @@ describe("10. Text output format details", () => {
   it("next text output shows Explanation section", async () => {
     const r = await aifirst(["next", "py"]);
     expect(r.stdout).toContain("Explanation");
+  });
+
+  it("next text output uses a copyable language fence and reader order", async () => {
+    const r = await aifirst(["next", "py"]);
+    const code = r.stdout.indexOf("```python");
+    const explanation = r.stdout.indexOf("Explanation");
+    const output = r.stdout.indexOf("Output");
+    expect(code).toBeGreaterThan(-1);
+    expect(r.stdout.slice(code, r.stdout.indexOf("```", code + 3))).not.toMatch(/\n\s*\d+\s+/);
+    expect(code).toBeLessThan(explanation);
+    expect(explanation).toBeLessThan(output);
   });
 
   it("next text output shows 'Next' with next exercise id", async () => {

@@ -31,8 +31,30 @@ describe("respond with a ContentSource", () => {
 
   it("does not call the source for a chat command", () => {
     const stub = new StubSource();
-    respond(userTurn("aifirst next"), content, log, {}, stub);
+    const reply = respond(userTurn("aifirst next"), content, log, { language: "python" }, stub);
     expect(stub.calls).toHaveLength(0);
+    expect(reply.exerciseId).toBe("py-1-01");
+    expect(reply.text).toContain("Write a Hello World app");
+    expect(reply.text).toContain("```python");
+    expect(reply.toolUse).toEqual({
+      name: "Bash",
+      input: { command: "aifirst run py-1-01", description: "Run py-1-01 and record it" },
+    });
+    expect(reply.stopReason).toBe("tool_use");
+  });
+
+  it("gives exact chat next a complete manual action without a shell tool", () => {
+    const reply = respond(
+      { messages: [{ role: "user", content: "aifirst next" }] },
+      content,
+      log,
+      { language: "python" },
+    );
+    expect(reply.exerciseId).toBe("py-1-01");
+    expect(reply.text).toContain("```python");
+    expect(reply.text).toContain("aifirst run py-1-01");
+    expect(reply.toolUse).toBeUndefined();
+    expect(reply.stopReason).toBe("end_turn");
   });
 
   it("does not call the source when a tool-result just arrived", () => {

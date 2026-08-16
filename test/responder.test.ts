@@ -128,6 +128,37 @@ describe("closing the loop", () => {
   });
 });
 
+describe("chat next", () => {
+  it("returns the complete exercise and one shell action", () => {
+    const reply = respond(
+      { messages: [{ role: "user", content: "aifirst next" }], tools: TOOLS },
+      content,
+      log,
+    );
+
+    expect(reply.stopReason).toBe("tool_use");
+    expect(reply.exerciseId).toBe(content.examples[0].id);
+    const step = content.steps.find((item) => item.exampleId === content.examples[0].id)!;
+    expect(reply.text).toContain(step.prompt);
+    expect(reply.text).toContain(`\`\`\`${content.examples[0].language}`);
+    expect(reply.toolUse?.input.command).toBe(`aifirst run ${step.id}`);
+  });
+
+  it("returns a complete manual action without a shell tool", () => {
+    const reply = respond(
+      { messages: [{ role: "user", content: "aifirst next" }], tools: [] },
+      content,
+      log,
+    );
+
+    const step = content.steps.find((item) => item.exampleId === content.examples[0].id)!;
+    expect(reply.stopReason).toBe("end_turn");
+    expect(reply.toolUse).toBeUndefined();
+    expect(reply.text).toContain(`aifirst run ${step.id}`);
+    expect(reply.text).toContain(step.prompt);
+  });
+});
+
 describe("a question the book cannot answer", () => {
   const offBook = respond(userTurn("why is my recursion segfaulting in Rust"), content, log);
 

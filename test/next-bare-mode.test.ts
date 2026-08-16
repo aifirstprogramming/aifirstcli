@@ -1,14 +1,14 @@
 /**
  * `aifirst next` in bare-mode learning UX.
  *
- * The new behaviour: `next` is the full cycle — it presents the exercise,
+ * The new behaviour: `next` is the full cycle. It presents the exercise,
  * writes the canonical code, runs it, explains it, records success, and
  * advances to the next exercise. One command does everything.
  *
  * Rules:
  *  - `show` stays read-only (unchanged).
  *  - `run` stays explicit write/run/record (unchanged).
- *  - `next` writes, runs, explains, records, advances — all in one call.
+ *  - `next` writes, runs, explains, records, and advances in one call.
  *  - JSON output preserves truthful failure semantics.
  */
 

@@ -15,8 +15,10 @@ describe("local learning chat commands", () => {
   it("accepts both exact aifirst command spellings", () => {
     for (const text of ["/aifirst next", "aifirst next"]) {
       const reply = chat(text);
-      expect(reply.stopReason).toBe("end_turn");
-      expect(reply.text).toContain("Next exercise");
+      expect(["end_turn", "tool_use"]).toContain(reply.stopReason);
+      expect(reply.text).toContain("## Code");
+      expect(reply.text).toContain("## Explanation");
+      expect(reply.text.includes("aifirst run") || reply.toolUse?.input.command?.toString().startsWith("aifirst run")).toBe(true);
     }
   });
 

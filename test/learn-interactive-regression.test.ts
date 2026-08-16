@@ -77,8 +77,9 @@ describeLive("live book-mode chat routing (real claude --bare client)", () => {
 
   test("aifirst next (no slash) returns the next-exercise reply, not a refusal", async () => {
     const reply = await ask("aifirst next");
-    expect(reply).toContain("Next exercise");
+    expect(reply).toMatch(/(?:```(?:python|java)|aifirst run (?:py|java)-[0-9-]+|Approve it)/);
     expect(reply.toLowerCase()).not.toContain("isn't a prompt from the book");
+    expect(reply.toLowerCase()).not.toContain("local learning accepts only a complete safe");
   }, 20_000);
 
   test("aifirst show <id> (no slash) renders Code before Explanation", async () => {

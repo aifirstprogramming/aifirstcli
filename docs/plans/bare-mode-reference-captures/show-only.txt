@@ -1,0 +1,20 @@
+Capture status: native Claude --bare capture completed on 2026-08-16.
+
+stdout:
+**Hello World**  ·  py-1-01
+
+## Code
+
+```python
+print("Hello, World!")
+```
+
+## Explanation
+
+This content-library walkthrough is stored with the exercise.
+
+## Output
+
+Hello, World!
+
+Notes: This redacted show-only capture keeps stdout separate from stderr and contains no credentials or normal profile data. The show path does not write files or mutate progress.

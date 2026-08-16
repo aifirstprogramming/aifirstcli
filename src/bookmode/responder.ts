@@ -182,7 +182,13 @@ function refusal(typed: string): string {
   ].join("\n");
 }
 
-function chatReply(typed: string, content: Content, log: ProgressLog): Reply | undefined {
+function chatReply(
+  typed: string,
+  content: Content,
+  log: ProgressLog,
+  tools: ToolDefinition[] | undefined,
+  language: string | undefined,
+): Reply | undefined {
   const command = parseChatCommand(typed);
   if (!command) {
     return /\baifirst\b/i.test(typed)
@@ -203,11 +209,32 @@ function chatReply(typed: string, content: Content, log: ProgressLog): Reply | u
   }
 
   if (command.command === "next") {
-    const next = content.examples.find((example) => !log.exercises[example.id]);
+    const next = content.examples.find(
+      (example) => !log.exercises[example.id] && (!language || example.language === language),
+    );
     if (!next) return { text: "No next exercise is available.", stopReason: "end_turn" };
+    const step = content.steps.find((item) => item.exampleId === next.id);
+    if (!step) return { text: "local learning could not find the next exercise content.", stopReason: "end_turn" };
+    const tool = shellTool(tools);
+    const commandText = `aifirst run ${step.id}`;
     return {
-      text: `Next exercise: ${next.id}, ${next.title}. Use \`aifirst show ${next.id}\` for the walkthrough.`,
-      stopReason: "end_turn",
+      text: [
+        renderStep(next, step),
+        "",
+        "## Instruction",
+        "",
+        step.prompt,
+        ...(tool ? [] : ["", "Run it with:", "", "```", commandText, "```"]),
+      ].join("\n"),
+      ...(tool
+        ? {
+            toolUse: {
+              name: tool,
+              input: { command: commandText, description: `Run ${step.id} and record it` },
+            },
+          }
+        : {}),
+      stopReason: tool ? "tool_use" : "end_turn",
       exerciseId: next.id,
     };
   }
@@ -282,7 +309,7 @@ export function respond(
   }
 
   const typed = readerText(request.messages);
-  const chat = chatReply(typed, content, log);
+  const chat = chatReply(typed, content, log, request.tools, options.language);
   if (chat) return chat;
 
   const state: SourceState = {};

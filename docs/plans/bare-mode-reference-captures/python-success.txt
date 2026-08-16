@@ -1,0 +1,28 @@
+Capture status: native Claude --bare capture completed on 2026-08-16.
+
+stdout:
+**Hello World**  ·  py-1-01
+AI First Python Programming - Chapter 1
+
+## Code
+
+```python
+print("Hello, World!")
+```
+
+## Explanation
+
+This content-library walkthrough is stored with the exercise.
+
+Writing it to `hello_world.py` and running it.
+
+## Instruction
+
+Write a Hello World app.
+
+The complete safe action is `aifirst run py-1-01`.
+
+stderr:
+[empty]
+
+Notes: The request used the no-slash `aifirst next` form. The local responder returned the exercise identity and safe terminal action. No credentials, prompts from a real user, or normal Claude profile data are included.
