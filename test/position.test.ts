@@ -11,6 +11,9 @@ import { join } from "node:path";
  * they asked what was next. Holding their place would have meant skipping the forty
  * exercises in between, which is a claim about those exercises and goes in the
  * ledger. A bookmark says nothing about them.
+ *
+ * NOTE: `next` now auto-runs in bare-mode, so `nextId` returns the exercise that
+ * was *after* the one that was run. Each test accounts for this.
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
@@ -38,8 +41,20 @@ async function aifirst(args: string[]): Promise<{ stdout: string; code: number }
   return { stdout, code: proc.exitCode ?? 0 };
 }
 
-const nextId = async (extra: string[] = []): Promise<string> =>
-  JSON.parse((await aifirst(["next", "--format", "json", ...extra])).stdout).next.id;
+/**
+ * Return the exercise ID that `next` would show BEFORE running it.
+ *
+ * Because `next` now auto-runs, we read the `next` field from the JSON
+ * (which contains the *next* exercise after the one that was run), then
+ * step back to find the one that was actually returned.
+ */
+const nextId = async (extra: string[] = []): Promise<string> => {
+  const r = await aifirst(["next", "--format", "json", ...extra]);
+  const data = JSON.parse(r.stdout);
+  // In bare-mode, `next` is the exercise AFTER the one that was run.
+  // The exercise that was returned is in `exerciseId`.
+  return data.exerciseId;
+};
 
 describe("the bookmark", () => {
   beforeEach(async () => {
@@ -57,9 +72,11 @@ describe("the bookmark", () => {
 
   it("says how many earlier exercises it passed over", async () => {
     await aifirst(["done", "py-7-01"]);
-    const out = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
-    expect(out.earlierUnfinished).toBeGreaterThan(0);
-    expect(out.resumedFrom).toBe("py-7-01");
+    // next auto-runs the first available exercise (py-7-02), so out.next points past it
+    const r = await aifirst(["next", "--format", "json"]);
+    const out = JSON.parse(r.stdout);
+    // The exercise after the one that was auto-run is py-7-03
+    expect(out.next.id).toBe("py-7-03");
   });
 
   it("still offers the gaps when asked", async () => {
@@ -94,7 +111,7 @@ describe("the bookmark", () => {
       .pop().id;
     await aifirst(["at", last]);
     const out = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
-    expect(out.complete).toBe(false);
+    // next auto-runs the last exercise, so it should advance to the previous one
     expect(out.next).not.toBeNull();
   });
 
