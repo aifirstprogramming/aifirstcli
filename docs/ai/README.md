@@ -63,3 +63,4 @@ findings.
 When a plan is approved in a Claude Code session, save it here before the session ends: the
 transcript is not a durable store. Keep the body verbatim, add the same provenance block, scrub any
 absolute local paths, and add a row to the table above.
+
