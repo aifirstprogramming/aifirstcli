@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\necho %ANTHROPIC_BASE_URL% >> "${capture}"\r\necho %IS_DEMO% >> "${capture}"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "${capture}"\r\necho %HOME% >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL >> "${capture}"\r\nset IS_DEMO >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN >> "${capture}"\r\nset HOME >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
@@ -81,8 +81,12 @@ describe("learn", () => {
     const raw = readFileSync(result.capture, "utf8").split("\n");
     // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
     const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
-    // Normalize backslashes to forward slashes for the OS-rendered settings path
-    const normLaunch = launch.map((line: string) => line.replace(/\\/g, "/"));
+    // On Windows, `set VAR` outputs `VAR=value`; on Unix, just the value.
+    // Strip the `VAR=` prefix on Windows so assertions match both platforms.
+    // Also normalize backslashes in the OS-rendered settings path to forward slashes.
+    const normLaunch = launch.map((line: string) =>
+      line.replace(/^(ANTHROPIC_BASE_URL|IS_DEMO|ANTHROPIC_AUTH_TOKEN|HOME)=/, "").replace(/\\/g, "/"),
+    );
     expect(normLaunch.slice(0, 5)).toEqual([
       "--bare",
       "--settings",
@@ -90,10 +94,10 @@ describe("learn", () => {
       "--resume",
       "reader",
     ]);
-    expect(launch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-    expect(launch[6]).toBe("1");
-    expect(launch[7]).toMatch(/^synthetic-/);
-    expect(launch[8]).toBe("unset");
+    expect(normLaunch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(normLaunch[6]).toBe("1");
+    expect(normLaunch[7]).toMatch(/^synthetic-/);
+    expect(normLaunch[8]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   });
 
