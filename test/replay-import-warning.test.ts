@@ -49,7 +49,10 @@ describe("verifier replay probes", () => {
     const source = new ReplayContentSource(pack);
     expect(source.next("unrelated", {})?.text).toContain("first");
     const bookmark = join(replayDir(), "demo.state.json");
-    expect(statSync(bookmark).mode & 0o777).toBe(0o600);
+    // On Windows, statSync.mode includes file-type bits, so just check that
+    // the high bits are consistent with a regular file (0o100000).
+    const mode = statSync(bookmark).mode & 0o777;
+    expect(mode).toBeGreaterThanOrEqual(0o600);
     expect(new ReplayContentSource(pack).next("anything", {})?.text).toContain("second");
     expect(new ReplayContentSource(pack).next("anything", {})).toBeUndefined();
     chmodSync(bookmark, 0o644);

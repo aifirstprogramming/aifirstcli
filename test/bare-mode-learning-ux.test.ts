@@ -24,6 +24,16 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+function listFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of require("node:fs").readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isFile()) results.push(full);
+    else if (entry.isDirectory()) results.push(...listFiles(full));
+  }
+  return results;
+}
+
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 
 let sandbox: string;
@@ -457,13 +467,9 @@ describe("8. JSON contract stability", () => {
 
 describe("9. Key invariants", () => {
   it("next writes files and records progress (unlike old behavior)", async () => {
-    const before = new Set(
-      (await Bun.$`find ${sandbox} -type f`.text()).trim().split("\n"),
-    );
+    const before = new Set(listFiles(sandbox));
     await aifirst(["next", "py"]);
-    const after = new Set(
-      (await Bun.$`find ${sandbox} -type f`.text()).trim().split("\n"),
-    );
+    const after = new Set(listFiles(sandbox));
     // next NOW writes files (bare-mode learning UX)
     expect(after.size).toBeGreaterThan(before.size);
   });

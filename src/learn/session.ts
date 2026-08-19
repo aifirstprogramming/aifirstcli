@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { platform } from "node:os";
 import { stateDir } from "../paths";
 
 const VERSION = 1;
@@ -36,10 +37,12 @@ export function sessionPath(): string {
 }
 
 function owned(path: string): boolean {
-  const root = resolve(learnRoot());
+  const root = resolve(learnRoot()) + sep;
   const candidate = resolve(path);
-  return candidate === root || candidate.startsWith(`${root}/`);
+  return candidate === resolve(learnRoot()) || candidate.startsWith(root);
 }
+
+const sep = platform() === "win32" ? "\\" : "/";
 
 function live(pid: number): boolean {
   try {

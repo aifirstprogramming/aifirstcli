@@ -24,7 +24,11 @@ async function runLearn(root: string, status = 0) {
     join(bin, "claude"),
     `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`,
   );
-  chmodSync(join(bin, "claude"), 0o755);
+  try {
+    chmodSync(join(bin, "claude"), 0o755);
+  } catch {
+    // Windows: chmodSync may throw on .cmd/.bat wrappers
+  }
   const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
     cwd: root,
     env: {

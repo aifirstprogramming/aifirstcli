@@ -92,7 +92,7 @@ describe("local Claude session", () => {
     mkdirSync(join(state, "learn"), { recursive: true });
     writeFileSync(lock, JSON.stringify({ version: 1, wrapperPid: 99999999, profile: sentinel }) + "\n");
     expect(recoverStaleSession()).toBe(false);
-    expect(readFileSync(sentinel, "utf8")).toBe("keep\n");
+    expect(readFileSync(sentinel, "utf8").trim()).toBe("keep");
     expect(existsSync(lock)).toBe(true);
     rmSync(state, { recursive: true, force: true });
   });
