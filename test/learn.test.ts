@@ -81,10 +81,8 @@ describe("learn", () => {
     const raw = readFileSync(result.capture, "utf8").split("\n");
     // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
     const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
-    // Normalize backslashes in the settings path so the same assertion works on Windows
-    const normLaunch = launch.map((line: string) =>
-      line.replace(/state\\learn\\/g, "state/learn/"),
-    );
+    // Normalize backslashes to forward slashes for the OS-rendered settings path
+    const normLaunch = launch.map((line: string) => line.replace(/\\/g, "/"));
     expect(normLaunch.slice(0, 5)).toEqual([
       "--bare",
       "--settings",
