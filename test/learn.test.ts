@@ -31,10 +31,10 @@ async function runLearn(root: string, status = 0) {
       // chmod may throw on some platforms
     }
   }
-  // On Windows, execa("claude") finds claude.cmd in PATH; wrap it to call sh
-  if (isWin) {
-    Bun.write(join(bin, "claude.cmd"), `@sh "%~dp0claude.sh" %*\n`);
-  } else {
+  // On Windows, write a .bat wrapper that calls the .sh file via sh (Git Bash)
+   if (isWin) {
+     Bun.write(join(bin, "claude.bat"), `@sh "%~dp0claude.sh" %*\n`);
+   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
       Bun.write(join(bin, "claude"), script);
