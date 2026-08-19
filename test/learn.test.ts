@@ -22,38 +22,40 @@ async function runLearn(root: string, status = 0) {
   const capture = join(root, "capture.txt");
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
-  Bun.write(join(bin, "claude"), script);
+  // Write the shebang script as `claude` (executable on Unix) or `claude.sh` (for Windows .cmd wrapper)
+  Bun.write(join(bin, "claude.sh"), script);
   if (!isWin) {
     try {
-      chmodSync(join(bin, "claude"), 0o755);
+      chmodSync(join(bin, "claude.sh"), 0o755);
     } catch {
       // chmod may throw on some platforms
     }
   }
-  const [cmd, ...args] = isWin
-    ? ["sh", script.split("\n").slice(0, 2).join("\n"), ""]
-    : [join(bin, "claude")];
-  const proc = Bun.spawn(
-    isWin
-      ? [process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"]
-      : [process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"],
-    {
-      cwd: root,
-      env: {
-        PATH: `${bin}:${process.env.PATH}`,
-        AIFIRST_HOME_OVERRIDE: join(root, "home"),
-        AIFIRST_STATE_DIR: join(root, "state"),
-        ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
-        CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
-        NO_COLOR: "1",
-      },
-      stdout: "pipe",
-      stderr: "pipe",
-      onExit(proc) {
-        // capture exit code
-      },
+  // On Windows, execa("claude") finds claude.cmd in PATH; wrap it to call sh
+  if (isWin) {
+    Bun.write(join(bin, "claude.cmd"), `@sh "%~dp0claude.sh" %*\n`);
+  } else {
+    // On Unix, rename to bare name so shebang works when invoked as `claude`
+    try {
+      Bun.write(join(bin, "claude"), script);
+      chmodSync(join(bin, "claude"), 0o755);
+    } catch {
+      // may throw if file exists
+    }
+  }
+  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
+    cwd: root,
+    env: {
+      PATH: `${bin}:${process.env.PATH}`,
+      AIFIRST_HOME_OVERRIDE: join(root, "home"),
+      AIFIRST_STATE_DIR: join(root, "state"),
+      ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
+      CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
+      NO_COLOR: "1",
     },
-  );
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
   await proc.exited;
   return { code: proc.exitCode, stdout, stderr, capture };
