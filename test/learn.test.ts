@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
@@ -9,6 +9,14 @@ const sandboxes: string[] = [];
 afterEach(() => {
   for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true });
 });
+
+function executable(name: string): string | undefined {
+  for (const directory of (process.env.PATH ?? "").split(delimiter)) {
+    const path = `${directory}/${name}`;
+    if (existsSync(path)) return path;
+  }
+  return undefined;
+}
 
 function sandbox(): string {
   const path = mkdtempSync(join(tmpdir(), "aifirst-learn-test-"));
@@ -37,8 +45,6 @@ async function runLearn(root: string, status = 0) {
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
-      // On Windows, spawn needs .cmd extension
-      const claude = executable("claude") + ".cmd";
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
