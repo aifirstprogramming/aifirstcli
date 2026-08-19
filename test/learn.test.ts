@@ -31,9 +31,10 @@ async function runLearn(root: string, status = 0) {
       // chmod may throw on some platforms
     }
   }
-  // On Windows, write a .bat wrapper that calls the .sh file via sh (Git Bash)
+  // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
    if (isWin) {
-     Bun.write(join(bin, "claude.bat"), `@sh "%~dp0claude.sh" %*\n`);
+     const winScript = `@echo off\r\necho %* > "%~1"\r\necho %ANTHROPIC_BASE_URL% >> "%~1"\r\necho %IS_DEMO% >> "%~1"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "%~1"\r\necho %HOME% >> "%~1"\r\nexit /b ${status}\r\n`;
+     Bun.write(join(bin, "claude.cmd"), winScript);
    } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
