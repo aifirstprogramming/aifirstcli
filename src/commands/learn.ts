@@ -22,7 +22,8 @@ export async function learn(args: Args): Promise<void> {
     return;
   }
 
-  const claude = executable("claude");
+  const isWin = process.platform === "win32";
+  const claude = executable("claude") + (isWin && !executable("claude")?.endsWith(".cmd") ? ".cmd" : "");
   if (!claude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
 
   const session = createSession();
