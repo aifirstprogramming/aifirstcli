@@ -33,7 +33,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\necho %ANTHROPIC_BASE_URL% >> "${capture}"\r\necho %IS_DEMO% >> "${capture}"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "${capture}"\r\necho %HOME% >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\nif "%~1"=="" goto env\r\necho %~1 > "${capture}"\r\nshift /1\r\n:loop\r\nif "%~1"=="" goto env\r\necho %~1 >> "${capture}"\r\nshift /1\r\ngoto loop\r\n:env\r\necho %ANTHROPIC_BASE_URL% >> "${capture}"\r\necho %IS_DEMO% >> "${capture}"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "${capture}"\r\necho %HOME% >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
