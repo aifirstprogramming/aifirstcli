@@ -33,9 +33,9 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
    if (isWin) {
-     const winScript = `@echo off\r\necho %* > "%~1"\r\necho %ANTHROPIC_BASE_URL% >> "%~1"\r\necho %IS_DEMO% >> "%~1"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "%~1"\r\necho %HOME% >> "%~1"\r\nexit /b ${status}\r\n`;
+     const winScript = `@echo off\r\necho %* > "${capture}"\r\necho %ANTHROPIC_BASE_URL% >> "${capture}"\r\necho %IS_DEMO% >> "${capture}"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "${capture}"\r\necho %HOME% >> "${capture}"\r\nexit /b ${status}\r\n`;
      Bun.write(join(bin, "claude.cmd"), winScript);
-   } else {
+  } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
       Bun.write(join(bin, "claude"), script);
