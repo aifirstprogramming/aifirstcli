@@ -20,28 +20,40 @@ function sandbox(): string {
 async function runLearn(root: string, status = 0) {
   const bin = join(root, "bin");
   const capture = join(root, "capture.txt");
-  Bun.write(
-    join(bin, "claude"),
-    `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`,
-  );
-  try {
-    chmodSync(join(bin, "claude"), 0o755);
-  } catch {
-    // Windows: chmodSync may throw on .cmd/.bat wrappers
+  const isWin = process.platform === "win32";
+  const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
+  Bun.write(join(bin, "claude"), script);
+  if (!isWin) {
+    try {
+      chmodSync(join(bin, "claude"), 0o755);
+    } catch {
+      // chmod may throw on some platforms
+    }
   }
-  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
-    cwd: root,
-    env: {
-      PATH: `${bin}:${process.env.PATH}`,
-      AIFIRST_HOME_OVERRIDE: join(root, "home"),
-      AIFIRST_STATE_DIR: join(root, "state"),
-      ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
-      CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
-      NO_COLOR: "1",
+  const [cmd, ...args] = isWin
+    ? ["sh", script.split("\n").slice(0, 2).join("\n"), ""]
+    : [join(bin, "claude")];
+  const proc = Bun.spawn(
+    isWin
+      ? [process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"]
+      : [process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"],
+    {
+      cwd: root,
+      env: {
+        PATH: `${bin}:${process.env.PATH}`,
+        AIFIRST_HOME_OVERRIDE: join(root, "home"),
+        AIFIRST_STATE_DIR: join(root, "state"),
+        ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
+        CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+      onExit(proc) {
+        // capture exit code
+      },
     },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+  );
   const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
   await proc.exited;
   return { code: proc.exitCode, stdout, stderr, capture };
