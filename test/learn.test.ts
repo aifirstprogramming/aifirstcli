@@ -47,7 +47,7 @@ async function runLearn(root: string, status = 0) {
   const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
     cwd: root,
     env: {
-      PATH: `${bin}:${process.env.PATH}`,
+      PATH: `${bin}${isWin ? ";" : ":"}${process.env.PATH}`,
       AIFIRST_HOME_OVERRIDE: join(root, "home"),
       AIFIRST_STATE_DIR: join(root, "state"),
       ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
