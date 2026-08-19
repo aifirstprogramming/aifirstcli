@@ -80,7 +80,8 @@ describe("learn", () => {
     expect(result.code).toBe(0);
     const raw = readFileSync(result.capture, "utf8").split("\n");
     // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
-    const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
+      // Filter empty lines so Windows (which writes empty lines for empty %6-%9) matches Unix.
+      const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd()).filter((line: string) => line !== "");
     // On Windows, `set VAR` outputs `VAR=value`; on Unix, just the value.
     // Strip the `VAR=` prefix on Windows so assertions match both platforms.
     // Also normalize backslashes in the OS-rendered settings path to forward slashes.
