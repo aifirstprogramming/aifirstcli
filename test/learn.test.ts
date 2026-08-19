@@ -78,8 +78,20 @@ describe("learn", () => {
     const result = await runLearn(root);
 
     expect(result.code).toBe(0);
-    const launch = readFileSync(result.capture, "utf8").split("\n");
-    expect(launch.slice(0, 5)).toEqual(["--bare", "--settings", expect.stringContaining("/state/learn/profile-"), "--resume", "reader"]);
+    const raw = readFileSync(result.capture, "utf8").split("\n");
+    // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
+    const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
+    // Normalize backslashes in the settings path so the same assertion works on Windows
+    const normLaunch = launch.map((line: string) =>
+      line.replace(/state\\learn\\/g, "state/learn/"),
+    );
+    expect(normLaunch.slice(0, 5)).toEqual([
+      "--bare",
+      "--settings",
+      expect.stringContaining("/state/learn/profile-"),
+      "--resume",
+      "reader",
+    ]);
     expect(launch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     expect(launch[6]).toBe("1");
     expect(launch[7]).toMatch(/^synthetic-/);
