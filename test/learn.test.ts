@@ -25,12 +25,12 @@ function sandbox(): string {
   return path;
 }
 
-async function runLearn(root: string, status = 0) {
+async function runLearn(root: string, status = 0, passthrough = ["--resume", "reader"]) {
   const bin = join(root, "bin");
   const capture = join(root, "capture.txt");
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
-  // Write the shebang script as `claude` (executable on Unix) or `claude.sh` (for Windows .cmd wrapper)
+  // Keep the executable shell fake for Unix PATH resolution.
   Bun.write(join(bin, "claude.sh"), script);
   if (!isWin) {
     try {
@@ -39,12 +39,24 @@ async function runLearn(root: string, status = 0) {
       // chmod may throw on some platforms
     }
   }
-  // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
-    if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nif defined ANTHROPIC_BASE_URL (echo %ANTHROPIC_BASE_URL%) else (echo unset) >> "${capture}"\r\nif defined IS_DEMO (echo %IS_DEMO%) else (echo unset) >> "${capture}"\r\nif defined ANTHROPIC_AUTH_TOKEN (echo %ANTHROPIC_AUTH_TOKEN%) else (echo unset) >> "${capture}"\r\nif defined HOME (echo %HOME%) else (echo unset) >> "${capture}"\r\nexit /b ${status}\r\n`;
-      Bun.write(join(bin, "claude.cmd"), winScript);
-      // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
-      Bun.write(join(bin, "claude"), winScript);
+  if (isWin) {
+    const capturePath = capture.replace(/'/g, "''");
+    const powershellScript = join(bin, "claude-capture.ps1");
+    const scriptPath = powershellScript.replace(/'/g, "''");
+    const winScript = `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+$environment = [ordered]@{}
+foreach ($name in @('ANTHROPIC_BASE_URL', 'IS_DEMO', 'ANTHROPIC_AUTH_TOKEN', 'HOME')) {
+  if (Test-Path "Env:$name") { $environment[$name] = [Environment]::GetEnvironmentVariable($name) }
+}
+$capture = [ordered]@{ args = @($Arguments); env = $environment } | ConvertTo-Json -Compress
+[IO.File]::WriteAllText('${capturePath}', $capture, [Text.UTF8Encoding]::new($false))
+exit ${status}
+`;
+    const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`;
+    Bun.write(powershellScript, winScript);
+    Bun.write(join(bin, "claude.cmd"), launcher);
+    // The command lookup checks the bare name before appending .cmd on Windows.
+    Bun.write(join(bin, "claude"), launcher);
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
@@ -54,7 +66,7 @@ async function runLearn(root: string, status = 0) {
       // may throw if file exists
     }
   }
-  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", "--resume", "reader"], {
+  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", ...passthrough], {
     cwd: root,
     env: {
       PATH: `${bin}${isWin ? ";" : ":"}${process.env.PATH}`,
@@ -78,31 +90,55 @@ describe("learn", () => {
     const result = await runLearn(root);
 
     expect(result.code).toBe(0);
-    const raw = readFileSync(result.capture, "utf8").split("\n");
-    // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
-       const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
-       // On Windows, `set VAR=` outputs `VAR=value`; on Unix, just the value.
-       // Strip the `VAR=` prefix on Windows so assertions match both platforms.
-       // Also normalize backslashes in the OS-rendered settings path to forward slashes.
-       // Filter "ECHO is off." lines (empty %6-%9 on Windows).
-       const normLaunch = launch
-         .filter((line: string) => line !== "ECHO is off.")
-         .map((line: string) =>
-           line.replace(/^(ANTHROPIC_BASE_URL|IS_DEMO|ANTHROPIC_AUTH_TOKEN|HOME)=/, "").replace(/\\/g, "/"),
-         )
-         .filter((line: string) => line !== "");
-    expect(normLaunch.slice(0, 5)).toEqual([
+    const raw = readFileSync(result.capture, "utf8");
+    const launch = process.platform === "win32"
+      ? JSON.parse(raw) as { args: string[]; env: Record<string, string> }
+      : undefined;
+    const unixArgs = raw.split("\n").slice(0, 5);
+    expect((launch?.args ?? unixArgs).slice(0, 5)).toEqual([
       "--bare",
       "--settings",
-      expect.stringContaining("/state/learn/profile-"),
+      expect.stringContaining(`${process.platform === "win32" ? "\\state\\learn\\profile-" : "/state/learn/profile-"}`),
       "--resume",
       "reader",
     ]);
-    expect(normLaunch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-    expect(normLaunch[6]).toBe("1");
-    expect(normLaunch[7]).toMatch(/^synthetic-/);
-    expect(normLaunch[8]).toMatch(/^(unset|C:|\/)/);
+    const unixEnvironment = raw.split("\n").slice(5);
+    expect(launch?.env.ANTHROPIC_BASE_URL ?? unixEnvironment[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
+    expect(launch?.env.IS_DEMO ?? unixEnvironment[1]).toBe("1");
+    expect(launch?.env.ANTHROPIC_AUTH_TOKEN ?? unixEnvironment[2]).toMatch(/^synthetic-/);
+    expect(launch?.env.ANTHROPIC_AUTH_TOKEN).not.toBe("normal-profile-token");
+    if (launch) expect(launch.env).not.toHaveProperty("HOME");
+    else expect(unixEnvironment[3]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
+  });
+
+  it.skipIf(process.platform !== "win32")("captures Windows arguments as exact PowerShell JSON", async () => {
+    const root = sandbox();
+    const passthrough = [
+      "--resume",
+      "reader",
+      "one",
+      "two",
+      "three",
+      "four",
+      "five",
+      "six",
+      "seven",
+      "eight",
+      "nine",
+      "ten",
+      "spaces & special ^ characters",
+    ];
+    const result = await runLearn(root, 0, passthrough);
+
+    expect(result.code).toBe(0);
+    const launch = JSON.parse(readFileSync(result.capture, "utf8")) as { args: string[] };
+    expect(launch.args).toEqual([
+      "--bare",
+      "--settings",
+      expect.stringContaining("\\state\\learn\\profile-"),
+      ...passthrough,
+    ]);
   });
 
   it("propagates the Claude client exit status", async () => {
