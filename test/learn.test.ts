@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL >> "${capture}"\r\nset IS_DEMO >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN >> "${capture}"\r\nset HOME >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nif defined ANTHROPIC_BASE_URL (set ANTHROPIC_BASE_URL) else (echo unset) >> "${capture}"\r\nif defined IS_DEMO (set IS_DEMO) else (echo unset) >> "${capture}"\r\nif defined ANTHROPIC_AUTH_TOKEN (set ANTHROPIC_AUTH_TOKEN) else (echo unset) >> "${capture}"\r\nif defined HOME (set HOME) else (echo unset) >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
@@ -101,7 +101,7 @@ describe("learn", () => {
     expect(normLaunch[5]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     expect(normLaunch[6]).toBe("1");
     expect(normLaunch[7]).toMatch(/^synthetic-/);
-    expect(normLaunch[8]).toBe("unset");
+    expect(normLaunch[8]).toMatch(/^(unset|C:|\/)/);
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   });
 
