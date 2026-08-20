@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\necho %ANTHROPIC_BASE_URL% >> "${capture}"\r\necho %IS_DEMO% >> "${capture}"\r\necho %ANTHROPIC_AUTH_TOKEN% >> "${capture}"\r\necho %HOME% >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nif defined ANTHROPIC_BASE_URL (echo %ANTHROPIC_BASE_URL%) else (echo unset) >> "${capture}"\r\nif defined IS_DEMO (echo %IS_DEMO%) else (echo unset) >> "${capture}"\r\nif defined ANTHROPIC_AUTH_TOKEN (echo %ANTHROPIC_AUTH_TOKEN%) else (echo unset) >> "${capture}"\r\nif defined HOME (echo %HOME%) else (echo unset) >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
