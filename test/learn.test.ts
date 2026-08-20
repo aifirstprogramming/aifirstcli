@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho(%1 > "${capture}"\r\necho(%2 >> "${capture}"\r\necho(%3 >> "${capture}"\r\necho(%4 >> "${capture}"\r\necho(%5 >> "${capture}"\r\necho(%6 >> "${capture}"\r\necho(%7 >> "${capture}"\r\necho(%8 >> "${capture}"\r\necho(%9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL= >> "${capture}"\r\nset IS_DEMO= >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN= >> "${capture}"\r\nset HOME= >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL= >> "${capture}"\r\nset IS_DEMO= >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN= >> "${capture}"\r\nset HOME= >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
@@ -80,14 +80,16 @@ describe("learn", () => {
     expect(result.code).toBe(0);
     const raw = readFileSync(result.capture, "utf8").split("\n");
     // Normalize Windows cmd.exe capture semantics: strip \r (CRLF) and trailing spaces (echo padding)
-      // Filter empty lines so Windows (which writes empty lines for empty %6-%9) matches Unix.
-      const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd()).filter((line: string) => line !== "");
-    // On Windows, `set VAR` outputs `VAR=value`; on Unix, just the value.
-    // Strip the `VAR=` prefix on Windows so assertions match both platforms.
-    // Also normalize backslashes in the OS-rendered settings path to forward slashes.
-    const normLaunch = launch.map((line: string) =>
-      line.replace(/^(ANTHROPIC_BASE_URL|IS_DEMO|ANTHROPIC_AUTH_TOKEN|HOME)=/, "").replace(/\\/g, "/"),
-    );
+       const launch = raw.map((line: string) => line.replace(/\r/g, "").trimEnd());
+       // On Windows, `set VAR=` outputs `VAR=value`; on Unix, just the value.
+       // Strip the `VAR=` prefix on Windows so assertions match both platforms.
+       // Also normalize backslashes in the OS-rendered settings path to forward slashes.
+       // Filter "ECHO is off." lines (empty %6-%9 on Windows).
+       const normLaunch = launch
+         .filter((line: string) => line !== "ECHO is off.")
+         .map((line: string) =>
+           line.replace(/^(ANTHROPIC_BASE_URL|IS_DEMO|ANTHROPIC_AUTH_TOKEN|HOME)=/, "").replace(/\\/g, "/"),
+         );
     expect(normLaunch.slice(0, 5)).toEqual([
       "--bare",
       "--settings",
