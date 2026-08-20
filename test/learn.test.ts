@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0) {
   }
   // On Windows, write a .cmd wrapper using Windows-native commands (no sh needed)
     if (isWin) {
-      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL= >> "${capture}"\r\nset IS_DEMO= >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN= >> "${capture}"\r\nset HOME= >> "${capture}"\r\nexit /b ${status}\r\n`;
+      const winScript = `@echo off\r\necho %1 > "${capture}"\r\necho %2 >> "${capture}"\r\necho %3 >> "${capture}"\r\necho %4 >> "${capture}"\r\necho %5 >> "${capture}"\r\necho %6 >> "${capture}"\r\necho %7 >> "${capture}"\r\necho %8 >> "${capture}"\r\necho %9 >> "${capture}"\r\nset ANTHROPIC_BASE_URL >> "${capture}"\r\nset IS_DEMO >> "${capture}"\r\nset ANTHROPIC_AUTH_TOKEN >> "${capture}"\r\nset HOME >> "${capture}"\r\nexit /b ${status}\r\n`;
       Bun.write(join(bin, "claude.cmd"), winScript);
       // Also write bare 'claude' so executable() finds it (Windows spawn needs exact path)
       Bun.write(join(bin, "claude"), winScript);
@@ -89,7 +89,8 @@ describe("learn", () => {
          .filter((line: string) => line !== "ECHO is off.")
          .map((line: string) =>
            line.replace(/^(ANTHROPIC_BASE_URL|IS_DEMO|ANTHROPIC_AUTH_TOKEN|HOME)=/, "").replace(/\\/g, "/"),
-         );
+         )
+         .filter((line: string) => line !== "");
     expect(normLaunch.slice(0, 5)).toEqual([
       "--bare",
       "--settings",
