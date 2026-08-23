@@ -4,17 +4,14 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+const sandboxes: string[] = [];
+
 type ProbeResult = {
-  name: string;
-  command: string;
   status: number | null;
-  error?: string;
   stdout: string;
   stderr: string;
   argv: string[] | null;
 };
-
-const sandboxes: string[] = [];
 
 function sandbox(): string {
   const root = mkdtempSync(join(tmpdir(), "aifirst-windows-cmd-probe-"));
@@ -31,14 +28,12 @@ function quoteForCmd(value: string): string {
 }
 
 async function collectNodeVerbatim(
-  name: string,
   root: string,
   command: string,
   commandArgs: string[],
-  commandLine: string,
 ): Promise<ProbeResult> {
-  const capture = join(root, `${name}.json`);
-  return await new Promise((resolve) => {
+  const capture = join(root, "capture.json");
+  return await new Promise((resolve, reject) => {
     const child = spawn(command, commandArgs, {
       env: { ...process.env, CAPTURE_PATH: capture },
       shell: false,
@@ -48,18 +43,8 @@ async function collectNodeVerbatim(
     let stderr = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });
     child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.once("error", (error) => resolve({
-      name,
-      command: commandLine,
-      status: null,
-      error: `${error.name}: ${error.message}`,
-      stdout,
-      stderr,
-      argv: existsSync(capture) ? JSON.parse(readFileSync(capture, "utf8")) as string[] : null,
-    }));
+    child.once("error", reject);
     child.once("exit", (status) => resolve({
-      name,
-      command: commandLine,
       status,
       stdout,
       stderr,
@@ -68,110 +53,36 @@ async function collectNodeVerbatim(
   });
 }
 
-async function collect(
-  name: string,
-  root: string,
-  command: string[],
-  optionsObject = false,
-  commandLine?: string,
-): Promise<ProbeResult> {
-  const capture = join(root, `${name}.json`);
-  const options = {
-    env: { ...process.env, CAPTURE_PATH: capture },
-    stdout: "pipe" as const,
-    stderr: "pipe" as const,
-  };
-  try {
-    const child = optionsObject
-      ? Bun.spawn({ cmd: command, ...options })
-      : Bun.spawn(command, options);
-    const [stdout, stderr] = await Promise.all([
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-    ]);
-    await child.exited;
-    return {
-      name,
-      command: commandLine ?? JSON.stringify(command),
-      status: child.exitCode,
-      stdout,
-      stderr,
-      argv: existsSync(capture) ? JSON.parse(readFileSync(capture, "utf8")) as string[] : null,
-    };
-  } catch (error) {
-    return {
-      name,
-      command: commandLine ?? JSON.stringify(command),
-      status: null,
-      error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
-      stdout: "",
-      stderr: "",
-      argv: existsSync(capture) ? JSON.parse(readFileSync(capture, "utf8")) as string[] : null,
-    };
-  }
-}
-
-function diagnostics(results: ProbeResult[]): string {
-  return JSON.stringify(results, null, 2);
-}
-
-async function writeFixture(root: string, directory: string): Promise<string> {
-  const fixtureDir = join(root, directory);
+async function writeFixture(root: string): Promise<string> {
+  const fixtureDir = join(root, "fixture with spaces & ampersand");
   const fixture = join(fixtureDir, "capture arguments.cmd");
   const script = join(fixtureDir, "capture arguments.ps1");
 
   mkdirSync(fixtureDir);
-  await Bun.write(script, `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)\n[IO.File]::WriteAllText($env:CAPTURE_PATH, ($Arguments | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))\n[Console]::Out.WriteLine('fixture stdout')\n[Console]::Error.WriteLine('fixture stderr')\n`);
+  await Bun.write(script, `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+[IO.File]::WriteAllText($env:CAPTURE_PATH, ($Arguments | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))
+[Console]::Out.WriteLine('fixture stdout')
+[Console]::Error.WriteLine('fixture stderr')
+`);
   await Bun.write(fixture, `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${script}" %*\r\nexit /b %ERRORLEVEL%\r\n`);
   return fixture;
 }
 
 describe.skipIf(process.platform !== "win32")("Windows cmd launcher probe", () => {
-  it("distinguishes Bun launch candidates with spaces and cmd metacharacters", async () => {
+  it("preserves exact arguments and streams through the verbatim cmd boundary", async () => {
     const root = sandbox();
     const expected = ["argv with spaces", "argv & ampersand ^ caret"];
-    const ordinaryFixture = await writeFixture(root, "fixture with spaces");
-    const metacharacterFixture = await writeFixture(root, "fixture with spaces & ampersand");
-    const ordinaryCommandLine = `${quoteForCmd(ordinaryFixture)} ${expected.map(quoteForCmd).join(" ")}`;
-    const metacharacterCommandLine = `${quoteForCmd(metacharacterFixture)} ${expected.map(quoteForCmd).join(" ")}`;
-    const verbatimCommandLine = `"${metacharacterCommandLine}"`;
-    const results = [
-      await collect("direct-bun-spawn", root, [metacharacterFixture, ...expected]),
-      await collect(
-        "cmd-exe-string-ordinary-path",
-        root,
-        [process.env.ComSpec ?? "cmd.exe", "/d", "/s", "/c", ordinaryCommandLine],
-        false,
-        ordinaryCommandLine,
-      ),
-      await collect(
-        "cmd-exe-string-metacharacter-path",
-        root,
-        [process.env.ComSpec ?? "cmd.exe", "/d", "/s", "/c", metacharacterCommandLine],
-        false,
-        metacharacterCommandLine,
-      ),
-      await collectNodeVerbatim(
-        "node-child-process-verbatim",
-        root,
-        process.env.ComSpec ?? "cmd.exe",
-        ["/d", "/s", "/c", verbatimCommandLine],
-        verbatimCommandLine,
-      ),
-      await collect("bun-options-cmd", root, [metacharacterFixture, ...expected], true),
-    ];
-    const report = diagnostics(results);
-    console.info(`Windows cmd launcher probe:\n${report}`);
+    const fixture = await writeFixture(root);
+    const commandLine = `"${quoteForCmd(fixture)} ${expected.map(quoteForCmd).join(" ")}"`;
+    const result = await collectNodeVerbatim(
+      root,
+      process.env.ComSpec ?? "cmd.exe",
+      ["/d", "/s", "/c", commandLine],
+    );
 
-    expect(results[0]?.status, report).toBeNull();
-    expect(results[0]?.error, report).toStartWith("TypeError:");
-
-    const passing = results.filter((result) => (
-      result.status === 0
-      && result.stdout.includes("fixture stdout")
-      && result.stderr.includes("fixture stderr")
-      && JSON.stringify(result.argv) === JSON.stringify(expected)
-    ));
-    expect(passing.map((result) => result.name), report).toEqual(["node-child-process-verbatim"]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("fixture stdout");
+    expect(result.stderr).toContain("fixture stderr");
+    expect(result.argv).toEqual(expected);
   });
 });

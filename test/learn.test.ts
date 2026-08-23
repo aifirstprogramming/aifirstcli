@@ -5,7 +5,6 @@ import { delimiter, join } from "node:path";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
-const WINDOWS_WATCHDOG_MS = 5_000;
 
 afterEach(() => {
   for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true });
@@ -26,56 +25,6 @@ function sandbox(): string {
   return path;
 }
 
-type ProcessRecord = { pid: number; parentPid: number; name: string };
-
-function timestamp(): string {
-  return new Date().toISOString();
-}
-
-async function waitForWatchdog(
-  hasExited: () => boolean,
-  timeoutMs: number,
-  onFire: () => void | Promise<void>,
-): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (!hasExited() && Date.now() < deadline) await Bun.sleep(25);
-  if (hasExited()) return false;
-  await onFire();
-  return true;
-}
-
-function windowsProcessTree(rootPid: number): ProcessRecord[] {
-  const command = [
-    "$ErrorActionPreference = 'Stop'",
-    "$all = @(Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ pid = [int]$_.ProcessId; parentPid = [int]$_.ParentProcessId; name = $_.Name } })",
-    `$pending = @(${rootPid})`,
-    "$seen = @{}",
-    "while ($pending.Count -gt 0) { $currentProcessId = [int]$pending[0]; $pending = @($pending | Select-Object -Skip 1); if ($seen.ContainsKey($currentProcessId)) { continue }; $seen[$currentProcessId] = $true; $pending += @($all | Where-Object { $_.parentPid -eq $currentProcessId } | ForEach-Object { $_.pid }) }",
-    "$all | Where-Object { $seen.ContainsKey($_.pid) } | ConvertTo-Json -Compress",
-  ].join("; ");
-  const result = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  if (result.exitCode !== 0 || !result.stdout.byteLength) return [];
-  const records = JSON.parse(new TextDecoder().decode(result.stdout)) as ProcessRecord | ProcessRecord[];
-  return (Array.isArray(records) ? records : [records]).map(({ pid, parentPid, name }) => ({ pid, parentPid, name }));
-}
-
-function stopWindowsProcessTree(records: ProcessRecord[]): ProcessRecord[] {
-  const pids = records.map(({ pid }) => pid).join(",");
-  if (pids) {
-    Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `Stop-Process -Id ${pids} -Force -ErrorAction SilentlyContinue`]);
-  }
-  return records;
-}
-
-function sessionState(root: string): { sessionExists: boolean; learnDirectoryExists: boolean } {
-  return {
-    sessionExists: existsSync(join(root, "state", "learn", "session.json")),
-    learnDirectoryExists: existsSync(join(root, "state", "learn")),
-  };
-}
 
 async function runLearn(root: string, status = 0, passthrough = ["--resume", "reader"]) {
   const bin = join(root, "bin with spaces & symbols");
@@ -131,61 +80,15 @@ exit ${status}
     stdout: "pipe",
     stderr: "pipe",
   });
-  let processExitAt: string | undefined;
-  let exited = false;
-  const exitedPromise = proc.exited.then(() => {
-    exited = true;
-    processExitAt = timestamp();
-  });
   const stdoutPromise = new Response(proc.stdout).text();
   const stderrPromise = new Response(proc.stderr).text();
-  let captureCreatedAt: string | undefined;
-  const captureObserver = (async () => {
-    while (!exited && !captureCreatedAt) {
-      if (existsSync(capture)) {
-        captureCreatedAt = timestamp();
-        return;
-      }
-      await Bun.sleep(25);
-    }
-  })();
-  let forcedCleanupAt: string | undefined;
-  let processTree: ProcessRecord[] | undefined;
-  let state: ReturnType<typeof sessionState> | undefined;
-  let captureExistsAtWatchdog: boolean | undefined;
-
-  if (isWin) {
-    await waitForWatchdog(() => exited, WINDOWS_WATCHDOG_MS, () => {
-      captureExistsAtWatchdog = existsSync(capture);
-      if (captureExistsAtWatchdog && !captureCreatedAt) captureCreatedAt = timestamp();
-      if (!proc.pid) return;
-      processTree = windowsProcessTree(proc.pid);
-      state = sessionState(root);
-      forcedCleanupAt = timestamp();
-      const stopped = stopWindowsProcessTree(processTree);
-      console.error(JSON.stringify({
-        event: "learn-windows-post-capture-hang",
-        captureCreatedAt,
-        processExitAt,
-        forcedCleanupAt,
-        rootPid: proc.pid,
-        processTree,
-        stoppedProcessTree: stopped,
-        captureExistsAtWatchdog,
-        state,
-      }));
-    });
-  }
-
   const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);
-  await exitedPromise;
-  await captureObserver;
+  await proc.exited;
   return {
     code: proc.exitCode,
     stdout,
     stderr,
     capture,
-    diagnostic: { captureCreatedAt, processExitAt, forcedCleanupAt, processTree, captureExistsAtWatchdog, state },
   };
 }
 
@@ -215,7 +118,6 @@ function launchDiagnostics(result: Awaited<ReturnType<typeof runLearn>>): string
     `stdout: ${result.stdout || "<empty>"}`,
     `stderr: ${result.stderr || "<empty>"}`,
     `capture: ${capture || "<empty: PowerShell capture script failed>"}`,
-    `diagnostic: ${JSON.stringify(result.diagnostic)}`,
   ].join("\n");
 }
 
@@ -286,33 +188,6 @@ describe("learn", () => {
     ]);
   }, 15_000);
 
-  it.skipIf(process.platform !== "win32")("collects the Windows process-tree root", () => {
-    const root = windowsProcessTree(process.pid).find(({ pid }) => pid === process.pid);
-
-    expect(root).toBeDefined();
-    expect(root?.parentPid).toEqual(expect.any(Number));
-    expect(root?.name).toEqual(expect.any(String));
-  });
-
-  it("terminates only the recorded test-owned process when the watchdog fires", async () => {
-    const proc = Bun.spawn([process.execPath, "-e", "setTimeout(() => {}, 60_000)"], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const recordedPids = [proc.pid];
-    const stoppedPids: number[] = [];
-    let exited = false;
-    const exitedPromise = proc.exited.then(() => { exited = true; });
-    const fired = await waitForWatchdog(() => exited, 25, () => {
-      stoppedPids.push(...recordedPids);
-      proc.kill();
-    });
-    await exitedPromise;
-
-    expect(fired).toBe(true);
-    expect(stoppedPids).toEqual(recordedPids);
-    expect(exited).toBe(true);
-  });
 
   it("propagates the Claude client exit status", async () => {
     const root = sandbox();

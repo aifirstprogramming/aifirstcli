@@ -122,12 +122,18 @@ export function createSession(): SessionRecord {
 }
 
 /** Build the child's environment without reading the learner's Claude state. */
-export function claudeLaunch(session: SessionRecord, passthrough: string[], baseUrl: string): ClaudeLaunch {
+export function claudeLaunch(
+  session: SessionRecord,
+  passthrough: string[],
+  baseUrl: string,
+  isWindows = platform() === "win32",
+): ClaudeLaunch {
   const env: Record<string, string> = {};
   for (const name of ["PATH", "SystemRoot", "SYSTEMROOT", "WINDIR", "ComSpec", "COMSPEC"]) {
     const value = process.env[name];
     if (value) env[name] = value;
   }
+  if (isWindows && process.env.PSModulePath) env.PSModulePath = process.env.PSModulePath;
   env.IS_DEMO = "1";
   env.ANTHROPIC_BASE_URL = baseUrl;
   env.ANTHROPIC_AUTH_TOKEN = `synthetic-${session.nonce}`;

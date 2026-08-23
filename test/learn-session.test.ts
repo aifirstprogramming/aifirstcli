@@ -49,6 +49,42 @@ describe("local Claude session", () => {
     }
   });
 
+  it("passes PSModulePath only to the Windows narrow environment", () => {
+    const state = useState();
+    const previousPsModulePath = process.env.PSModulePath;
+    const previousUserProfile = process.env.USERPROFILE;
+    const previousAppData = process.env.APPDATA;
+    const previousLocalAppData = process.env.LOCALAPPDATA;
+    const session = createSession();
+    process.env.PSModulePath = "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\Modules";
+    process.env.USERPROFILE = "C:\\Users\\learner";
+    process.env.APPDATA = "C:\\Users\\learner\\AppData\\Roaming";
+    process.env.LOCALAPPDATA = "C:\\Users\\learner\\AppData\\Local";
+
+    try {
+      const windowsLaunch = claudeLaunch(session, [], "http://127.0.0.1:4567", true);
+      const unixLaunch = claudeLaunch(session, [], "http://127.0.0.1:4567", false);
+
+      expect(windowsLaunch.env.PSModulePath).toBe(process.env.PSModulePath);
+      expect(windowsLaunch.env.HOME).toBeUndefined();
+      expect(windowsLaunch.env.USERPROFILE).toBeUndefined();
+      expect(windowsLaunch.env.APPDATA).toBeUndefined();
+      expect(windowsLaunch.env.LOCALAPPDATA).toBeUndefined();
+      expect(unixLaunch.env.PSModulePath).toBeUndefined();
+    } finally {
+      if (previousPsModulePath === undefined) delete process.env.PSModulePath;
+      else process.env.PSModulePath = previousPsModulePath;
+      if (previousUserProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = previousUserProfile;
+      if (previousAppData === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = previousAppData;
+      if (previousLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+      else process.env.LOCALAPPDATA = previousLocalAppData;
+      cleanupSession(session);
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
   it("records an owned versioned lock and refuses a live second session", () => {
     const state = useState();
     const session = createSession();
