@@ -157,23 +157,30 @@ describe.skipIf(process.platform !== "win32")("Windows narrow environment matrix
     for (const directory of Object.values(c)) {
       if (directory.startsWith(profile)) mkdirSync(directory, { recursive: true });
     }
-    const d = { ...c };
-    for (const name of ["PATHEXT", "PSModulePath"]) {
-      const value = windowsValue(name);
-      if (value) d[name] = value;
-    }
+    const dPathext = { ...c };
+    const pathext = windowsValue("PATHEXT");
+    if (pathext) dPathext.PATHEXT = pathext;
+    const dPsModulePath = { ...c };
+    const psModulePath = windowsValue("PSModulePath");
+    if (psModulePath) dPsModulePath.PSModulePath = psModulePath;
+    const dBoth = { ...dPathext, ...dPsModulePath };
 
+    const isValid = (result: MatrixResult): boolean => result.exited && result.code === 0 && result.captured && result.argvMatches;
     const results: MatrixResult[] = [];
     results.push(await runCandidate("A", root, command, argvToCmd, expected, base));
     results.push(await runCandidate("B", root, command, argvToCmd, expected, b));
     results.push(await runCandidate("C", root, command, argvToCmd, expected, c));
-    if (!results.some((result) => result.exited && result.code === 0 && result.captured && result.argvMatches)) {
-      results.push(await runCandidate("D", root, command, argvToCmd, expected, d));
+    if (!results.some(isValid)) {
+      results.push(await runCandidate("D-PATHEXT", root, command, argvToCmd, expected, dPathext));
+      results.push(await runCandidate("D-PSMODULEPATH", root, command, argvToCmd, expected, dPsModulePath));
+      if (!results.slice(-2).some(isValid)) {
+        results.push(await runCandidate("D-BOTH", root, command, argvToCmd, expected, dBoth));
+      }
     }
 
     console.info(`Windows narrow environment matrix:\n${JSON.stringify(results)}`);
     expect(results.map((result) => result.name).slice(0, 3)).toEqual(["A", "B", "C"]);
-    expect(results.some((result) => result.exited && result.code === 0 && result.captured && result.argvMatches)).toBe(true);
+    expect(results.some(isValid)).toBe(true);
     for (const result of results.filter((result) => result.exited && result.code === 0)) {
       expect(result.captured).toBe(true);
       expect(result.argvMatches).toBe(true);
