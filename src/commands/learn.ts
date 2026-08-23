@@ -38,7 +38,9 @@ export async function learn(args: Args): Promise<void> {
     session.port = Number(new URL(server.baseUrl).port);
     updateSession(session);
     const launch = claudeLaunch(session, args.positionals, server.baseUrl);
-    const child = spawn(claude, launch.args, {
+    const command = isWin ? (process.env.ComSpec ?? "cmd.exe") : claude;
+    const commandArgs = isWin ? ["/d", "/s", "/c", claude, ...launch.args] : launch.args;
+    const child = spawn(command, commandArgs, {
       stdio: "inherit",
       shell: false,
       env: launch.env,

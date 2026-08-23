@@ -20,13 +20,13 @@ function executable(name: string): string | undefined {
 
 function sandbox(): string {
   const path = mkdtempSync(join(tmpdir(), "aifirst-learn-test-"));
-  mkdirSync(join(path, "bin"));
+  mkdirSync(join(path, "bin with spaces"));
   sandboxes.push(path);
   return path;
 }
 
 async function runLearn(root: string, status = 0, passthrough = ["--resume", "reader"]) {
-  const bin = join(root, "bin");
+  const bin = join(root, "bin with spaces");
   const capture = join(root, "capture.txt");
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
