@@ -84,12 +84,49 @@ exit ${status}
   return { code: proc.exitCode, stdout, stderr, capture };
 }
 
+async function runLearnWithoutClaude(root: string) {
+  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn"], {
+    cwd: root,
+    env: {
+      PATH: join(root, "bin"),
+      AIFIRST_HOME_OVERRIDE: join(root, "home"),
+      AIFIRST_STATE_DIR: join(root, "state"),
+      NO_COLOR: "1",
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+  await proc.exited;
+  return { code: proc.exitCode, stdout, stderr };
+}
+
+function launchDiagnostics(result: Awaited<ReturnType<typeof runLearn>>): string {
+  const capture = existsSync(result.capture)
+    ? readFileSync(result.capture, "utf8")
+    : "<missing: PATH resolution or cmd launcher failure>";
+  return [
+    `exit code: ${result.code}`,
+    `stdout: ${result.stdout || "<empty>"}`,
+    `stderr: ${result.stderr || "<empty>"}`,
+    `capture: ${capture || "<empty: PowerShell capture script failed>"}`,
+  ].join("\n");
+}
+
 describe("learn", () => {
+  it("reports a missing Claude client before it tries to launch one", async () => {
+    const result = await runLearnWithoutClaude(sandbox());
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("Claude Code is not installed or not on PATH.");
+  });
+
   it("launches a bare local client with a narrow environment and cleans up", async () => {
     const root = sandbox();
     const result = await runLearn(root);
 
-    expect(result.code).toBe(0);
+    expect(result.code, launchDiagnostics(result)).toBe(0);
+    expect(existsSync(result.capture), launchDiagnostics(result)).toBe(true);
     const raw = readFileSync(result.capture, "utf8");
     const launch = process.platform === "win32"
       ? JSON.parse(raw) as { args: string[]; env: Record<string, string> }
@@ -131,7 +168,8 @@ describe("learn", () => {
     ];
     const result = await runLearn(root, 0, passthrough);
 
-    expect(result.code).toBe(0);
+    expect(result.code, launchDiagnostics(result)).toBe(0);
+    expect(existsSync(result.capture), launchDiagnostics(result)).toBe(true);
     const launch = JSON.parse(readFileSync(result.capture, "utf8")) as { args: string[] };
     expect(launch.args).toEqual([
       "--bare",
@@ -144,6 +182,6 @@ describe("learn", () => {
   it("propagates the Claude client exit status", async () => {
     const root = sandbox();
     const result = await runLearn(root, 7);
-    expect(result.code).toBe(7);
+    expect(result.code, launchDiagnostics(result)).toBe(7);
   });
 });

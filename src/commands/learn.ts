@@ -23,8 +23,11 @@ export async function learn(args: Args): Promise<void> {
   }
 
   const isWin = process.platform === "win32";
-  const claude = executable("claude") + (isWin && !executable("claude")?.endsWith(".cmd") ? ".cmd" : "");
-  if (!claude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
+  const resolvedClaude = executable("claude");
+  if (!resolvedClaude) {
+    throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
+  }
+  const claude = isWin && !resolvedClaude.endsWith(".cmd") ? `${resolvedClaude}.cmd` : resolvedClaude;
 
   const session = createSession();
   let server: ReturnType<typeof startBookServer> | undefined;
