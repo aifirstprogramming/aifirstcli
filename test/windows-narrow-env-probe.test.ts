@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const WATCHDOG_MS = 5_000;
+const POST_KILL_SETTLE_MS = 2_000;
 const sandboxes: string[] = [];
 
 type ProcessRecord = { pid: number; parentPid: number; name: string };
@@ -82,7 +83,7 @@ async function writeFixture(root: string): Promise<string> {
   return fixture;
 }
 
-function runCandidate(name: string, root: string, command: string, argv: string[], env: Record<string, string>): Promise<MatrixResult> {
+function runCandidate(name: string, root: string, command: string, argv: string[], expectedArgv: string[], env: Record<string, string>): Promise<MatrixResult> {
   const capture = join(root, `${name}.json`);
   const started = Date.now();
   return new Promise((resolve) => {
@@ -92,6 +93,11 @@ function runCandidate(name: string, root: string, command: string, argv: string[
       windowsVerbatimArguments: true,
     });
     let finished = false;
+    let watchdogFired = false;
+    let resolveRootExit: () => void;
+    const rootExited = new Promise<void>((resolveRoot) => {
+      resolveRootExit = resolveRoot;
+    });
     const finish = (code: number | null, processNames: string[] = []) => {
       if (finished) return;
       finished = true;
@@ -99,16 +105,20 @@ function runCandidate(name: string, root: string, command: string, argv: string[
       let argvMatches = false;
       if (captured) {
         try {
-          argvMatches = JSON.stringify(JSON.parse(readFileSync(capture, "utf8")) as string[]) === JSON.stringify(argv);
+          argvMatches = JSON.stringify(JSON.parse(readFileSync(capture, "utf8")) as string[]) === JSON.stringify(expectedArgv);
         } catch {
           // A malformed capture remains a failed candidate without exposing its contents.
         }
       }
       resolve({ name, durationMs: Date.now() - started, exited: code !== null, code, captured, argvMatches, processNames });
     };
-    const watchdog = setTimeout(() => {
+    const watchdog = setTimeout(async () => {
+      watchdogFired = true;
       const records = child.pid ? windowsProcessTree(child.pid) : [];
       stopWindowsProcessTree(records);
+
+      // Wait briefly for the candidate root so sandbox cleanup cannot race it.
+      await Promise.race([rootExited, Bun.sleep(POST_KILL_SETTLE_MS)]);
       finish(null, records.map(({ name: processName }) => processName).sort());
     }, WATCHDOG_MS);
     child.once("error", () => {
@@ -116,8 +126,9 @@ function runCandidate(name: string, root: string, command: string, argv: string[
       finish(null);
     });
     child.once("exit", (code) => {
+      resolveRootExit();
       clearTimeout(watchdog);
-      finish(code);
+      if (!watchdogFired) finish(code);
     });
   });
 }
@@ -153,15 +164,16 @@ describe.skipIf(process.platform !== "win32")("Windows narrow environment matrix
     }
 
     const results: MatrixResult[] = [];
-    results.push(await runCandidate("A", root, command, argvToCmd, base));
-    results.push(await runCandidate("B", root, command, argvToCmd, b));
-    results.push(await runCandidate("C", root, command, argvToCmd, c));
+    results.push(await runCandidate("A", root, command, argvToCmd, expected, base));
+    results.push(await runCandidate("B", root, command, argvToCmd, expected, b));
+    results.push(await runCandidate("C", root, command, argvToCmd, expected, c));
     if (!results.some((result) => result.exited && result.code === 0 && result.captured && result.argvMatches)) {
-      results.push(await runCandidate("D", root, command, argvToCmd, d));
+      results.push(await runCandidate("D", root, command, argvToCmd, expected, d));
     }
 
     console.info(`Windows narrow environment matrix:\n${JSON.stringify(results)}`);
     expect(results.map((result) => result.name).slice(0, 3)).toEqual(["A", "B", "C"]);
+    expect(results.some((result) => result.exited && result.code === 0 && result.captured && result.argvMatches)).toBe(true);
     for (const result of results.filter((result) => result.exited && result.code === 0)) {
       expect(result.captured).toBe(true);
       expect(result.argvMatches).toBe(true);
