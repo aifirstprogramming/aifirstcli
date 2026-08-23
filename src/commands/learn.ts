@@ -15,6 +15,10 @@ function executable(name: string): string | undefined {
   return undefined;
 }
 
+function quoteCmdArgument(value: string): string {
+  return `"${value.replace(/\^/g, "^^").replace(/&/g, "^&")}"`;
+}
+
 export async function learn(args: Args): Promise<void> {
   if (args.positionals[0] === "--recover" || boolFlag(args, "recover") || flag(args, "recover") !== undefined) {
     if (recoverStaleSession()) out("Recovered stale local learning session.");
@@ -39,7 +43,8 @@ export async function learn(args: Args): Promise<void> {
     updateSession(session);
     const launch = claudeLaunch(session, args.positionals, server.baseUrl);
     const command = isWin ? (process.env.ComSpec ?? "cmd.exe") : claude;
-    const commandArgs = isWin ? ["/d", "/s", "/c", `"${claude}"`, ...launch.args] : launch.args;
+    const commandLine = `${quoteCmdArgument(claude)} ${launch.args.map(quoteCmdArgument).join(" ")}`;
+    const commandArgs = isWin ? ["/d", "/s", "/c", `"${commandLine}"`] : launch.args;
     const child = spawn(command, commandArgs, {
       stdio: "inherit",
       shell: false,

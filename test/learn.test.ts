@@ -26,7 +26,7 @@ function sandbox(): string {
 }
 
 async function runLearn(root: string, status = 0, passthrough = ["--resume", "reader"]) {
-  const bin = join(root, "bin with spaces");
+  const bin = join(root, "bin with spaces & symbols");
   const capture = join(root, "capture.txt");
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
@@ -165,6 +165,7 @@ describe("learn", () => {
       "nine",
       "ten",
       "spaces & special ^ characters",
+      "second ^caret & ampersand",
     ];
     const result = await runLearn(root, 0, passthrough);
 
