@@ -44,7 +44,7 @@ function windowsProcessTree(rootPid: number): ProcessRecord[] {
     "$all = @(Get-CimInstance Win32_Process | ForEach-Object { [pscustomobject]@{ pid = [int]$_.ProcessId; parentPid = [int]$_.ParentProcessId; name = $_.Name } })",
     `$pending = @(${rootPid})`,
     "$seen = @{}",
-    "while ($pending.Count -gt 0) { $pid = [int]$pending[0]; $pending = @($pending | Select-Object -Skip 1); if ($seen.ContainsKey($pid)) { continue }; $seen[$pid] = $true; $pending += @($all | Where-Object { $_.parentPid -eq $pid } | ForEach-Object { $_.pid }) }",
+    "while ($pending.Count -gt 0) { $currentProcessId = [int]$pending[0]; $pending = @($pending | Select-Object -Skip 1); if ($seen.ContainsKey($currentProcessId)) { continue }; $seen[$currentProcessId] = $true; $pending += @($all | Where-Object { $_.parentPid -eq $currentProcessId } | ForEach-Object { $_.pid }) }",
     "$all | Where-Object { $seen.ContainsKey($_.pid) } | ConvertTo-Json -Compress",
   ].join("; ");
   const result = Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command], {
@@ -56,8 +56,7 @@ function windowsProcessTree(rootPid: number): ProcessRecord[] {
   return (Array.isArray(records) ? records : [records]).map(({ pid, parentPid, name }) => ({ pid, parentPid, name }));
 }
 
-function stopWindowsProcessTree(rootPid: number): ProcessRecord[] {
-  const records = windowsProcessTree(rootPid);
+function stopWindowsProcessTree(records: ProcessRecord[]): ProcessRecord[] {
   const pids = records.map(({ pid }) => pid).join(",");
   if (pids) {
     Bun.spawnSync(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", `Stop-Process -Id ${pids} -Force -ErrorAction SilentlyContinue`]);
@@ -145,7 +144,7 @@ exit ${status}
       processTree = windowsProcessTree(proc.pid);
       state = sessionState(root);
       forcedCleanupAt = timestamp();
-      const stopped = stopWindowsProcessTree(proc.pid);
+      const stopped = stopWindowsProcessTree(processTree);
       console.error(JSON.stringify({
         event: "learn-windows-post-capture-hang",
         captureCreatedAt,
@@ -266,6 +265,14 @@ describe("learn", () => {
       ...passthrough,
     ]);
   }, 15_000);
+
+  it.skipIf(process.platform !== "win32")("collects the Windows process-tree root", () => {
+    const root = windowsProcessTree(process.pid).find(({ pid }) => pid === process.pid);
+
+    expect(root).toBeDefined();
+    expect(root?.parentPid).toEqual(expect.any(Number));
+    expect(root?.name).toEqual(expect.any(String));
+  });
 
   it("propagates the Claude client exit status", async () => {
     const root = sandbox();
