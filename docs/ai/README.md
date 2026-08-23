@@ -42,6 +42,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Bare-mode learning UX: policy rework](plans/2026-08-16-bare-mode-learning-ux-rework.md): fix `next`'s Windows path handling and missing-runtime detection, correct the Java missing-JDK test to force the real code path, after the earlier policy audit's stale-snapshot report | 2026-08-16 | Shipped on the feature branch |
 | [Windows learn launcher repair](plans/2026-08-23-windows-learn-launcher-repair.md): reject a missing Claude executable before constructing a Windows `.cmd` launcher, and make launcher failures diagnosable | 2026-08-23 | Candidate branch |
 | [Windows cmd launcher probe](plans/2026-08-23-windows-cmd-launch-probe.md): compare native Bun and cmd.exe launch forms with paths and argv values containing cmd metacharacters | 2026-08-23 | Probe branch |
+| [Windows cmd launcher path diagnostic](plans/2026-08-23-windows-cmd-launch-probe-diagnostic.md): separate ordinary and ampersand-containing fixture paths for cmd.exe string mode | 2026-08-23 | Probe branch |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the

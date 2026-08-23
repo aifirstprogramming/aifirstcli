@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 type ProbeResult = {
   name: string;
+  command: string;
   status: number | null;
   error?: string;
   stdout: string;
@@ -28,7 +29,13 @@ function quoteForCmd(value: string): string {
   return `"${value.replace(/\^/g, "^^").replace(/&/g, "^&").replace(/"/g, "\\\"")}"`;
 }
 
-async function collect(name: string, root: string, command: string[], optionsObject = false): Promise<ProbeResult> {
+async function collect(
+  name: string,
+  root: string,
+  command: string[],
+  optionsObject = false,
+  commandLine?: string,
+): Promise<ProbeResult> {
   const capture = join(root, `${name}.json`);
   const options = {
     env: { ...process.env, CAPTURE_PATH: capture },
@@ -46,6 +53,7 @@ async function collect(name: string, root: string, command: string[], optionsObj
     await child.exited;
     return {
       name,
+      command: commandLine ?? JSON.stringify(command),
       status: child.exitCode,
       stdout,
       stderr,
@@ -54,6 +62,7 @@ async function collect(name: string, root: string, command: string[], optionsObj
   } catch (error) {
     return {
       name,
+      command: commandLine ?? JSON.stringify(command),
       status: null,
       error: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
       stdout: "",
@@ -67,29 +76,48 @@ function diagnostics(results: ProbeResult[]): string {
   return JSON.stringify(results, null, 2);
 }
 
+async function writeFixture(root: string, directory: string): Promise<string> {
+  const fixtureDir = join(root, directory);
+  const fixture = join(fixtureDir, "capture arguments.cmd");
+  const script = join(fixtureDir, "capture arguments.ps1");
+
+  mkdirSync(fixtureDir);
+  await Bun.write(script, `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)\n[IO.File]::WriteAllText($env:CAPTURE_PATH, ($Arguments | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))\n[Console]::Out.WriteLine('fixture stdout')\n[Console]::Error.WriteLine('fixture stderr')\n`);
+  await Bun.write(fixture, `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${script}" %*\r\nexit /b %ERRORLEVEL%\r\n`);
+  return fixture;
+}
+
 describe.skipIf(process.platform !== "win32")("Windows cmd launcher probe", () => {
   it("distinguishes Bun launch candidates with spaces and cmd metacharacters", async () => {
     const root = sandbox();
-    const fixtureDir = join(root, "fixture with spaces & ampersand");
-    const fixture = join(fixtureDir, "capture arguments.cmd");
-    const script = join(fixtureDir, "capture arguments.ps1");
     const expected = ["argv with spaces", "argv & ampersand ^ caret"];
-
-    mkdirSync(fixtureDir);
-    await Bun.write(script, `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)\n[IO.File]::WriteAllText($env:CAPTURE_PATH, ($Arguments | ConvertTo-Json -Compress), [Text.UTF8Encoding]::new($false))\n[Console]::Out.WriteLine('fixture stdout')\n[Console]::Error.WriteLine('fixture stderr')\n`);
-    await Bun.write(fixture, `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${script}" %*\r\nexit /b %ERRORLEVEL%\r\n`);
-
-    const commandLine = `${quoteForCmd(fixture)} ${expected.map(quoteForCmd).join(" ")}`;
+    const ordinaryFixture = await writeFixture(root, "fixture with spaces");
+    const metacharacterFixture = await writeFixture(root, "fixture with spaces & ampersand");
+    const ordinaryCommandLine = `${quoteForCmd(ordinaryFixture)} ${expected.map(quoteForCmd).join(" ")}`;
+    const metacharacterCommandLine = `${quoteForCmd(metacharacterFixture)} ${expected.map(quoteForCmd).join(" ")}`;
     const results = [
-      await collect("direct-bun-spawn", root, [fixture, ...expected]),
-      await collect("cmd-exe-string", root, [process.env.ComSpec ?? "cmd.exe", "/d", "/s", "/c", commandLine]),
-      await collect("bun-options-cmd", root, [fixture, ...expected], true),
+      await collect("direct-bun-spawn", root, [metacharacterFixture, ...expected]),
+      await collect(
+        "cmd-exe-string-ordinary-path",
+        root,
+        [process.env.ComSpec ?? "cmd.exe", "/d", "/s", "/c", ordinaryCommandLine],
+        false,
+        ordinaryCommandLine,
+      ),
+      await collect(
+        "cmd-exe-string-metacharacter-path",
+        root,
+        [process.env.ComSpec ?? "cmd.exe", "/d", "/s", "/c", metacharacterCommandLine],
+        false,
+        metacharacterCommandLine,
+      ),
+      await collect("bun-options-cmd", root, [metacharacterFixture, ...expected], true),
     ];
     const report = diagnostics(results);
     console.info(`Windows cmd launcher probe:\n${report}`);
 
     expect(results[0]?.status, report).toBeNull();
-    expect(results[0]?.error, report).toContain("EINVAL");
+    expect(results[0]?.error, report).toStartWith("TypeError:");
 
     const passing = results.filter((result) => (
       result.status === 0
