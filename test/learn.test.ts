@@ -53,10 +53,10 @@ $capture = [ordered]@{ args = @($Arguments); env = $environment } | ConvertTo-Js
 exit ${status}
 `;
     const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`;
-    Bun.write(powershellScript, winScript);
-    Bun.write(join(bin, "claude.cmd"), launcher);
+    await Bun.write(powershellScript, winScript);
+    await Bun.write(join(bin, "claude.cmd"), launcher);
     // The command lookup checks the bare name before appending .cmd on Windows.
-    Bun.write(join(bin, "claude"), launcher);
+    await Bun.write(join(bin, "claude"), launcher);
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
