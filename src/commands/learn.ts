@@ -16,7 +16,7 @@ function executable(name: string): string | undefined {
 }
 
 function quoteCmdArgument(value: string): string {
-  return `"${value.replace(/\^/g, "^^").replace(/&/g, "^&")}"`;
+  return `"${value.replace(/"/g, "\\\"")}"`;
 }
 
 export async function learn(args: Args): Promise<void> {
@@ -48,6 +48,7 @@ export async function learn(args: Args): Promise<void> {
     const child = spawn(command, commandArgs, {
       stdio: "inherit",
       shell: false,
+      windowsVerbatimArguments: isWin,
       env: launch.env,
     });
     session.childPid = child.pid;

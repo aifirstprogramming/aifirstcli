@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -26,7 +27,45 @@ afterEach(() => {
 });
 
 function quoteForCmd(value: string): string {
-  return `"${value.replace(/\^/g, "^^").replace(/&/g, "^&").replace(/"/g, "\\\"")}"`;
+  return `"${value.replace(/"/g, "\\\"")}"`;
+}
+
+async function collectNodeVerbatim(
+  name: string,
+  root: string,
+  command: string,
+  commandArgs: string[],
+  commandLine: string,
+): Promise<ProbeResult> {
+  const capture = join(root, `${name}.json`);
+  return await new Promise((resolve) => {
+    const child = spawn(command, commandArgs, {
+      env: { ...process.env, CAPTURE_PATH: capture },
+      shell: false,
+      windowsVerbatimArguments: true,
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("error", (error) => resolve({
+      name,
+      command: commandLine,
+      status: null,
+      error: `${error.name}: ${error.message}`,
+      stdout,
+      stderr,
+      argv: existsSync(capture) ? JSON.parse(readFileSync(capture, "utf8")) as string[] : null,
+    }));
+    child.once("exit", (status) => resolve({
+      name,
+      command: commandLine,
+      status,
+      stdout,
+      stderr,
+      argv: existsSync(capture) ? JSON.parse(readFileSync(capture, "utf8")) as string[] : null,
+    }));
+  });
 }
 
 async function collect(
@@ -95,6 +134,7 @@ describe.skipIf(process.platform !== "win32")("Windows cmd launcher probe", () =
     const metacharacterFixture = await writeFixture(root, "fixture with spaces & ampersand");
     const ordinaryCommandLine = `${quoteForCmd(ordinaryFixture)} ${expected.map(quoteForCmd).join(" ")}`;
     const metacharacterCommandLine = `${quoteForCmd(metacharacterFixture)} ${expected.map(quoteForCmd).join(" ")}`;
+    const verbatimCommandLine = `"${metacharacterCommandLine}"`;
     const results = [
       await collect("direct-bun-spawn", root, [metacharacterFixture, ...expected]),
       await collect(
@@ -111,6 +151,13 @@ describe.skipIf(process.platform !== "win32")("Windows cmd launcher probe", () =
         false,
         metacharacterCommandLine,
       ),
+      await collectNodeVerbatim(
+        "node-child-process-verbatim",
+        root,
+        process.env.ComSpec ?? "cmd.exe",
+        ["/d", "/s", "/c", verbatimCommandLine],
+        verbatimCommandLine,
+      ),
       await collect("bun-options-cmd", root, [metacharacterFixture, ...expected], true),
     ];
     const report = diagnostics(results);
@@ -125,6 +172,6 @@ describe.skipIf(process.platform !== "win32")("Windows cmd launcher probe", () =
       && result.stderr.includes("fixture stderr")
       && JSON.stringify(result.argv) === JSON.stringify(expected)
     ));
-    expect(passing.map((result) => result.name), report).not.toEqual([]);
+    expect(passing.map((result) => result.name), report).toEqual(["node-child-process-verbatim"]);
   });
 });
