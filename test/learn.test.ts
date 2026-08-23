@@ -20,7 +20,7 @@ function executable(name: string): string | undefined {
 
 function sandbox(): string {
   const path = mkdtempSync(join(tmpdir(), "aifirst-learn-test-"));
-  mkdirSync(join(path, "bin with spaces"));
+  mkdirSync(join(path, "bin with spaces & symbols"));
   sandboxes.push(path);
   return path;
 }
@@ -31,7 +31,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
   // Keep the executable shell fake for Unix PATH resolution.
-  Bun.write(join(bin, "claude.sh"), script);
+  await Bun.write(join(bin, "claude.sh"), script);
   if (!isWin) {
     try {
       chmodSync(join(bin, "claude.sh"), 0o755);
@@ -60,7 +60,7 @@ exit ${status}
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
-      Bun.write(join(bin, "claude"), script);
+      await Bun.write(join(bin, "claude"), script);
       chmodSync(join(bin, "claude"), 0o755);
     } catch {
       // may throw if file exists
