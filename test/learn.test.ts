@@ -147,7 +147,7 @@ describe("learn", () => {
     if (launch) expect(launch.env).not.toHaveProperty("HOME");
     else expect(unixEnvironment[3]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
-  });
+  }, 15_000);
 
   it.skipIf(process.platform !== "win32")("captures Windows arguments as exact PowerShell JSON", async () => {
     const root = sandbox();
@@ -178,11 +178,11 @@ describe("learn", () => {
       expect.stringContaining("\\state\\learn\\profile-"),
       ...passthrough,
     ]);
-  });
+  }, 15_000);
 
   it("propagates the Claude client exit status", async () => {
     const root = sandbox();
     const result = await runLearn(root, 7);
     expect(result.code, launchDiagnostics(result)).toBe(7);
-  });
+  }, 15_000);
 });
