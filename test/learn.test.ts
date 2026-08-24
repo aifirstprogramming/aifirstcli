@@ -25,6 +25,24 @@ function sandbox(): string {
   return path;
 }
 
+function caseInsensitiveEnvironmentValue(environment: NodeJS.ProcessEnv, name: string): string | undefined {
+  const entry = Object.entries(environment).find(([key]) => key.toLowerCase() === name.toLowerCase());
+  return entry?.[1];
+}
+
+function learnEnvironment(root: string, bin: string, isWin: boolean, environment = process.env): NodeJS.ProcessEnv {
+  const psModulePath = isWin ? caseInsensitiveEnvironmentValue(environment, "PSModulePath") : undefined;
+  return {
+    PATH: `${bin}${isWin ? ";" : ":"}${environment.PATH}`,
+    AIFIRST_HOME_OVERRIDE: join(root, "home"),
+    AIFIRST_STATE_DIR: join(root, "state"),
+    ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
+    CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
+    NO_COLOR: "1",
+    ...(psModulePath === undefined ? {} : { PSModulePath: psModulePath }),
+  };
+}
+
 
 async function runLearn(root: string, status = 0, passthrough = ["--resume", "reader"]) {
   const bin = join(root, "bin with spaces & symbols");
@@ -69,14 +87,7 @@ exit ${status}
   }
   const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", ...passthrough], {
     cwd: root,
-    env: {
-      PATH: `${bin}${isWin ? ";" : ":"}${process.env.PATH}`,
-      AIFIRST_HOME_OVERRIDE: join(root, "home"),
-      AIFIRST_STATE_DIR: join(root, "state"),
-      ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
-      CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
-      NO_COLOR: "1",
-    },
+    env: learnEnvironment(root, bin, isWin),
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -122,6 +133,25 @@ function launchDiagnostics(result: Awaited<ReturnType<typeof runLearn>>): string
 }
 
 describe("learn", () => {
+  it("includes only PSModulePath from the Windows host environment", () => {
+    const environment = learnEnvironment("root", "bin", true, {
+      PATH: "host-path",
+      pSmOdUlEpAtH: "module-path-for-test",
+      HOME: "home",
+      USERPROFILE: "profile",
+      APPDATA: "app-data",
+      LOCALAPPDATA: "local-app-data",
+      TEMP: "temp",
+      TMP: "tmp",
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+    });
+
+    expect(environment.PSModulePath).toBe("module-path-for-test");
+    for (const name of ["HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "PATHEXT"]) {
+      expect(environment).not.toHaveProperty(name);
+    }
+  });
+
   it("reports a missing Claude client before it tries to launch one", async () => {
     const result = await runLearnWithoutClaude(sandbox());
 
