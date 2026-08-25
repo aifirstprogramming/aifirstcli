@@ -51,8 +51,10 @@ describe("local Claude session", () => {
 
   it("passes the Windows PowerShell module path without widening the environment", () => {
     const state = useState();
-    const existing = Object.keys(process.env).find((name) => name.toLowerCase() === "psmodulepath");
-    const value = existing === undefined ? undefined : process.env[existing];
+    const existing = Object.keys(process.env)
+      .filter((name) => name.toLowerCase() === "psmodulepath")
+      .map((name) => [name, process.env[name]] as const);
+    for (const [name] of existing) delete process.env[name];
     process.env.psmodulepath = "C:\\PowerShell\\Modules";
     const session = createSession();
 
@@ -63,8 +65,10 @@ describe("local Claude session", () => {
       expect(Object.keys(launch.env)).toEqual(expect.arrayContaining(["PSModulePath"]));
     } finally {
       cleanupSession(session);
-      if (existing === undefined) delete process.env.psmodulepath;
-      else process.env[existing] = value;
+      for (const name of Object.keys(process.env)) {
+        if (name.toLowerCase() === "psmodulepath") delete process.env[name];
+      }
+      for (const [name, value] of existing) process.env[name] = value;
       rmSync(state, { recursive: true, force: true });
     }
   });

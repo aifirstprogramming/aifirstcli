@@ -60,7 +60,7 @@ exit ${status}
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
-      Bun.write(join(bin, "claude"), script);
+      await Bun.write(join(bin, "claude"), script);
       chmodSync(join(bin, "claude"), 0o755);
     } catch {
       // may throw if file exists

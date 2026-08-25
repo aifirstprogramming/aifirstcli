@@ -23,7 +23,8 @@ export async function learn(args: Args): Promise<void> {
   }
 
   const isWin = process.platform === "win32";
-  const claude = executable("claude") + (isWin && !executable("claude")?.endsWith(".cmd") ? ".cmd" : "");
+  const foundClaude = executable("claude");
+  const claude = foundClaude && isWin && !foundClaude.endsWith(".cmd") ? `${foundClaude}.cmd` : foundClaude;
   if (!claude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
 
   const session = createSession();
@@ -37,7 +38,8 @@ export async function learn(args: Args): Promise<void> {
     const launch = claudeLaunch(session, args.positionals, server.baseUrl);
     const child = spawn(claude, launch.args, {
       stdio: "inherit",
-      shell: false,
+      // Windows installs Claude as a .cmd shim, which needs cmd.exe to launch.
+      shell: isWin,
       env: launch.env,
     });
     session.childPid = child.pid;
