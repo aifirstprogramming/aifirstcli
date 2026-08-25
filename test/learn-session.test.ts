@@ -49,6 +49,26 @@ describe("local Claude session", () => {
     }
   });
 
+  it("passes the Windows PowerShell module path without widening the environment", () => {
+    const state = useState();
+    const existing = Object.keys(process.env).find((name) => name.toLowerCase() === "psmodulepath");
+    const value = existing === undefined ? undefined : process.env[existing];
+    process.env.psmodulepath = "C:\\PowerShell\\Modules";
+    const session = createSession();
+
+    try {
+      const launch = claudeLaunch(session, [], "http://127.0.0.1:4567");
+      expect(launch.env.PSModulePath).toBe("C:\\PowerShell\\Modules");
+      expect(launch.env.HOME).toBeUndefined();
+      expect(Object.keys(launch.env)).toEqual(expect.arrayContaining(["PSModulePath"]));
+    } finally {
+      cleanupSession(session);
+      if (existing === undefined) delete process.env.psmodulepath;
+      else process.env[existing] = value;
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
   it("records an owned versioned lock and refuses a live second session", () => {
     const state = useState();
     const session = createSession();
