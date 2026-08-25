@@ -21,7 +21,8 @@ function quoteWindowsArg(value: string): string {
 }
 
 export function windowsShellArgs(command: string, args: string[]): string[] {
-  return ["/d", "/s", "/c", [command, ...args].map(quoteWindowsArg).join(" ")];
+  const payload = [command, ...args].map(quoteWindowsArg).join(" ");
+  return ["/d", "/s", "/c", `"${payload}"`];
 }
 
 export async function learn(args: Args): Promise<void> {

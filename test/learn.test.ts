@@ -91,7 +91,7 @@ describe("learn", () => {
       "/d",
       "/s",
       "/c",
-      '"C:\\fake path\\claude.cmd" --bare "spaces & special ^ characters"',
+      '""C:\\fake path\\claude.cmd" --bare "spaces & special ^ characters""',
     ]);
   });
 
