@@ -50,6 +50,7 @@ export async function learn(args: Args): Promise<void> {
       ? spawn(process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe", windowsShellArgs(claude, launch.args), {
           stdio: "inherit",
           env: launch.env,
+          windowsVerbatimArguments: true,
         })
       : spawn(claude, launch.args, {
           stdio: "inherit",

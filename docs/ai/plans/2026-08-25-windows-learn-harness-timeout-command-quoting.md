@@ -24,9 +24,10 @@ contract rather than only checking a generic command string.
 ## Decisions
 
 I kept the explicit ComSpec invocation and added one outer quote pair around
-the already quoted payload. This preserves forwarded argv, the narrow child
-environment, cleanup, and exit-status handling while making a spaced shim path
-one command under `cmd.exe /s`.
+the already quoted payload. Node must pass that command line to Windows without
+another quoting pass, or the nested quotes are changed before `cmd.exe` sees
+them. This preserves forwarded argv, the narrow child environment, cleanup, and
+exit-status handling while making a spaced shim path one command under `cmd.exe /s`.
 
 I left the native Windows test in place because Linux cannot execute the
 PowerShell and `.cmd` fixture. Fresh native CI at the new PR head remains the
