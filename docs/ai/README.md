@@ -42,6 +42,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Bare-mode learning UX: policy rework](plans/2026-08-16-bare-mode-learning-ux-rework.md): fix `next`'s Windows path handling and missing-runtime detection, correct the Java missing-JDK test to force the real code path, after the earlier policy audit's stale-snapshot report | 2026-08-16 | Shipped on the feature branch |
 | [Windows learn harness repair](plans/2026-08-25-windows-learn-harness-repair.md): preserve PowerShell's module path in the narrow Claude child environment and keep the launch assertions strict | 2026-08-25 | Shipped on the feature branch |
 | [Windows learn harness repair rework](plans/2026-08-25-windows-learn-harness-repair-rework.md): launch Windows command shims through the shell and isolate the PowerShell module path fixture | 2026-08-25 | Shipped on the feature branch |
+| [Windows learn harness timeout rework](plans/2026-08-25-windows-learn-harness-timeout-rework.md): invoke the Windows command shim through one explicit cmd.exe shell and preserve exact arguments | 2026-08-25 | Pending native Windows verification |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the

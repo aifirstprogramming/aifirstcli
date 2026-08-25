@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import { windowsShellArgs } from "../src/commands/learn";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
@@ -85,6 +86,15 @@ exit ${status}
 }
 
 describe("learn", () => {
+  it("quotes the Windows shim command without adding a second shell", () => {
+    expect(windowsShellArgs("C:\\fake path\\claude.cmd", ["--bare", "spaces & special ^ characters"])).toEqual([
+      "/d",
+      "/s",
+      "/c",
+      '"C:\\fake path\\claude.cmd" --bare "spaces & special ^ characters"',
+    ]);
+  });
+
   it("launches a bare local client with a narrow environment and cleans up", async () => {
     const root = sandbox();
     const result = await runLearn(root);
