@@ -24,11 +24,12 @@ function quoteWindowsArg(value: string): string {
 
 function windowsLaunch(command: string, args: string[]): { command: string; args: string[] } {
   const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
+  const payload = [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ");
   return {
     command: comspec,
-    // CALL makes cmd return the batch file's exit status instead of treating it
-    // as a nested command line, while each argument remains independently quoted.
-    args: ["/d", "/s", "/c", `call ${quoteWindowsArg(command)} ${args.map(quoteWindowsArg).join(" ")}`],
+    // The outer quotes are required by cmd when /c receives a quoted batch path.
+    // Verbatim passing keeps cmd from escaping the payload a second time.
+    args: ["/d", "/s", "/c", `"${payload}"`],
   };
 }
 
@@ -58,7 +59,7 @@ export async function learn(args: Args): Promise<void> {
     const child = spawn(childLaunch.command, childLaunch.args, {
       stdio: "inherit",
       shell: false,
-      windowsVerbatimArguments: false,
+      windowsVerbatimArguments: isWin && claude.toLowerCase().endsWith(".cmd"),
       env: launch.env,
     });
     session.childPid = child.pid;
