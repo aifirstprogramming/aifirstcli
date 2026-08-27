@@ -26,7 +26,9 @@ function windowsLaunch(command: string, args: string[]): { command: string; args
   const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
   return {
     command: comspec,
-    args: ["/d", "/s", "/c", `"${[quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ")}"`],
+    // CALL makes cmd return the batch file's exit status instead of treating it
+    // as a nested command line, while each argument remains independently quoted.
+    args: ["/d", "/s", "/c", `call ${quoteWindowsArg(command)} ${args.map(quoteWindowsArg).join(" ")}`],
   };
 }
 
