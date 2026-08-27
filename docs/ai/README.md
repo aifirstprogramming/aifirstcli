@@ -43,6 +43,7 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Windows learn harness repair](plans/2026-08-25-windows-learn-harness-repair.md): preserve PowerShell's module path in the narrow Claude child environment and keep the launch assertions strict | 2026-08-25 | Shipped on the feature branch |
 | [Windows learn shim invocation repair](plans/2026-08-27-windows-learn-shim-invocation-repair.md): find Claude command shims and invoke `.cmd` files through `ComSpec` without changing arguments | 2026-08-27 | Shipped on the feature branch |
 | [Windows learn shim rework](plans/2026-08-27-windows-learn-shim-rework.md): quote the complete ComSpec payload and preserve each platform's module path in the session test | 2026-08-27 | Shipped on the feature branch |
+| [Windows learn ComSpec completion](plans/2026-08-27-windows-learn-comspec-completion.md): remove the ComSpec quote-stripping mode and wait for inherited stdio to close before cleanup | 2026-08-27 | Shipped on the feature branch |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the

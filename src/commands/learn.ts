@@ -29,7 +29,7 @@ function windowsLaunch(command: string, args: string[]): { command: string; args
     command: comspec,
     // The outer quotes are required by cmd when /c receives a quoted batch path.
     // Verbatim passing keeps cmd from escaping the payload a second time.
-    args: ["/d", "/s", "/c", `"${payload}"`],
+    args: ["/d", "/c", `"${payload}"`],
   };
 }
 
@@ -66,7 +66,7 @@ export async function learn(args: Args): Promise<void> {
     updateSession(session);
     const status = await new Promise<number>((resolve, reject) => {
       child.once("error", reject);
-      child.once("exit", (code) => resolve(code ?? 1));
+      child.once("close", (code) => resolve(code ?? 1));
     });
     process.exitCode = status;
   } finally {
