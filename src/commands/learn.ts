@@ -18,14 +18,6 @@ function executable(name: string): string | undefined {
   return undefined;
 }
 
-function windowsLaunch(command: string, args: string[]): { command: string; args: string[] } {
-  const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
-  return {
-    command: comspec,
-    args: ["/d", "/c", command, ...args],
-  };
-}
-
 export async function learn(args: Args): Promise<void> {
   if (args.positionals[0] === "--recover" || boolFlag(args, "recover") || flag(args, "recover") !== undefined) {
     if (recoverStaleSession()) out("Recovered stale local learning session.");
@@ -46,13 +38,9 @@ export async function learn(args: Args): Promise<void> {
     session.port = Number(new URL(server.baseUrl).port);
     updateSession(session);
     const launch = claudeLaunch(session, args.positionals, server.baseUrl);
-    const childLaunch = isWin && claude.toLowerCase().endsWith(".cmd")
-      ? windowsLaunch(claude, launch.args)
-      : { command: claude, args: launch.args };
-    const child = spawn(childLaunch.command, childLaunch.args, {
+    const child = spawn(claude, launch.args, {
       stdio: "inherit",
-      shell: false,
-      windowsVerbatimArguments: false,
+      shell: isWin,
       env: launch.env,
     });
     session.childPid = child.pid;
