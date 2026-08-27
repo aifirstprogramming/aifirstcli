@@ -52,7 +52,7 @@ $capture = [ordered]@{ args = @($Arguments); env = $environment } | ConvertTo-Js
 [IO.File]::WriteAllText('${capturePath}', $capture, [Text.UTF8Encoding]::new($false))
 exit ${status}
 `;
-    const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`;
+    const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\n`;
     await Bun.write(powershellScript, winScript);
     await Bun.write(join(bin, "claude.cmd"), launcher);
   } else {
