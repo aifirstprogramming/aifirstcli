@@ -27,7 +27,7 @@ function windowsLaunch(command: string, args: string[]): { command: string; args
   const payload = [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ");
   return {
     command: comspec,
-    args: ["/d", "/c", `"${payload}"`],
+    args: ["/d", "/s", "/c", `"${payload}"`],
   };
 }
 
@@ -57,7 +57,7 @@ export async function learn(args: Args): Promise<void> {
     const child = spawn(childLaunch.command, childLaunch.args, {
       stdio: "inherit",
       shell: false,
-      windowsVerbatimArguments: false,
+      windowsVerbatimArguments: true,
       env: launch.env,
     });
     session.childPid = child.pid;
