@@ -7,7 +7,7 @@ const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
 
 afterEach(() => {
-  for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true });
+  for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 });
 
 function executable(name: string): string | undefined {
