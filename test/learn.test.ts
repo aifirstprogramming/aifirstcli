@@ -31,7 +31,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
   // Keep the executable shell fake for Unix PATH resolution.
-  Bun.write(join(bin, "claude.sh"), script);
+  await Bun.write(join(bin, "claude.sh"), script);
   if (!isWin) {
     try {
       chmodSync(join(bin, "claude.sh"), 0o755);

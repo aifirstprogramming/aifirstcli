@@ -86,7 +86,7 @@ describe("run", () => {
         expect(out.ran.stdout).toContain("Hello, World!");
       } else {
         // Java not installed. The file was written.
-        const err = JSON.parse(r.stderr);
+        const err = JSON.parse(r.stderr || r.stdout);
         expect(err.error.message).toContain("java");
       }
     },
