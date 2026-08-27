@@ -151,7 +151,7 @@ export function updateSession(record: SessionRecord): void {
 
 export function cleanupSession(record: SessionRecord): void {
   if (!owned(record.profile)) throw new Error("Refusing to clean an unowned local-learning profile.");
-  rmSync(record.profile, { recursive: true, force: true });
+  rmSync(record.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   const current = readSession();
   if (current?.nonce === record.nonce) unlinkSync(sessionPath());
 }
