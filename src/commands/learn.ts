@@ -18,16 +18,11 @@ function executable(name: string): string | undefined {
   return undefined;
 }
 
-function quoteWindowsArg(value: string): string {
-  return `"${value.replace(/(\\*)"/g, "$1$1\\\"").replace(/(\\+)$/g, "$1$1")}"`;
-}
-
 function windowsLaunch(command: string, args: string[]): { command: string; args: string[] } {
   const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
-  const payload = [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ");
   return {
     command: comspec,
-    args: ["/d", "/c", payload],
+    args: ["/d", "/c", command, ...args],
   };
 }
 
