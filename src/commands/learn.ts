@@ -56,6 +56,7 @@ export async function learn(args: Args): Promise<void> {
     const child = spawn(childLaunch.command, childLaunch.args, {
       stdio: "inherit",
       shell: false,
+      windowsVerbatimArguments: isWin && claude.toLowerCase().endsWith(".cmd"),
       env: launch.env,
     });
     session.childPid = child.pid;
