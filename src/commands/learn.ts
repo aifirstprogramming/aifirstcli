@@ -27,7 +27,7 @@ function windowsLaunch(command: string, args: string[]): { command: string; args
   const payload = [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ");
   return {
     command: comspec,
-    args: ["/d", "/s", "/c", `call ${payload}`],
+    args: ["/d", "/c", `"${payload}"`],
   };
 }
 
