@@ -8,11 +8,26 @@ import { startBookServer } from "./serve";
 import { claudeLaunch, cleanupSession, createSession, recoverStaleSession, updateSession } from "../learn/session";
 
 function executable(name: string): string | undefined {
+  const suffixes = process.platform === "win32" ? ["", ".cmd", ".exe"] : [""];
   for (const directory of (process.env.PATH ?? "").split(delimiter)) {
-    const path = `${directory}/${name}`;
-    if (existsSync(path)) return path;
+    for (const suffix of suffixes) {
+      const path = `${directory}/${name}${suffix}`;
+      if (existsSync(path)) return path;
+    }
   }
   return undefined;
+}
+
+function quoteWindowsArg(value: string): string {
+  return `"${value.replace(/(\\*)"/g, "$1$1\\\"").replace(/(\\+)$/g, "$1$1")}"`;
+}
+
+function windowsLaunch(command: string, args: string[]): { command: string; args: string[] } {
+  const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
+  return {
+    command: comspec,
+    args: ["/d", "/s", "/c", [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ")],
+  };
 }
 
 export async function learn(args: Args): Promise<void> {
@@ -23,7 +38,7 @@ export async function learn(args: Args): Promise<void> {
   }
 
   const isWin = process.platform === "win32";
-  const claude = executable("claude") + (isWin && !executable("claude")?.endsWith(".cmd") ? ".cmd" : "");
+  const claude = executable("claude");
   if (!claude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
 
   const session = createSession();
@@ -35,7 +50,10 @@ export async function learn(args: Args): Promise<void> {
     session.port = Number(new URL(server.baseUrl).port);
     updateSession(session);
     const launch = claudeLaunch(session, args.positionals, server.baseUrl);
-    const child = spawn(claude, launch.args, {
+    const childLaunch = isWin && claude.toLowerCase().endsWith(".cmd")
+      ? windowsLaunch(claude, launch.args)
+      : { command: claude, args: launch.args };
+    const child = spawn(childLaunch.command, childLaunch.args, {
       stdio: "inherit",
       shell: false,
       env: launch.env,

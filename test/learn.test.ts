@@ -55,12 +55,10 @@ exit ${status}
     const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`;
     await Bun.write(powershellScript, winScript);
     await Bun.write(join(bin, "claude.cmd"), launcher);
-    // The command lookup checks the bare name before appending .cmd on Windows.
-    await Bun.write(join(bin, "claude"), launcher);
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
-      Bun.write(join(bin, "claude"), script);
+      await Bun.write(join(bin, "claude"), script);
       chmodSync(join(bin, "claude"), 0o755);
     } catch {
       // may throw if file exists
