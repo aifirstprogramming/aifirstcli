@@ -26,7 +26,7 @@ function windowsLaunch(command: string, args: string[]): { command: string; args
   const comspec = process.env.ComSpec ?? process.env.COMSPEC ?? "cmd.exe";
   return {
     command: comspec,
-    args: ["/d", "/s", "/c", [quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ")],
+    args: ["/d", "/s", "/c", `"${[quoteWindowsArg(command), ...args.map(quoteWindowsArg)].join(" ")}"`],
   };
 }
 
