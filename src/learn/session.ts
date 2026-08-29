@@ -44,6 +44,11 @@ function owned(path: string): boolean {
 
 const sep = platform() === "win32" ? "\\" : "/";
 
+function inherited(name: string): string | undefined {
+  const key = Object.keys(process.env).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : process.env[key];
+}
+
 function live(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -124,8 +129,8 @@ export function createSession(): SessionRecord {
 /** Build the child's environment without reading the learner's Claude state. */
 export function claudeLaunch(session: SessionRecord, passthrough: string[], baseUrl: string): ClaudeLaunch {
   const env: Record<string, string> = {};
-  for (const name of ["PATH", "SystemRoot", "SYSTEMROOT", "WINDIR", "ComSpec", "COMSPEC"]) {
-    const value = process.env[name];
+  for (const name of ["PATH", "SystemRoot", "SYSTEMROOT", "WINDIR", "ComSpec", "COMSPEC", "PSModulePath"]) {
+    const value = inherited(name);
     if (value) env[name] = value;
   }
   env.IS_DEMO = "1";
@@ -146,7 +151,8 @@ export function updateSession(record: SessionRecord): void {
 
 export function cleanupSession(record: SessionRecord): void {
   if (!owned(record.profile)) throw new Error("Refusing to clean an unowned local-learning profile.");
-  rmSync(record.profile, { recursive: true, force: true });
+  const retry = platform() === "win32" ? { maxRetries: 10, retryDelay: 100 } : {};
+  rmSync(record.profile, { recursive: true, force: true, ...retry });
   const current = readSession();
   if (current?.nonce === record.nonce) unlinkSync(sessionPath());
 }

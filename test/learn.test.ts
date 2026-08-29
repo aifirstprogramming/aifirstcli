@@ -7,7 +7,8 @@ const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
 
 afterEach(() => {
-  for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true });
+  const retry = process.platform === "win32" ? { maxRetries: 10, retryDelay: 100 } : {};
+  for (const sandbox of sandboxes.splice(0)) rmSync(sandbox, { recursive: true, force: true, ...retry });
 });
 
 function executable(name: string): string | undefined {
@@ -31,7 +32,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
   const isWin = process.platform === "win32";
   const script = `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}'\nprintf '%s\\n' "$ANTHROPIC_BASE_URL" >> '${capture}'\nprintf '%s\\n' "$IS_DEMO" >> '${capture}'\nprintf '%s\\n' "\${ANTHROPIC_AUTH_TOKEN-unset}" >> '${capture}'\nprintf '%s\\n' "\${HOME-unset}" >> '${capture}'\nexit ${status}\n`;
   // Keep the executable shell fake for Unix PATH resolution.
-  Bun.write(join(bin, "claude.sh"), script);
+  await Bun.write(join(bin, "claude.sh"), script);
   if (!isWin) {
     try {
       chmodSync(join(bin, "claude.sh"), 0o755);
@@ -45,22 +46,20 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
     const scriptPath = powershellScript.replace(/'/g, "''");
     const winScript = `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $environment = [ordered]@{}
-foreach ($name in @('ANTHROPIC_BASE_URL', 'IS_DEMO', 'ANTHROPIC_AUTH_TOKEN', 'HOME')) {
+foreach ($name in @('ANTHROPIC_BASE_URL', 'IS_DEMO', 'ANTHROPIC_AUTH_TOKEN', 'HOME', 'PSModulePath')) {
   if (Test-Path "Env:$name") { $environment[$name] = [Environment]::GetEnvironmentVariable($name) }
 }
 $capture = [ordered]@{ args = @($Arguments); env = $environment } | ConvertTo-Json -Compress
 [IO.File]::WriteAllText('${capturePath}', $capture, [Text.UTF8Encoding]::new($false))
 exit ${status}
 `;
-    const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\nexit /b %ERRORLEVEL%\r\n`;
+    const launcher = `@echo off\r\npowershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}" %*\r\n`;
     await Bun.write(powershellScript, winScript);
     await Bun.write(join(bin, "claude.cmd"), launcher);
-    // The command lookup checks the bare name before appending .cmd on Windows.
-    await Bun.write(join(bin, "claude"), launcher);
   } else {
     // On Unix, rename to bare name so shebang works when invoked as `claude`
     try {
-      Bun.write(join(bin, "claude"), script);
+      await Bun.write(join(bin, "claude"), script);
       chmodSync(join(bin, "claude"), 0o755);
     } catch {
       // may throw if file exists
@@ -75,6 +74,8 @@ exit ${status}
       ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
       CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
       NO_COLOR: "1",
+      // PowerShell needs its module metadata at the nested CLI boundary on Windows.
+      ...(isWin && process.env.PSModulePath ? { PSModulePath: process.env.PSModulePath } : {}),
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -107,7 +108,10 @@ describe("learn", () => {
     expect(launch?.env.IS_DEMO ?? unixEnvironment[1]).toBe("1");
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN ?? unixEnvironment[2]).toMatch(/^synthetic-/);
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN).not.toBe("normal-profile-token");
-    if (launch) expect(launch.env).not.toHaveProperty("HOME");
+    if (launch) {
+      expect(launch.env).not.toHaveProperty("HOME");
+      expect(launch.env.PSModulePath).toBeDefined();
+    }
     else expect(unixEnvironment[3]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   });
