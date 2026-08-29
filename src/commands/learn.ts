@@ -47,7 +47,8 @@ export async function learn(args: Args): Promise<void> {
     updateSession(session);
     const status = await new Promise<number>((resolve, reject) => {
       child.once("error", reject);
-      child.once("exit", (code) => resolve(code ?? 1));
+      // Bun's Windows shell shim reports completion on close, after cmd and its batch child exit.
+      child.once("close", (code) => resolve(code ?? 1));
     });
     process.exitCode = status;
   } finally {
