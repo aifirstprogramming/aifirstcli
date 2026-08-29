@@ -45,7 +45,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
     const scriptPath = powershellScript.replace(/'/g, "''");
     const winScript = `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $environment = [ordered]@{}
-foreach ($name in @('ANTHROPIC_BASE_URL', 'IS_DEMO', 'ANTHROPIC_AUTH_TOKEN', 'HOME')) {
+foreach ($name in @('ANTHROPIC_BASE_URL', 'IS_DEMO', 'ANTHROPIC_AUTH_TOKEN', 'HOME', 'PSModulePath')) {
   if (Test-Path "Env:$name") { $environment[$name] = [Environment]::GetEnvironmentVariable($name) }
 }
 $capture = [ordered]@{ args = @($Arguments); env = $environment } | ConvertTo-Json -Compress
@@ -73,6 +73,8 @@ exit ${status}
       ANTHROPIC_AUTH_TOKEN: "normal-profile-token",
       CLAUDE_CODE_OAUTH_TOKEN: "normal-oauth-token",
       NO_COLOR: "1",
+      // PowerShell needs its module metadata at the nested CLI boundary on Windows.
+      ...(isWin && process.env.PSModulePath ? { PSModulePath: process.env.PSModulePath } : {}),
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -105,7 +107,10 @@ describe("learn", () => {
     expect(launch?.env.IS_DEMO ?? unixEnvironment[1]).toBe("1");
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN ?? unixEnvironment[2]).toMatch(/^synthetic-/);
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN).not.toBe("normal-profile-token");
-    if (launch) expect(launch.env).not.toHaveProperty("HOME");
+    if (launch) {
+      expect(launch.env).not.toHaveProperty("HOME");
+      expect(launch.env.PSModulePath).toBeDefined();
+    }
     else expect(unixEnvironment[3]).toBe("unset");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   });
