@@ -75,6 +75,16 @@ describe("skill markdown", () => {
     expect(md).toContain("Do not write the code yourself");
   });
 
+  it("keeps grouped and conditional questions separate with explicit book labels", () => {
+    expect(md).toContain("Follow `questionSteps` exactly");
+    expect(md).toContain("Never merge a conditional follow-up");
+    expect(md).toContain("Preserve option order");
+    expect(md).toContain("`(Book Recommended)` suffix verbatim");
+    expect(md).toContain("relative to the current working directory");
+    expect(md).toContain("never mention or");
+    expect(md).toContain("captured absolute path");
+  });
+
   it("teaches the json contract rather than screen-scraping", () => {
     expect(md).toContain("aifirst show <id> --format json");
     expect(md).toContain("aifirst search");
@@ -234,6 +244,17 @@ describe("claude adapter", () => {
     await claudeAgent.install();
     await claudeAgent.install();
     expect(await claudeAgent.check()).toMatchObject({ state: "current" });
+    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8"));
+    expect(settings.hooks.UserPromptSubmit).toHaveLength(1);
+  });
+
+  it("preserves unrelated hooks on install and removal", async () => {
+    const settingsPath = join(home, ".claude", "settings.json");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ model: "sonnet", hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "mine" }] }], Stop: [{ hooks: [{ type: "command", command: "stop" }] }] } }));
+    await claudeAgent.install();
+    await claudeAgent.remove();
+    expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual({ model: "sonnet", hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "mine" }] }], Stop: [{ hooks: [{ type: "command", command: "stop" }] }] } });
   });
 });
 

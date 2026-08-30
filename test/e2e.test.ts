@@ -80,6 +80,20 @@ describe("--version and help", () => {
   });
 });
 
+describe("trusted replay execution", () => {
+  it("runs a replay through one compact pre-approved command and records it", async () => {
+    const r = await aifirst(["replay", "execute", "py-1-01", "--format", "json"]);
+    expect(r.code).toBe(0);
+    const result = JSON.parse(r.stdout);
+    expect(result.exerciseId).toBe("py-1-01");
+    expect(result.ok).toBe(true);
+    expect(result.recorded).toBe(true);
+    expect(result.files).toContain("hello.py");
+    expect(result.commands).toEqual([{ index: 1, executable: "python3", exitCode: 0, matchesExpected: true }]);
+    expect(readFileSync(join(sandbox, "hello.py"), "utf8")).toBe('print("Hello, World!")\n');
+  });
+});
+
 describe("show", () => {
   it("prints the canonical response", async () => {
     const r = await aifirst(["show", "py-1-01"]);
@@ -221,7 +235,7 @@ describe("apply", () => {
 describe("progress", () => {
   it("counts only authored exercises", async () => {
     const r = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(r.stdout).overall.total).toBe(139);
+    expect(JSON.parse(r.stdout).overall.total).toBe(142);
   });
 
   it("does not count empty chapters toward a denominator", async () => {
@@ -252,6 +266,35 @@ describe("done, skip and reset", () => {
   it("records the reporting agent", async () => {
     const r = await aifirst(["done", "py-1-01", "--via", "agent", "--agent", "codex", "--format", "json"]);
     expect(JSON.parse(r.stdout).entry).toMatchObject({ via: "agent", agent: "codex" });
+  });
+
+  it("records stable variant metadata from an agent", async () => {
+    const variant = JSON.stringify({ kind: "adaptive", answers: { gameplay: "side_scroller" } });
+    const r = await aifirst([
+      "done", "py-9-01", "--via", "agent", "--agent", "claude",
+      "--variant-json", variant, "--format", "json",
+    ]);
+    expect(JSON.parse(r.stdout).entry.variant).toEqual({
+      kind: "adaptive",
+      answers: { gameplay: "side_scroller" },
+    });
+    const progress = JSON.parse((await aifirst(["progress", "--all", "--format", "json"])).stdout);
+    expect(progress.overall.variants).toBe(1);
+    expect((await aifirst(["show", "py-9-01"])).stdout).toContain("adaptive variant");
+  });
+
+  it("rejects free-form text in variant metadata", async () => {
+    const variant = JSON.stringify({ kind: "adaptive", answers: { gameplay: "a custom idea" } });
+    const r = await aifirst(["done", "py-9-01", "--variant-json", variant, "--format", "json"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("stable question and option ids");
+  });
+
+  it("requires an agent identity for variant completion", async () => {
+    const variant = JSON.stringify({ kind: "adaptive", answers: { gameplay: "side_scroller" } });
+    const r = await aifirst(["done", "py-9-01", "--variant-json", variant, "--format", "json"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("requires --via agent");
   });
 
   it("rejects an id that does not exist rather than recording a typo", async () => {

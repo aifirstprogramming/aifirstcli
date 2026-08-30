@@ -20,14 +20,15 @@ import { DEFAULT_PORT } from "../bookmode/port";
 import type { MessagesRequest } from "../bookmode/responder";
 import { respond } from "../bookmode/responder";
 import { ReplayContentSource } from "../replay/contentSource";
-import { loadReplayPack } from "./replay";
-import { bodyReply, streamReply } from "../bookmode/sse";
+import { loadReplayPack } from "../replay/store";
+import { bodyReply, pacedStreamReply, streamReply, type TextPacing } from "../bookmode/sse";
 import { resolveScope } from "../books";
 import type { Args } from "../cli";
 import { boolFlag, numberFlag } from "../cli";
 import { resolveContent } from "../content";
 import { read as readLog } from "../log/progress";
 import { bold, cyan, dim, glyph, green, out } from "../output";
+import type { PlanningSession } from "../bookmode/planning";
 
 function id(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 12)}`;
@@ -45,8 +46,20 @@ export interface BookServer {
   stop(): void;
 }
 
-export function startBookServer({ port = 0, quiet = false, replay }: { port?: number; quiet?: boolean; replay?: string } = {}): BookServer {
+export function startBookServer({ port = 0, quiet = false, replay, textPacing, onRequest, onReply }: {
+  port?: number;
+  quiet?: boolean;
+  replay?: string;
+  /** Optional cached-text pacing. Used by `aifirst learn`, not normal serving. */
+  textPacing?: TextPacing;
+  /** Test/verification observer; callers must not persist prompt bodies. */
+  onRequest?: (request: MessagesRequest) => void;
+  /** Test/verification observer for non-sensitive routing state. */
+  onReply?: (reply: { exerciseId?: string; stopReason: string }, confirmationStepId?: string) => void;
+} = {}): BookServer {
   const replaySource = replay ? new ReplayContentSource(loadReplayPack(replay)) : undefined;
+  const confirmation: { stepId?: string; stepIds?: string[] } = {};
+  const planning: PlanningSession = { answers: {} };
   const server = Bun.serve({
     // Never 0.0.0.0. See the note at the top of this file.
     hostname: "127.0.0.1",
@@ -81,11 +94,12 @@ export function startBookServer({ port = 0, quiet = false, replay }: { port?: nu
           { status: 400, headers: { "content-type": "application/json" } },
         );
       }
-
+      onRequest?.(request);
       // Read fresh each time: the reader may finish exercises while this runs, and
       // the closing message should tell them the truth about where they are.
       const { content } = resolveContent();
-      const reply = respond(request, content, readLog(), { language: readerLanguage() }, replaySource);
+      const reply = respond(request, content, readLog(), { language: readerLanguage(), confirmation, planning }, replaySource);
+      onReply?.(reply, confirmation.stepId ?? confirmation.stepIds?.[0]);
 
       const ids = {
         messageId: id("msg"),
@@ -100,7 +114,7 @@ export function startBookServer({ port = 0, quiet = false, replay }: { port?: nu
       }
 
       if (request.stream) {
-        return new Response(streamReply(reply, ids), {
+        return new Response(textPacing ? pacedStreamReply(reply, ids, textPacing) : streamReply(reply, ids), {
           headers: {
             "content-type": "text/event-stream",
             "cache-control": "no-cache",

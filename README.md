@@ -56,7 +56,7 @@ directories — without it you approve a prompt for every step of every exercise
 | Antigravity | not writable — `doctor` tells you to add `command(aifirst)` to its Allow list |
 
 `aifirst init` and `aifirst skill install` both set this up, so an upgrade (which refreshes skills
-through `skill install`) keeps it current. Only the reading and recording commands are allowlisted.
+through `skill install`) keeps it current. Only the reading, recording, and trusted captured-replay commands are allowlisted.
 **`reset`, `skill` and `update` deliberately keep prompting**, so an assistant that misreads an instruction can't wipe your ledger or replace the
 binary without you saying yes. Pass `--no-permissions` to skip this entirely, and
 `aifirst skill remove` reverses both the files and the allowlist. Your choice to skip is remembered, so
@@ -83,6 +83,7 @@ aifirst at [<id>]                   show or move where you are in the book
 aifirst diff <id> [file]            does your file match the book?
 aifirst serve [--port N]            book mode: serve the book with no model
 aifirst book-mode on|off|status     point Claude Code at it, or put it back
+aifirst claude [-- <claude args...>]  launch Claude Code with native replay tools
 aifirst learn [--recover] [-- <claude args...>]
 aifirst reset <id>|--all
 aifirst progress [--format text|json|md]
@@ -167,6 +168,14 @@ CLI is unaffected.
 
 ### Local learning session
 
+`aifirst claude` starts the local book responder and opens Claude Code against it
+with native `Write`/`Edit`/`Bash` replay tool calls. Use it as the normal AI First
+Claude launcher:
+
+```sh
+aifirst claude
+```
+
 `aifirst learn` starts the local book responder and opens Claude Code against it
 for the current terminal session:
 
@@ -174,10 +183,21 @@ for the current terminal session:
 aifirst learn
 ```
 
-It starts Claude Code with `--bare` and a temporary settings file. The session
+It starts Claude Code with a temporary home and settings file. The session
 does not change `~/.claude/settings.json`, use the normal Claude profile, or
 receive normal Claude authentication variables. The responder binds an unused
 loopback port, so another local book server does not block it.
+
+Exercises with an authored planning workflow can group related questions in one native dialog and
+label the book path as **Book Recommended**. Local learning changes no files
+until the displayed plan is approved. Choices that require new model-generated
+code offer the book path, a restart, or instructions for continuing in normal
+Claude Code with the AI First skill.
+
+Because cached responses would otherwise appear all at once, `aifirst learn`
+streams text at a readable 360 characters per second before releasing each tool
+call. Set `AIFIRST_LEARN_CHARS_PER_SECOND` to another positive rate, or `0` to
+disable pacing. Other launch and serving modes remain unthrottled.
 
 In the session, use complete commands such as `aifirst next` and
 `aifirst show py-1-01`, typed with **no leading slash**. Claude Code's own
@@ -241,6 +261,69 @@ bun run check          # sync check + typecheck + tests
 bun test
 bun run build:local    # a binary for this machine, into ./bin
 bun run build          # all non-darwin release targets
+```
+
+### Manual testing in Docker
+
+Build and run the latest checkout in a clean Linux environment. The image contains the standalone
+CLI, Claude Code, Python, and Java for exercising book examples; it does not use the host's agent
+config or learner state.
+
+```sh
+./scripts/docker-test.sh show py-1-01
+./scripts/docker-test.sh shell
+```
+
+The runner rebuilds the image on every invocation, so source changes are included automatically.
+Progress and configuration persist in the named Docker volume `aifirst-cli-test-home`; remove it
+when you want a completely fresh learner:
+
+```sh
+./scripts/docker-test.sh clean
+```
+
+The optional `AIFIRST_DOCKER_IMAGE` and `AIFIRST_DOCKER_VOLUME` environment variables let you use
+different Docker names when testing in parallel.
+
+Run the real-Claude regression harness before changing server routing or replay confirmation:
+
+```sh
+./scripts/docker-live-test.sh
+```
+
+It mounts the installed Claude Code binary into a reproducible Bun/Python test image, starts the
+real local Messages API server, submits a fuzzy prompt through Claude, resumes the same Claude
+session with the confirmation, and verifies that the displayed exercise is the one replayed. The
+unit responder and launch-configuration tests run alongside it.
+
+The rocket Showtail regression is generated from a real Claude plan-mode session and then runs
+offline through `aifirst learn`. Regenerate its untouched Claude transcript, Showtail v2 report,
+and source bundle with sibling `Showtail` and `aifirstcontent` checkouts:
+
+```sh
+./scripts/docker-capture-rocket-showtail.sh
+```
+
+This command consumes Claude quota and replaces only
+`../aifirstcontent/test/fixtures/rocket-showtail`. The normal regression reads the committed
+fixture, regenerates its test-only book from report JSON plus source, and requires exact canonical
+conversation equality and byte-identical source files. Override sibling locations with
+`SHOWTAIL_REPO` and `AIFIRST_CONTENT_REPO`.
+
+Published exercises may also carry a Claude Code replay. Entering the exercise's exact book prompt
+starts the replay automatically when the AI First skill or `aifirst learn` is active. Replays apply
+their trusted content operations to the workspace and run the recorded command through the normal
+CLI pipeline. Close matches ask for confirmation; reply `yes` to run the pending replay or `no` to
+cancel it. The explicit `aifirst replay` subcommands remain available for Showtail import and
+compatibility testing, but learners do not need a separate replay mode.
+
+`aifirst learn` uses the Claude Code binary bundled into the image. The container does not copy host
+credentials or normal Claude configuration; the command starts with its temporary isolated profile and
+the local book responder. To test a different standalone Claude executable, override the bundled
+one with `AIFIRST_DOCKER_CLAUDE_BIN`:
+
+```sh
+AIFIRST_DOCKER_CLAUDE_BIN=/path/to/claude ./scripts/docker-test.sh learn
 ```
 
 `@aifirst/content` is pinned to a tag of

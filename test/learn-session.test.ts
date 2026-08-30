@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  SERVER_TOOLS,
   claudeLaunch,
   cleanupSession,
   createSession,
@@ -26,23 +27,50 @@ afterEach(() => {
 });
 
 describe("local Claude session", () => {
-  it("uses a session-owned bare configuration without changing HOME", () => {
+  it("uses a session-owned normal profile and TUI", () => {
     const state = useState();
     const session = createSession();
 
     try {
       const launch = claudeLaunch(session, ["--resume", "abc"], "http://127.0.0.1:4567");
-      expect(launch.args).toEqual(["--bare", "--settings", session.settings, "--resume", "abc"]);
-      expect(launch.env.HOME).toBeUndefined();
+      expect(launch.args).toEqual(["--setting-sources", "user", "--settings", session.settings, "--tools", SERVER_TOOLS, "--resume", "abc"]);
+      expect(launch.env.HOME).toBe(session.profile);
       expect(launch.env.IS_DEMO).toBe("1");
       expect(launch.env.ANTHROPIC_BASE_URL).toBe("http://127.0.0.1:4567");
       expect(launch.env.ANTHROPIC_AUTH_TOKEN).toMatch(/^synthetic-/);
       expect(launch.env.ANTHROPIC_API_KEY).toBeUndefined();
       expect(launch.env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
       expect(Object.values(launch.env).join("\n")).not.toContain(".claude");
-      expect(Object.values(launch.env).join("\n")).not.toContain(session.profile);
+      expect(launch.env.HOME).toContain(session.profile);
       expect(existsSync(session.settings)).toBe(true);
-      expect(readFileSync(session.settings, "utf8")).toBe("{}\n");
+      expect(JSON.parse(readFileSync(session.settings, "utf8"))).toMatchObject({
+        permissions: { allow: expect.arrayContaining(["Bash(aifirst run:*)", "Bash(*)", "Edit(*)", "Read(*)", "Write(*)"]) },
+      });
+      expect(readFileSync(session.settings, "utf8")).not.toContain("UserPromptSubmit");
+    } finally {
+      cleanupSession(session);
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
+  it("does not override an explicit Claude tool selection", () => {
+    const state = useState();
+    const session = createSession();
+    try {
+      const launch = claudeLaunch(session, ["--tools", "Bash,Write"], "http://127.0.0.1:4567");
+      expect(launch.args).toEqual(["--setting-sources", "user", "--settings", session.settings, "--tools", "Bash,Write"]);
+    } finally {
+      cleanupSession(session);
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
+  it("marks replay sessions for the installed AI First skill", () => {
+    const state = useState();
+    const session = createSession();
+    try {
+      const launch = claudeLaunch(session, [], "http://127.0.0.1:4567", "duckling");
+      expect(launch.env.AIFIRST_REPLAY_NAME).toBe("duckling");
     } finally {
       cleanupSession(session);
       rmSync(state, { recursive: true, force: true });
@@ -81,6 +109,15 @@ describe("local Claude session", () => {
 
     writeFileSync(sessionPath(), "not JSON\n");
     expect(learningSessionStatus().state).toBe("ambiguous");
+    rmSync(state, { recursive: true, force: true });
+  });
+
+  it("treats a lock from another runtime as stale even when its PID is reused", () => {
+    const state = useState();
+    const session = createSession();
+    writeFileSync(sessionPath(), JSON.stringify({ ...session, runtimeId: "different-runtime" }) + "\n");
+    expect(learningSessionStatus().state).toBe("stale");
+    expect(recoverStaleSession()).toBe(true);
     rmSync(state, { recursive: true, force: true });
   });
 

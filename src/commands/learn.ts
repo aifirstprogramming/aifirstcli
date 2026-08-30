@@ -7,6 +7,16 @@ import { CliError, out } from "../output";
 import { startBookServer } from "./serve";
 import { claudeLaunch, cleanupSession, createSession, recoverStaleSession, updateSession } from "../learn/session";
 
+export const DEFAULT_LEARN_CHARS_PER_SECOND = 360;
+
+export function learnTextRate(): number | undefined {
+  const configured = process.env.AIFIRST_LEARN_CHARS_PER_SECOND;
+  if (configured === undefined) return DEFAULT_LEARN_CHARS_PER_SECOND;
+  const parsed = Number(configured);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.min(100_000, Math.max(30, parsed));
+}
+
 function executable(name: string): string | undefined {
   for (const directory of (process.env.PATH ?? "").split(delimiter)) {
     const path = `${directory}/${name}`;
@@ -23,18 +33,25 @@ export async function learn(args: Args): Promise<void> {
   }
 
   const isWin = process.platform === "win32";
-  const claude = executable("claude") + (isWin && !executable("claude")?.endsWith(".cmd") ? ".cmd" : "");
-  if (!claude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
+  const foundClaude = executable("claude");
+  if (!foundClaude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
+  const claude = isWin && !foundClaude.endsWith(".cmd") ? `${foundClaude}.cmd` : foundClaude;
 
   const session = createSession();
   let server: ReturnType<typeof startBookServer> | undefined;
   try {
-    server = startBookServer({ port: 0, quiet: true, replay: stringFlag(args, "replay") });
+    const charsPerSecond = learnTextRate();
+    server = startBookServer({
+      port: 0,
+      quiet: true,
+      replay: stringFlag(args, "replay"),
+      ...(charsPerSecond ? { textPacing: { charsPerSecond } } : {}),
+    });
     const ready = await fetch(`${server.baseUrl}/api/hello`, { signal: AbortSignal.timeout(1500) });
     if (!ready.ok) throw new Error("The local learning responder did not become ready.");
     session.port = Number(new URL(server.baseUrl).port);
     updateSession(session);
-    const launch = claudeLaunch(session, args.positionals, server.baseUrl);
+    const launch = claudeLaunch(session, args.positionals, server.baseUrl, stringFlag(args, "replay"));
     const child = spawn(claude, launch.args, {
       stdio: "inherit",
       shell: false,

@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { platform } from "node:os";
+import { hostname, platform } from "node:os";
 import { stateDir } from "../paths";
+import { claudeEntries } from "../permissions";
 
 const VERSION = 1;
 const ROOT = "learn";
@@ -11,6 +12,7 @@ export interface SessionRecord {
   version: number;
   wrapperPid: number;
   childPid?: number;
+  runtimeId?: string;
   nonce: string;
   port?: number;
   profile: string;
@@ -27,6 +29,8 @@ export interface ClaudeLaunch {
   args: string[];
   env: Record<string, string>;
 }
+
+export const SERVER_TOOLS = "Bash,Edit,Read,Write,AskUserQuestion";
 
 export function learnRoot(): string {
   return join(stateDir(), ROOT);
@@ -53,6 +57,15 @@ function live(pid: number): boolean {
   }
 }
 
+function runtimeId(): string {
+  return process.env.AIFIRST_RUNTIME_ID ?? hostname();
+}
+
+function sessionIsLive(record: SessionRecord): boolean {
+  if (record.runtimeId && record.runtimeId !== runtimeId()) return false;
+  return live(record.wrapperPid) || (record.childPid !== undefined && live(record.childPid));
+}
+
 export function readSession(): SessionRecord | undefined {
   try {
     const record = JSON.parse(readFileSync(sessionPath(), "utf8")) as SessionRecord;
@@ -76,7 +89,7 @@ export function learningSessionStatus(): LearningSessionStatus {
   if (!existsSync(sessionPath())) return { state: "none" };
   const record = readSession();
   if (!record) return { state: "ambiguous" };
-  if (live(record.wrapperPid) || (record.childPid !== undefined && live(record.childPid))) {
+  if (sessionIsLive(record)) {
     return { state: "active", record };
   }
   return { state: "stale", record };
@@ -93,17 +106,29 @@ export function recoverStaleSession(): boolean {
 
 export function createSession(): SessionRecord {
   const current = readSession();
-  if (current && live(current.wrapperPid)) throw new Error("A local learning session is already active.");
+  if (current && sessionIsLive(current)) throw new Error("A local learning session is already active.");
   if (existsSync(sessionPath()) && !recoverStaleSession()) throw new Error("Local learning session state is ambiguous. Run `aifirst learn --recover` after it exits.");
 
   const nonce = crypto.randomUUID();
   const profile = join(learnRoot(), `profile-${nonce}`);
   const settings = join(profile, "settings.json");
   mkdirSync(profile, { recursive: true });
-  writeFileSync(settings, "{}\n", { mode: 0o600 });
+  // Native learning sessions use only trusted replay operations from the
+  // content pack. Approve those tools in this temporary profile without
+  // changing or broadening the learner's normal Claude configuration.
+  writeFileSync(settings, JSON.stringify({
+    permissions: { allow: [...claudeEntries(), "Bash(*)", "Edit(*)", "Read(*)", "Write(*)"] },
+  }, null, 2) + "\n", { mode: 0o600 });
+  writeFileSync(join(profile, ".claude.json"), JSON.stringify({
+    hasCompletedOnboarding: true,
+    projects: {
+      [process.cwd()]: { hasTrustDialogAccepted: true, allowedTools: [] },
+    },
+  }, null, 2) + "\n", { mode: 0o600 });
   const record: SessionRecord = {
     version: VERSION,
     wrapperPid: process.pid,
+    runtimeId: runtimeId(),
     nonce,
     profile,
     settings,
@@ -122,18 +147,42 @@ export function createSession(): SessionRecord {
 }
 
 /** Build the child's environment without reading the learner's Claude state. */
-export function claudeLaunch(session: SessionRecord, passthrough: string[], baseUrl: string): ClaudeLaunch {
+export function claudeLaunch(session: SessionRecord, passthrough: string[], baseUrl: string, replayName?: string): ClaudeLaunch {
   const env: Record<string, string> = {};
-  for (const name of ["PATH", "SystemRoot", "SYSTEMROOT", "WINDIR", "ComSpec", "COMSPEC"]) {
+  // Preserve terminal metadata so Claude can select its interactive TUI.
+  for (const name of [
+    "PATH",
+    "TERM",
+    "COLORTERM",
+    "TERM_PROGRAM",
+    "LANG",
+    "LC_ALL",
+    "LC_CTYPE",
+    "SystemRoot",
+    "SYSTEMROOT",
+    "WINDIR",
+    "ComSpec",
+    "COMSPEC",
+  ]) {
     const value = process.env[name];
     if (value) env[name] = value;
   }
   env.IS_DEMO = "1";
+  // A temporary home isolates Claude's user profile without --bare/--safe-mode,
+  // preserving the normal TUI and interactive built-in tools.
+  env.HOME = session.profile;
+  if (process.platform === "win32") env.USERPROFILE = session.profile;
+  env.AIFIRST_NATIVE_REPLAY = "1";
   env.ANTHROPIC_BASE_URL = baseUrl;
   env.ANTHROPIC_AUTH_TOKEN = `synthetic-${session.nonce}`;
   env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
   env.DISABLE_LOGIN_COMMAND = "1";
-  return { args: ["--bare", "--settings", session.settings, ...passthrough], env };
+  if (replayName) env.AIFIRST_REPLAY_NAME = replayName;
+  const hasToolsOption = passthrough.some((arg) => arg === "--tools" || arg.startsWith("--tools="));
+  return {
+    args: ["--setting-sources", "user", "--settings", session.settings, ...(hasToolsOption ? [] : ["--tools", SERVER_TOOLS]), ...passthrough],
+    env,
+  };
 }
 
 export function updateSession(record: SessionRecord): void {

@@ -1,18 +1,20 @@
 import type { ContentSource, SourceReply, SourceState } from "../bookmode/contentSource";
-import type { ReplayPack } from "./types";
+import type { ReplayEvent, ReplayPack } from "./types";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { replayDir } from "../paths";
 
 function render(step: ReplayPack["steps"][number]): string {
-  const parts = [...step.commentary];
-  for (const change of step.codeChanges) {
-    if (change.diff) parts.push(`\n\`\`\`diff\n${change.diff}\n\`\`\``);
-  }
-  for (const call of step.toolCalls) {
-    parts.push(`\n🛠️ **${call.toolName}**${call.isError ? " (error)" : ""}\n${call.text}`);
-  }
-  return parts.join("\n\n");
+  const events: ReplayEvent[] = step.events ?? [
+    ...step.commentary.map((text) => ({ kind: "commentary" as const, text })),
+    ...step.codeChanges.map((change) => ({ kind: "code_change" as const, ...change })),
+    ...step.toolCalls.map((call) => ({ kind: "tool_call" as const, ...call })),
+  ];
+  return events.map((event) => {
+    if (event.kind === "commentary") return event.text;
+    if (event.kind === "code_change") return event.diff ? `\n\`\`\`diff\n${event.diff}\n\`\`\`` : "";
+    return `\n🛠️ **${event.toolName}**${event.isError ? " (error)" : ""}\n${event.text}`;
+  }).filter(Boolean).join("\n\n");
 }
 
 /** Plays a ReplayPack as a fixed script, independent of prompt wording. */

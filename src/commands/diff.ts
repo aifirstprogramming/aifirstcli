@@ -23,6 +23,7 @@ import type { Step } from "../content/types";
 import { finalResponse } from "../exercises";
 import { CliError, bold, cyan, dim, glyph, green, json, out, red } from "../output";
 import { condense, diffLines, normalize } from "../textdiff";
+import { read as readProgress } from "../log/progress";
 
 export function diff(args: Args): void {
   const format = formatFlag(args, ["text", "json"]);
@@ -76,6 +77,7 @@ export function diff(args: Args): void {
   const book = normalize(step.response);
   const identical = yours === book;
   const lines = identical ? [] : diffLines(yours, book);
+  const variant = readProgress().exercises[example.id]?.variant;
 
   if (format === "json") {
     json({
@@ -83,6 +85,7 @@ export function diff(args: Args): void {
       stepId: step.id,
       file: path,
       identical,
+      ...(variant ? { expectedVariantDifference: true, variant } : {}),
       // Only the differing lines: an agent comparing two files wants the answer,
       // not a copy of both.
       changes: lines
@@ -101,6 +104,7 @@ export function diff(args: Args): void {
   }
 
   out(`  ${red(glyph.todo)} ${bold(target)} differs from the book  ${dim(step.id)}`);
+  if (variant) out(dim(`  This exercise was completed as a ${variant.kind} variant, so canonical differences are expected.`));
   out();
   out(dim(`  ${red("-")} yours    ${green("+")} the book`));
   out();

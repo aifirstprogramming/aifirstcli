@@ -22,8 +22,8 @@ const checkOnly = process.argv.includes("--check");
 
 function findContentPackage(): string {
   const candidates = [
-    join(ROOT, "node_modules", "@aifirst", "content"),
     join(ROOT, "..", "aifirstcontent"),
+    join(ROOT, "node_modules", "@aifirst", "content"),
   ];
   for (const dir of candidates) {
     if (existsSync(join(dir, "books"))) return dir;

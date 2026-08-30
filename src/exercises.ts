@@ -118,6 +118,7 @@ export function resume(
 export interface Counts {
   total: number;
   done: number;
+  variants: number;
   skipped: number;
   remaining: number;
   /** Fraction of authored exercises done, 0..1. NaN-free even when total is 0. */
@@ -126,16 +127,21 @@ export interface Counts {
 
 function tally(examples: Example[], log: ProgressLog): Counts {
   let done = 0;
+  let variants = 0;
   let skipped = 0;
   for (const ex of examples) {
     const e = log.exercises[ex.id];
-    if (e?.status === "done") done++;
+    if (e?.status === "done") {
+      done++;
+      if (e.variant) variants++;
+    }
     else if (e?.status === "skipped") skipped++;
   }
   const total = examples.length;
   return {
     total,
     done,
+    variants,
     skipped,
     remaining: total - done - skipped,
     fraction: total === 0 ? 0 : done / total,

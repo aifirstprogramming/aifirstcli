@@ -53,6 +53,28 @@ describe("read", () => {
     );
     expect(read(path).exercises["py-1-01"].via).toBe("self");
   });
+
+  it("keeps valid variant metadata and drops malformed answers", () => {
+    writeFileSync(path, JSON.stringify({ version: 1, exercises: {
+      "py-1-01": {
+        status: "done",
+        at: "x",
+        via: "agent",
+        variant: { kind: "adaptive", answers: { gameplay: "side_scroller" }, note: "do not preserve me" },
+      },
+      "py-1-02": {
+        status: "done",
+        at: "x",
+        via: "agent",
+        variant: { kind: "adaptive", answers: { gameplay: "free form answer" } },
+      },
+    } }));
+    expect(read(path).exercises["py-1-01"].variant).toEqual({
+      kind: "adaptive",
+      answers: { gameplay: "side_scroller" },
+    });
+    expect(read(path).exercises["py-1-02"].variant).toBeUndefined();
+  });
 });
 
 describe("mark", () => {
@@ -60,6 +82,12 @@ describe("mark", () => {
     const entry = mark("py-1-01", { via: "apply", path });
     expect(entry.status).toBe("done");
     expect(get("py-1-01", path)!.via).toBe("apply");
+  });
+
+  it("records a verified variant", () => {
+    const variant = { kind: "adaptive" as const, answers: { gameplay: "side_scroller" } };
+    mark("py-9-01", { via: "agent", agent: "claude", variant, path });
+    expect(get("py-9-01", path)?.variant).toEqual(variant);
   });
 
   it("preserves the first completion date when redone", () => {

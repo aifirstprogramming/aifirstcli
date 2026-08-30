@@ -2,8 +2,8 @@
  * Claude Code.
  *
  * A skill directory at `~/.claude/skills/<name>/` auto-loads as
- * `<name>@skills-dir` with no registration step, so installing is purely writing
- * files — nothing in Claude's settings is touched.
+ * `<name>@skills-dir` with no registration step. Replay adds one owned prompt
+ * hook without disturbing unrelated Claude settings or hooks.
  */
 
 import { existsSync, writeFileSync } from "node:fs";
@@ -18,6 +18,19 @@ import { captureVersion, readIfExists, removeIfExists, which, writeFileTree } fr
 const skillFile = () => join(paths.skill(), "SKILL.md");
 const settingsFile = () => join(paths.root(), "settings.json");
 const backupFile = () => join(paths.root(), "settings.json.aifirst-backup");
+const REPLAY_HOOK_COMMAND = "aifirst replay hook";
+
+function replayHookEntry(): Record<string, unknown> {
+  return { hooks: [{ type: "command", command: REPLAY_HOOK_COMMAND }] };
+}
+
+function isReplayHook(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  const hooks = (value as Record<string, unknown>).hooks;
+  return Array.isArray(hooks) && hooks.some((hook) =>
+    Boolean(hook && typeof hook === "object" && (hook as Record<string, unknown>).command === REPLAY_HOOK_COMMAND),
+  );
+}
 
 /**
  * Read `settings.json`, tolerating absence.
@@ -73,6 +86,29 @@ function currentAllowList(data: Record<string, unknown>): string[] {
   return Array.isArray(allow) ? allow.filter((e): e is string => typeof e === "string") : [];
 }
 
+function installReplayHook(): boolean {
+  return updateClaudeSettings((data) => {
+    const hooks = (data.hooks && typeof data.hooks === "object" ? data.hooks : {}) as Record<string, unknown>;
+    const prompts = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit.filter((entry) => !isReplayHook(entry)) : [];
+    prompts.push(replayHookEntry());
+    data.hooks = { ...hooks, UserPromptSubmit: prompts };
+  });
+}
+
+function removeReplayHook(): boolean {
+  return updateClaudeSettings((data) => {
+    const hooks = (data.hooks && typeof data.hooks === "object" ? data.hooks : {}) as Record<string, unknown>;
+    const prompts = Array.isArray(hooks.UserPromptSubmit) ? hooks.UserPromptSubmit.filter((entry) => !isReplayHook(entry)) : [];
+    if (prompts.length > 0) data.hooks = { ...hooks, UserPromptSubmit: prompts };
+    else {
+      const rest = { ...hooks };
+      delete rest.UserPromptSubmit;
+      if (Object.keys(rest).length > 0) data.hooks = rest;
+      else delete data.hooks;
+    }
+  });
+}
+
 export const claudeAgent: Agent = {
   key: "claude",
   label: "Claude Code",
@@ -94,9 +130,10 @@ export const claudeAgent: Agent = {
     for (const cmd of commandFiles()) {
       written.push(writeFileTree(join(paths.commands(), `${cmd.name}.md`), cmd.body));
     }
+    if (installReplayHook()) written.push(settingsFile());
     return {
       written,
-      notes: ["Loads as aifirst@skills-dir in your next Claude Code session."],
+      notes: ["Loads as aifirst@skills-dir in your next Claude Code session.", "Installs the replay prompt hook."],
     };
   },
 
@@ -108,7 +145,9 @@ export const claudeAgent: Agent = {
   },
 
   async remove(): Promise<string[]> {
-    return removeIfExists(paths.skill());
+    const removed = removeIfExists(paths.skill());
+    if (removeReplayHook()) removed.push(settingsFile());
+    return removed;
   },
 
   permissionTarget: "~/.claude/settings.json",

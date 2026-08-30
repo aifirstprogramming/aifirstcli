@@ -1,0 +1,852 @@
+❯ Make two more levels for the game. Each level should get harder with more obstacles and enemies.
+
+  Read 5 files
+
+● User answered Claude's questions:
+· How should the game transition between levels? → Brief 'Level Complete' screen, then auto-advance (Recommended)
+· How should difficulty ramp up across the 3 levels, beyond just more obstacles/foxes? → Add patrol variety
+· Should the number of siblings to collect also increase in later levels? → Increase siblings per level (e.g. 6, 8, 10)
+
+● Plan(Design multi-level progression for duckling game)
+Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+The design agent is working on the multi-level plan in the background — I'll follow up once it's done.
+
+✻ Baked for 1m 26s
+
+● Agent "Design multi-level progression for duckling game" finished · 5m 27s
+
+Let me verify the proposed level 2/3 layouts are actually free of overlaps and that patrol lanes are clear, before locking this into the plan.
+
+● Bash(python3 -c "
+  LEVEL_2 = dict(
+      obstacle_layout=[
+          (3, 2, 'rock'), (4, 2, 'rock'), (3, 3, 'bush'), (7, 2, 'bush'),
+          (8, 3, 'rock'), (9, 3, 'rock'), (2, 4, 'bush'),
+          (15, 2, 'rock'), (16, 2, 'bush'), (19, 3, 'bush'), (20, 4, 'rock'),
+          (10, 3, 'water'), (10, 4, 'water'), (11, 4, 'water'),
+          (2, 6, 'rock'), (3, 7, 'bush'), (4, 6, 'bush'), (5, 7, 'rock'),
+          (17, 6, 'water'), (18, 6, 'water'),
+          (6, 8, 'rock'), (7, 9, 'bush'), (7, 8, 'rock'),
+          (14, 8, 'bush'), (15, 9, 'rock'), (15, 8, 'bush'),
+          (3, 12, 'bush'), (4, 13, 'rock'), (9, 13, 'bush'),
+          (10, 12, 'rock'), (17, 12, 'rock'),
+          (8, 14, 'rock'), (20, 14, 'water'), (21, 14, 'water'),
+      ],
+      sibling_spawns=[(2, 2), (13, 3), (22, 4), (2, 9), (13, 9), (22, 9), (2, 13), (13, 14)],
+      mother_pos=(22, 1),
+      player_start=(1, 14),
+      fox_patrols=[('h', 5, 2, 21), ('h', 11, 3, 20), ('v', 12, 2, 13)],
+  )
+
+  LEVEL_3 = dict(
+      obstacle_layout=[
+          (2, 2, 'rock'), (3, 2, 'rock'), (4, 3, 'bush'), (9, 2, 'bush'),
+          (10, 3, 'rock'), (14, 2, 'rock'), (15, 3, 'bush'), (20, 2, 'bush'),
+          (21, 3, 'rock'),
+          (2, 1, 'bush'), (9, 1, 'rock'), (15, 1, 'rock'), (21, 1, 'bush'),
+          (2, 6, 'bush'), (3, 6, 'rock'), (9, 5, 'rock'), (9, 6, 'bush'),
+          (15, 6, 'rock'), (15, 7, 'bush'), (21, 6, 'bush'), (21, 7, 'rock'),
+          (11, 7, 'water'), (12, 7, 'water'), (13, 7, 'water'),
+          (2, 10, 'rock'), (3, 10, 'bush'), (9, 10, 'rock'), (9, 11, 'bush'),
+          (15, 10, 'bush'), (15, 11, 'rock'), (21, 10, 'rock'), (21, 11, 'bush'),
+          (11, 9, 'water'), (12, 9, 'water'), (13, 9, 'water'),
+          (2, 14, 'bush'), (3, 13, 'rock'), (9, 13, 'bush'), (9, 14, 'rock'),
+          (15, 13, 'rock'), (15, 14, 'bush'), (21, 13, 'bush'), (21, 14, 'rock'),
+      ],
+      sibling_spawns=[(4, 2), (17, 2), (2, 5), (17, 6), (4, 9), (17, 10), (2, 13), (17, 14), (4, 11), (20, 7)],
+      mother_pos=(12, 0),
+      player_start=(12, 15),
+      fox_patrols=[('h', 4, 2, 21), ('h', 8, 3, 20), ('h', 12, 2, 21), ('v', 6, 2, 13), ('v', 18, 2, 13)],
+  )
+
+  GRID_COLS, GRID_ROWS = 24, 16
+
+  def check(name, lvl):
+      print('===', name, '===')
+      obs_coords = [(c,r) for c,r,k in lvl['obstacle_layout']]
+      sib_coords = lvl['sibling_spawns']
+      mother = lvl['mother_pos']
+      start = lvl['player_start']
+
+      # duplicate obstacle tiles
+      seen=set()
+      for c in obs_coords:
+          if c in seen: print('DUPLICATE obstacle tile', c)
+          seen.add(c)
+
+      all_special = sib_coords + [mother, start]
+      # bounds check
+      for c,r in obs_coords + all_special:
+          if not (0<=c<GRID_COLS and 0<=r<GRID_ROWS):
+              print('OUT OF BOUNDS', c, r)
+
+      # overlap obstacle vs sibling/mother/start
+      obs_set = set(obs_coords)
+      for c,r in sib_coords:
+          if (c,r) in obs_set: print('SIBLING ON OBSTACLE', c, r)
+      if mother in obs_set: print('MOTHER ON OBSTACLE', mother)
+      if start in obs_set: print('PLAYER START ON OBSTACLE', start)
+
+      # sibling/mother/start dup among themselves
+      combo = sib_coords + [mother, start]
+      if len(combo) != len(set(combo)):
+          print('DUPLICATE among siblings/mother/start:', combo)
+
+      # patrol lane clearness (against obstacles AND siblings, since those are also collidable-ish tiles for path readability)
+      for axis, fixed, lo, hi in lvl['fox_patrols']:
+          if axis == 'h':
+              row = fixed
+              for col in range(lo, hi+1):
+                  if (col, row) in obs_set:
+                      print(f'H-PATROL row={row} BLOCKED by obstacle at col={col}')
+                  if (col, row) in set(sib_coords):
+                      print(f'H-PATROL row={row} overlaps sibling at col={col} (sibling would be swept over)')
+                  if (col,row) == mother:
+                      print(f'H-PATROL row={row} passes through MOTHER at col={col}')
+                  if (col,row) == start:
+                      print(f'H-PATROL row={row} passes through PLAYER START at col={col}')
+          else:
+              col = fixed
+              for row in range(lo, hi+1):
+                  if (col, row) in obs_set:
+                      print(f'V-PATROL col={col} BLOCKED by obstacle at row={row}')
+                  if (col, row) in set(sib_coords):
+                      print(f'V-PATROL col={col} overlaps sibling at row={row}')
+                  if (col,row) == mother:
+                      print(f'V-PATROL col={col} passes through MOTHER at row={row}')
+                  if (col,row) == start:
+                      print(f'V-PATROL col={col} passes through PLAYER START at row={row}')
+      print('obstacles:', len(obs_coords), 'siblings:', len(sib_coords), 'foxes:', len(lvl['fox_patrols']))
+      print()
+
+  check('LEVEL_2', LEVEL_2)
+  check('LEVEL_3', LEVEL_3)
+  "
+  )
+=== LEVEL_2 ===
+obstacles: 34 siblings: 8 foxes: 3
+
+=== LEVEL_3 ===
+obstacles: 43 siblings: 10 foxes: 5
+
+
+Good — no overlaps or blocked patrol lanes. Let me also verify the maps are actually navigable (no obstacle walls accidentally sealing off mother or siblings from the player start).
+
+● Bash(python3 -c "
+  from collections import deque
+
+  LEVEL_2 = dict(
+      obstacle_layout=[
+          (3, 2, 'rock'), (4, 2, 'rock'), (3, 3, 'bush'), (7, 2, 'bush'),
+          (8, 3, 'rock'), (9, 3, 'rock'), (2, 4, 'bush'),
+          (15, 2, 'rock'), (16, 2, 'bush'), (19, 3, 'bush'), (20, 4, 'rock'),
+          (10, 3, 'water'), (10, 4, 'water'), (11, 4, 'water'),
+          (2, 6, 'rock'), (3, 7, 'bush'), (4, 6, 'bush'), (5, 7, 'rock'),
+          (17, 6, 'water'), (18, 6, 'water'),
+          (6, 8, 'rock'), (7, 9, 'bush'), (7, 8, 'rock'),
+          (14, 8, 'bush'), (15, 9, 'rock'), (15, 8, 'bush'),
+          (3, 12, 'bush'), (4, 13, 'rock'), (9, 13, 'bush'),
+          (10, 12, 'rock'), (17, 12, 'rock'),
+          (8, 14, 'rock'), (20, 14, 'water'), (21, 14, 'water'),
+      ],
+      sibling_spawns=[(2, 2), (13, 3), (22, 4), (2, 9), (13, 9), (22, 9), (2, 13), (13, 14)],
+      mother_pos=(22, 1),
+      player_start=(1, 14),
+  )
+
+  LEVEL_3 = dict(
+      obstacle_layout=[
+          (2, 2, 'rock'), (3, 2, 'rock'), (4, 3, 'bush'), (9, 2, 'bush'),
+          (10, 3, 'rock'), (14, 2, 'rock'), (15, 3, 'bush'), (20, 2, 'bush'),
+          (21, 3, 'rock'),
+          (2, 1, 'bush'), (9, 1, 'rock'), (15, 1, 'rock'), (21, 1, 'bush'),
+          (2, 6, 'bush'), (3, 6, 'rock'), (9, 5, 'rock'), (9, 6, 'bush'),
+          (15, 6, 'rock'), (15, 7, 'bush'), (21, 6, 'bush'), (21, 7, 'rock'),
+          (11, 7, 'water'), (12, 7, 'water'), (13, 7, 'water'),
+          (2, 10, 'rock'), (3, 10, 'bush'), (9, 10, 'rock'), (9, 11, 'bush'),
+          (15, 10, 'bush'), (15, 11, 'rock'), (21, 10, 'rock'), (21, 11, 'bush'),
+          (11, 9, 'water'), (12, 9, 'water'), (13, 9, 'water'),
+          (2, 14, 'bush'), (3, 13, 'rock'), (9, 13, 'bush'), (9, 14, 'rock'),
+          (15, 13, 'rock'), (15, 14, 'bush'), (21, 13, 'bush'), (21, 14, 'rock'),
+      ],
+      sibling_spawns=[(4, 2), (17, 2), (2, 5), (17, 6), (4, 9), (17, 10), (2, 13), (17, 14), (4, 11), (20, 7)],
+      mother_pos=(12, 0),
+      player_start=(12, 15),
+  )
+
+  GRID_COLS, GRID_ROWS = 24, 16
+
+  def reachable(lvl, name):
+      blocked = set((c,r) for c,r,k in lvl['obstacle_layout'])
+      start = lvl['player_start']
+      seen = {start}
+      q = deque([start])
+      while q:
+          c, r = q.popleft()
+          for dc, dr in [(1,0),(-1,0),(0,1),(0,-1)]:
+              nc, nr = c+dc, r+dr
+              if 0<=nc<GRID_COLS and 0<=nr<GRID_ROWS and (nc,nr) not in blocked and (nc,nr) not in seen:
+                  seen.add((nc,nr))
+                  q.append((nc,nr))
+      targets = lvl['sibling_spawns'] + [lvl['mother_pos']]
+      print(f'--- {name} --- reachable tiles: {len(seen)} / {GRID_COLS*GRID_ROWS - len(blocked)} open tiles')
+      for t in targets:
+          print(t, 'REACHABLE' if t in seen else 'UNREACHABLE <<<<<')
+
+  reachable(LEVEL_2, 'LEVEL_2')
+  reachable(LEVEL_3, 'LEVEL_3')
+  "
+  )
+--- LEVEL_2 --- reachable tiles: 350 / 350 open tiles
+(2, 2) REACHABLE
+(13, 3) REACHABLE
+(22, 4) REACHABLE
+(2, 9) REACHABLE
+(13, 9) REACHABLE
+(22, 9) REACHABLE
+(2, 13) REACHABLE
+(13, 14) REACHABLE
+(22, 1) REACHABLE
+--- LEVEL_3 --- reachable tiles: 341 / 341 open tiles
+(4, 2) REACHABLE
+(17, 2) REACHABLE
+(2, 5) REACHABLE
+(17, 6) REACHABLE
+(4, 9) REACHABLE
+(17, 10) REACHABLE
+(2, 13) REACHABLE
+(17, 14) REACHABLE
+(4, 11) REACHABLE
+(20, 7) REACHABLE
+(12, 0) REACHABLE
+
+
+Both maps are fully connected — every sibling and the mother are reachable from the player's start, and no obstacle tiles overlap or block any patrol lane. The design is sound. Let me write the final plan.
+
+● Updated plan
+/plan to preview
+
+● User approved Claude's plan
+Plan saved to: ~\.claude\plans\make-a-game-about-iridescent-wren.md · /plan to edit
+Add two more, harder levels to Save the Duckling
+
+Context
+
+The duckling game (C:\Users\cassandra\savetheduckling) currently has a single hardcoded level: 20 obstacle tiles, 6 siblings, 2 horizontally-patrolling foxes. The user wants two more levels, each harder than the last (more obstacles, more enemies). Clarified with the user: levels transition via a brief "Level Complete!" overlay (~2s) then auto-advance; difficulty ramps up via more/faster obstacles and foxes plus patrol variety (foxes that patrol vertically, not just horizontally); and the number of siblings to collect also increases per level (6 → 8 → 10).
+
+Design summary
+
+- Level 1 stays exactly as it is today (same obstacles, siblings, foxes) — just repackaged into the new data structure, no gameplay change.
+- Level 2: 34 obstacles, 8 siblings, 3 foxes (2 horizontal + 1 vertical), fox speed 105.
+- Level 3: 43 obstacles, 10 siblings, 5 foxes (3 horizontal + 2 vertical), fox speed 120.
+- All three levels fit the existing 24×16 grid (no camera/scrolling). Layouts below were verified programmatically: no overlaps between obstacles/siblings/mother/player-start, every fox patrol sweep is fully clear of obstacles and siblings, and every sibling + mother tile is reachable from the player start via BFS on the open tiles.
+
+entities.py — extend Fox for vertical patrol
+
+Change the constructor to Fox(x, y, image, min_pos, max_pos, speed=FOX_SPEED, vertical=False) (single internal self.pos float, parameterized axis instead of a second horizontal-only class). update(dt):
+- moves self.pos by speed * direction * dt, bounces at min_pos/max_pos (same math as today, just axis-generic)
+- if vertical: writes self.rect.y, keeps the sprite on image_right always (no left/right flip concept applies to vertical movement — matches the fact no sprite in this game has an up/down pose; simplest correct choice)
+- if not vertical (default): writes self.rect.x and flips between image_right/image_left exactly as today
+
+This is the only call site for Fox(...) (in level.py), so the signature change is safe. Level 1's fox behavior is unchanged when vertical=False.
+
+level.py — multi-level data structure
+
+Add a small dataclass LevelDef holding obstacle_layout, sibling_spawns, mother_pos, player_start, fox_patrols, fox_speed. Fox patrols become tagged tuples so both axes live in one list: ("h", row, min_col, max_col) or ("v", col, min_row, max_row).
+
+Define LEVEL_1 (today's exact values, repackaged), LEVEL_2, LEVEL_3 (layouts below), and LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3].
+
+OBSTACLE_IMAGE_KEYS and grid_to_px stay module-level, unchanged. Rewrite build_level(images, level_index=0) to read from LEVELS[level_index] instead of module globals, building foxes by branching on the patrol tuple's axis tag. Remove the now-stale module-level TOTAL_SIBLINGS/PLAYER_START/OBSTACLE_LAYOUT/etc. globals — level 1's values live inside LEVEL_1 now. build_background(images) is unchanged and still built once (all levels share the same grass background).
+
+LEVEL_2 layout (verified: 34 obstacles, 8 siblings, reachable, patrol lanes clear)
+
+obstacle_layout=[
+    (3,2,"rock"),(4,2,"rock"),(3,3,"bush"),(7,2,"bush"),
+    (8,3,"rock"),(9,3,"rock"),(2,4,"bush"),
+    (15,2,"rock"),(16,2,"bush"),(19,3,"bush"),(20,4,"rock"),
+    (10,3,"water"),(10,4,"water"),(11,4,"water"),
+    (2,6,"rock"),(3,7,"bush"),(4,6,"bush"),(5,7,"rock"),
+    (17,6,"water"),(18,6,"water"),
+    (6,8,"rock"),(7,9,"bush"),(7,8,"rock"),
+    (14,8,"bush"),(15,9,"rock"),(15,8,"bush"),
+    (3,12,"bush"),(4,13,"rock"),(9,13,"bush"),
+    (10,12,"rock"),(17,12,"rock"),
+    (8,14,"rock"),(20,14,"water"),(21,14,"water"),
+]
+sibling_spawns=[(2,2),(13,3),(22,4),(2,9),(13,9),(22,9),(2,13),(13,14)]
+mother_pos=(22,1)
+player_start=(1,14)
+fox_patrols=[("h",5,2,21), ("h",11,3,20), ("v",12,2,13)]
+fox_speed=105.0
+
+LEVEL_3 layout (verified: 43 obstacles, 10 siblings, reachable, patrol lanes clear)
+
+obstacle_layout=[
+    (2,2,"rock"),(3,2,"rock"),(4,3,"bush"),(9,2,"bush"),
+    (10,3,"rock"),(14,2,"rock"),(15,3,"bush"),(20,2,"bush"),(21,3,"rock"),
+    (2,1,"bush"),(9,1,"rock"),(15,1,"rock"),(21,1,"bush"),
+    (2,6,"bush"),(3,6,"rock"),(9,5,"rock"),(9,6,"bush"),
+    (15,6,"rock"),(15,7,"bush"),(21,6,"bush"),(21,7,"rock"),
+    (11,7,"water"),(12,7,"water"),(13,7,"water"),
+    (2,10,"rock"),(3,10,"bush"),(9,10,"rock"),(9,11,"bush"),
+    (15,10,"bush"),(15,11,"rock"),(21,10,"rock"),(21,11,"bush"),
+    (11,9,"water"),(12,9,"water"),(13,9,"water"),
+    (2,14,"bush"),(3,13,"rock"),(9,13,"bush"),(9,14,"rock"),
+    (15,13,"rock"),(15,14,"bush"),(21,13,"bush"),(21,14,"rock"),
+]
+sibling_spawns=[(4,2),(17,2),(2,5),(17,6),(4,9),(17,10),(2,13),(17,14),(4,11),(20,7)]
+mother_pos=(12,0)
+player_start=(12,15)
+fox_patrols=[("h",4,2,21), ("h",8,3,20), ("h",12,2,21), ("v",6,2,13), ("v",18,2,13)]
+fox_speed=120.0
+
+main.py — level progression state machine
+
+- GameState gains LEVEL_COMPLETE alongside PLAYING/WIN.
+- New local helper load_level(images, level_index) calls level.build_level(images, level_index), derives player_start_px = level.grid_to_px(*level.LEVELS[level_index].player_start) and total_siblings = len(siblings), returns all of it.
+- main() starts at current_level = 0, calls load_level once for initial setup (replacing the old one-shot build_level call); background is still built once, shared across levels.
+- In the PLAYING branch, the existing win check becomes: if collected all siblings and touching mother → if another level remains, switch to LEVEL_COMPLETE and start a 2s timer (LEVEL_COMPLETE_DURATION, new constant in constants.py); else (level 3 done) → WIN (existing final screen, unchanged).
+- New LEVEL_COMPLETE branch: count the timer down by dt; when it expires, increment current_level, call load_level again to get a fresh player/obstacles/siblings/mother/foxes, reset collected = 0 and caught_flash = 0.0, switch back to PLAYING.
+- Drawing is unconditional as today (background/obstacles/mother/siblings/foxes/player), so the completed level's last frame stays visible under the new overlay. Add a LEVEL_COMPLETE overlay block (reusing the existing overlay surface and font_win/font_win_sub) showing "Level {current_level+1} Complete!" + "Get ready...".
+- HUD text changes from f"Siblings found: {collected}/{level.TOTAL_SIBLINGS}" to f"Level {current_level+1}/{len(level.LEVELS)}   Siblings found: {collected}/{total_siblings}".
+- QUIT/ESC handling is untouched (checked every frame regardless of state).
+
+constants.py
+
+Add LEVEL_COMPLETE_DURATION = 2.0 next to CAUGHT_MESSAGE_DURATION.
+
+assets_gen.py
+
+No changes. Vertical-patrol foxes reuse the existing fox.png unrotated and unflipped — the fox art has no up/down pose and none of the game's other sprites do either, so a single static pose for vertical movement is the simplest consistent choice.
+
+Verification
+
+- Re-run the headless smoke-test pattern already used for this project (SDL_VIDEODRIVER=dummy, script that calls ensure_assets, load_images, level.build_level(images, i) for i in 0,1,2) to confirm each level builds without errors, and re-run the BFS/overlap validation inline for a final sanity check.
+- Render one screenshot per level (pygame.image.save) to visually confirm layouts look reasonable and mother/siblings/foxes/obstacles are all visible and distinct.
+- Launch python main.py for real and manually confirm: level 1 plays identically to before; collecting all siblings and reaching mother on levels 1 and 2 shows the "Level N Complete!" overlay for ~2s then auto-loads the next level with reset counters and a fresh player position; vertical foxes visibly patrol up/down and catch the player like horizontal ones; completing level 3 shows the existing final win screen instead of another level-complete overlay; HUD shows "Level N/3   Siblings found: X/Y" throughout.
+
+Now implementing. Starting with constants.py and entities.py.
+
+● Update(constants.py)
+Added 1 line
+WIN_OVERLAY_COLOR = (0, 0, 0, 150)
+CAUGHT_TEXT_COLOR = (200, 30, 20)
+CAUGHT_MESSAGE_DURATION = 1.2  # seconds
+LEVEL_COMPLETE_DURATION = 2.0  # seconds
+
+● Update(entities.py)
+Added 18 lines, removed 12 lines
+
+
+class Fox(pygame.sprite.Sprite):
+    """Patrols back and forth between min_x and max_x along a fixed row."""
+    """Patrols back and forth between min_pos and max_pos: along a fixed row
+    (horizontal, default) or a fixed column (vertical)."""
+
+    def __init__(self, x, y, min_x, max_x, image, speed=FOX_SPEED):
+    def __init__(self, x, y, image, min_pos, max_pos, speed=FOX_SPEED, vertical=False):
+        super().__init__()
+        self.vertical = vertical
+        self.image_right = image
+        self.image_left = pygame.transform.flip(image, True, False)
+        self.image = self.image_right
+        self.rect = self.image.get_rect(topleft=(x, y))
+        self.x = float(x)
+        self.min_x = min_x
+        self.max_x = max_x
+        self.pos = float(y) if vertical else float(x)
+        self.min_pos = min_pos
+        self.max_pos = max_pos
+        self.speed = speed
+        self.direction = 1
+
+    def update(self, dt):
+        self.x += self.speed * self.direction * dt
+        if self.x <= self.min_x:
+            self.x = self.min_x
+        self.pos += self.speed * self.direction * dt
+        if self.pos <= self.min_pos:
+            self.pos = self.min_pos
+            self.direction = 1
+        elif self.x >= self.max_x:
+            self.x = self.max_x
+        elif self.pos >= self.max_pos:
+            self.pos = self.max_pos
+            self.direction = -1
+        self.rect.x = round(self.x)
+        self.image = self.image_right if self.direction == 1 else self.image_left
+
+        if self.vertical:
+            self.rect.y = round(self.pos)
+        else:
+            self.rect.x = round(self.pos)
+            self.image = self.image_right if self.direction == 1 else self.image_left
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, x, y, image):
+        super().__init__()
+
+Now rewrite level.py with the multi-level structure.
+
+● Write(level.py)
+Added 109 lines, removed 34 lines
+from dataclasses import dataclass, field
+from itertools import cycle
+
+import pygame
+
+from constants import TILE_SIZE, GRID_COLS, GRID_ROWS, SCREEN_WIDTH, SCREEN_HEIGHT
+from constants import TILE_SIZE, GRID_COLS, GRID_ROWS, SCREEN_WIDTH, SCREEN_HEIGHT, FOX_SPEED
+from entities import Player, Sibling, Mother, Obstacle, Fox
+
+# (col, row, kind) -- interior obstacles only; outer map bounds are handled
+# by clamping in Player.update, not by border tiles.
+OBSTACLE_LAYOUT = [
+    (3, 2, "rock"), (3, 3, "rock"), (4, 3, "bush"),
+    (7, 5, "bush"), (7, 6, "bush"), (8, 5, "rock"),
+    (10, 1, "rock"), (10, 2, "rock"),
+    (13, 8, "bush"), (14, 9, "bush"), (14, 10, "rock"),
+    (5, 11, "rock"), (6, 11, "bush"),
+    (17, 4, "bush"), (17, 5, "rock"),
+    # small pond cluster near mother
+    (18, 8, "water"), (19, 8, "water"), (20, 8, "water"),
+    (18, 9, "water"), (19, 9, "water"), (20, 9, "water"),
+]
+OBSTACLE_IMAGE_KEYS = {"rock": "rock", "bush": "bush", "water": "water_tile"}
+
+SIBLING_SPAWNS = [(2, 10), (9, 3), (13, 12), (5, 7), (20, 2), (16, 12)]
+
+MOTHER_POS = (21, 10)
+PLAYER_START = (1, 1)
+@dataclass
+class LevelDef:
+    obstacle_layout: list       # [(col, row, kind), ...]
+    sibling_spawns: list        # [(col, row), ...]
+    mother_pos: tuple           # (col, row)
+    player_start: tuple         # (col, row)
+    # fox patrols: ("h", row, min_col, max_col) or ("v", col, min_row, max_row)
+    fox_patrols: list = field(default_factory=list)
+    fox_speed: float = FOX_SPEED
+
+# (row, min_col, max_col) -- patrol rows chosen clear of obstacles, so foxes
+# never need obstacle collision of their own.
+FOX_PATROLS = [
+    (6, 10, 16),
+    (13, 2, 20),
+]
+
+TOTAL_SIBLINGS = len(SIBLING_SPAWNS)
+LEVEL_1 = LevelDef(
+    obstacle_layout=[
+        (3, 2, "rock"), (3, 3, "rock"), (4, 3, "bush"),
+        (7, 5, "bush"), (7, 6, "bush"), (8, 5, "rock"),
+        (10, 1, "rock"), (10, 2, "rock"),
+        (13, 8, "bush"), (14, 9, "bush"), (14, 10, "rock"),
+        (5, 11, "rock"), (6, 11, "bush"),
+        (17, 4, "bush"), (17, 5, "rock"),
+        # small pond cluster near mother
+        (18, 8, "water"), (19, 8, "water"), (20, 8, "water"),
+        (18, 9, "water"), (19, 9, "water"), (20, 9, "water"),
+    ],
+    sibling_spawns=[(2, 10), (9, 3), (13, 12), (5, 7), (20, 2), (16, 12)],
+    mother_pos=(21, 10),
+    player_start=(1, 1),
+    fox_patrols=[
+        ("h", 6, 10, 16),
+        ("h", 13, 2, 20),
+    ],
+    fox_speed=FOX_SPEED,
+)
+
+OBSTACLE_IMAGE_KEYS = {"rock": "rock", "bush": "bush", "water": "water_tile"}
+LEVEL_2 = LevelDef(
+    obstacle_layout=[
+        (3, 2, "rock"), (4, 2, "rock"), (3, 3, "bush"), (7, 2, "bush"),
+        (8, 3, "rock"), (9, 3, "rock"), (2, 4, "bush"),
+        (15, 2, "rock"), (16, 2, "bush"), (19, 3, "bush"), (20, 4, "rock"),
+        (10, 3, "water"), (10, 4, "water"), (11, 4, "water"),
+        (2, 6, "rock"), (3, 7, "bush"), (4, 6, "bush"), (5, 7, "rock"),
+        (17, 6, "water"), (18, 6, "water"),
+        (6, 8, "rock"), (7, 9, "bush"), (7, 8, "rock"),
+        (14, 8, "bush"), (15, 9, "rock"), (15, 8, "bush"),
+        (3, 12, "bush"), (4, 13, "rock"), (9, 13, "bush"),
+        (10, 12, "rock"), (17, 12, "rock"),
+        (8, 14, "rock"), (20, 14, "water"), (21, 14, "water"),
+    ],
+    sibling_spawns=[(2, 2), (13, 3), (22, 4), (2, 9), (13, 9), (22, 9), (2, 13), (13, 14)],
+    mother_pos=(22, 1),
+    player_start=(1, 14),
+    fox_patrols=[
+        ("h", 5, 2, 21),
+        ("h", 11, 3, 20),
+        ("v", 12, 2, 13),
+    ],
+    fox_speed=105.0,
+)
+
+LEVEL_3 = LevelDef(
+    obstacle_layout=[
+        (2, 2, "rock"), (3, 2, "rock"), (4, 3, "bush"), (9, 2, "bush"),
+        (10, 3, "rock"), (14, 2, "rock"), (15, 3, "bush"), (20, 2, "bush"), (21, 3, "rock"),
+        (2, 1, "bush"), (9, 1, "rock"), (15, 1, "rock"), (21, 1, "bush"),
+        (2, 6, "bush"), (3, 6, "rock"), (9, 5, "rock"), (9, 6, "bush"),
+        (15, 6, "rock"), (15, 7, "bush"), (21, 6, "bush"), (21, 7, "rock"),
+        (11, 7, "water"), (12, 7, "water"), (13, 7, "water"),
+        (2, 10, "rock"), (3, 10, "bush"), (9, 10, "rock"), (9, 11, "bush"),
+        (15, 10, "bush"), (15, 11, "rock"), (21, 10, "rock"), (21, 11, "bush"),
+        (11, 9, "water"), (12, 9, "water"), (13, 9, "water"),
+        (2, 14, "bush"), (3, 13, "rock"), (9, 13, "bush"), (9, 14, "rock"),
+        (15, 13, "rock"), (15, 14, "bush"), (21, 13, "bush"), (21, 14, "rock"),
+    ],
+    sibling_spawns=[
+        (4, 2), (17, 2), (2, 5), (17, 6), (4, 9),
+        (17, 10), (2, 13), (17, 14), (4, 11), (20, 7),
+    ],
+    mother_pos=(12, 0),
+    player_start=(12, 15),
+    fox_patrols=[
+        ("h", 4, 2, 21),
+        ("h", 8, 3, 20),
+        ("h", 12, 2, 21),
+        ("v", 6, 2, 13),
+        ("v", 18, 2, 13),
+    ],
+    fox_speed=120.0,
+)
+
+LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3]
+
+
+def grid_to_px(col, row):
+    return col * TILE_SIZE, row * TILE_SIZE
+
+
+def build_level(images):
+    px, py = grid_to_px(*PLAYER_START)
+def build_level(images, level_index=0):
+    level_def = LEVELS[level_index]
+
+    px, py = grid_to_px(*level_def.player_start)
+    player = Player(px, py, images["duckling"])
+
+    obstacles = pygame.sprite.Group()
+    for col, row, kind in OBSTACLE_LAYOUT:
+    for col, row, kind in level_def.obstacle_layout:
+        x, y = grid_to_px(col, row)
+        obstacles.add(Obstacle(x, y, images[OBSTACLE_IMAGE_KEYS[kind]]))
+
+    siblings = pygame.sprite.Group()
+    sibling_images = cycle([images["sibling_1"], images["sibling_2"], images["sibling_3"]])
+    for (col, row), image in zip(SIBLING_SPAWNS, sibling_images):
+    for (col, row), image in zip(level_def.sibling_spawns, sibling_images):
+        x, y = grid_to_px(col, row)
+        siblings.add(Sibling(x, y, image))
+
+    mx, my = grid_to_px(*MOTHER_POS)
+    mx, my = grid_to_px(*level_def.mother_pos)
+    mother = Mother(mx, my, images["mother_duck"])
+
+    foxes = pygame.sprite.Group()
+    for row, min_col, max_col in FOX_PATROLS:
+        min_x, y = grid_to_px(min_col, row)
+        max_x, _ = grid_to_px(max_col, row)
+        foxes.add(Fox(min_x, y, min_x, max_x, images["fox"]))
+    for axis, fixed, lo, hi in level_def.fox_patrols:
+        if axis == "h":
+            row = fixed
+            min_x, y = grid_to_px(lo, row)
+            max_x, _ = grid_to_px(hi, row)
+            foxes.add(Fox(min_x, y, images["fox"], min_x, max_x,
+                          speed=level_def.fox_speed, vertical=False))
+        else:  # "v"
+            col = fixed
+            x, min_y = grid_to_px(col, lo)
+            _, max_y = grid_to_px(col, hi)
+            foxes.add(Fox(x, min_y, images["fox"], min_y, max_y,
+                          speed=level_def.fox_speed, vertical=True))
+
+    return player, obstacles, siblings, mother, foxes
+
+
+Now update main.py for the level progression state machine.
+
+● Update(main.py)
+Added 9 lines, removed 1 line
+from constants import (
+    ASSET_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, FPS,
+    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,
+    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION,
+    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION, LEVEL_COMPLETE_DURATION,
+)
+import level
+
+
+class GameState(Enum):
+    PLAYING = 1
+    LEVEL_COMPLETE = 3
+    WIN = 2
+
+
+def load_level(images, level_index):
+    player, obstacles, siblings, mother, foxes = level.build_level(images, level_index)
+    player_start_px = level.grid_to_px(*level.LEVELS[level_index].player_start)
+    total_siblings = len(siblings)
+    return player, obstacles, siblings, mother, foxes, player_start_px, total_siblings
+
+
+def load_images():
+    images = {}
+    for filename in EXPECTED_FILES:
+
+● Update(main.py)
+Added 5 lines, removed 2 lines
+
+    images = load_images()
+    background = level.build_background(images)
+    player, obstacles, siblings, mother, foxes = level.build_level(images)
+
+    current_level = 0
+    (player, obstacles, siblings, mother, foxes,
+     player_start_px, total_siblings) = load_level(images, current_level)
+
+    font_hud = pygame.font.SysFont(None, 28)
+    font_win = pygame.font.SysFont(None, 56)
+    font_win_sub = pygame.font.SysFont(None, 28)
+
+    state = GameState.PLAYING
+    collected = 0
+    caught_flash = 0.0
+    player_start_px = level.grid_to_px(*level.PLAYER_START)
+    level_complete_timer = 0.0
+
+    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    overlay.fill(WIN_OVERLAY_COLOR)
+
+● Update(main.py)
+Added 16 lines, removed 2 lines
+                player.reset_to(*player_start_px)
+                caught_flash = CAUGHT_MESSAGE_DURATION
+
+            if player.rect.colliderect(mother.rect) and collected >= level.TOTAL_SIBLINGS:
+                state = GameState.WIN
+            if player.rect.colliderect(mother.rect) and collected >= total_siblings:
+                if current_level + 1 < len(level.LEVELS):
+                    state = GameState.LEVEL_COMPLETE
+                    level_complete_timer = LEVEL_COMPLETE_DURATION
+                else:
+                    state = GameState.WIN
+
+        elif state == GameState.LEVEL_COMPLETE:
+            level_complete_timer -= dt
+            if level_complete_timer <= 0:
+                current_level += 1
+                (player, obstacles, siblings, mother, foxes,
+                 player_start_px, total_siblings) = load_level(images, current_level)
+                collected = 0
+                caught_flash = 0.0
+                state = GameState.PLAYING
+
+        if caught_flash > 0:
+            caught_flash = max(0.0, caught_flash - dt)
+
+
+Now the HUD text and the LEVEL_COMPLETE overlay drawing.
+
+● Update(main.py)
+Added 3 lines, removed 1 line
+        screen.blit(player.image, player.rect)
+
+        hud_text = font_hud.render(
+            f"Siblings found: {collected}/{level.TOTAL_SIBLINGS}", True, HUD_COLOR
+            f"Level {current_level + 1}/{len(level.LEVELS)}   "
+            f"Siblings found: {collected}/{total_siblings}",
+            True, HUD_COLOR,
+        )
+        screen.blit(hud_text, (10, 10))
+        hint_text = font_hud.render("Arrows / WASD to move", True, HUD_COLOR)
+
+● Update(main.py)
+Added 11 lines
+            caught_rect = caught_text.get_rect(center=(SCREEN_WIDTH // 2, 20))
+            screen.blit(caught_text, caught_rect)
+
+        if state == GameState.LEVEL_COMPLETE:
+            screen.blit(overlay, (0, 0))
+            complete_text = font_win.render(
+                f"Level {current_level + 1} Complete!", True, WIN_TEXT_COLOR
+            )
+            complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))
+            screen.blit(complete_text, complete_rect)
+            sub_text = font_win_sub.render("Get ready...", True, WIN_TEXT_COLOR)
+            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))
+            screen.blit(sub_text, sub_rect)
+
+        if state == GameState.WIN:
+            screen.blit(overlay, (0, 0))
+            win_text = font_win.render("You found your family!", True, WIN_TEXT_COLOR)
+
+Let me review the full main.py to confirm the flow is correct end-to-end.
+
+● Read(C:\Users\cassandra\savetheduckling\main.py)
+Read 153 lines
+
+
+Now let's run the headless smoke test across all three levels.
+
+● Bash(cd "C:\Users\cassandra\savetheduckling" && SDL_VIDEODRIVER=dummy python -c "
+  import pygame, main, level, constants
+
+  main.ensure_assets()
+  pygame.init()
+  screen = pygame.display.set_mode((constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT))
+  images = main.load_images()
+  background = level.build_background(images)
+
+  for i in range(len(level.LEVELS)):
+      player, obstacles, siblings, mother, foxes = level.build_level(images, i)
+      print(f'Level {i+1}: obstacles={len(obstacles)}, siblings={len(siblings)}, foxes={len(foxes)}, mother={mother.rect.topleft}, player_start={player.rect.topleft}')
+      # simulate patrol for a while and verify foxes stay within screen bounds
+      for _ in range(300):
+          foxes.update(1/60)
+      for f in foxes:
+          assert 0 <= f.rect.x <= constants.SCREEN_WIDTH - f.rect.width, f'fox x out of screen: {f.rect}'
+          assert 0 <= f.rect.y <= constants.SCREEN_HEIGHT - f.rect.height, f'fox y out of screen: {f.rect}'
+      print('  fox bounds OK')
+
+  pygame.quit()
+  print('ALL LEVELS OK')
+  "
+  )
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.9)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+Level 1: obstacles=21, siblings=6, foxes=2, mother=(840, 400), player_start=(40, 40)
+  fox bounds OK
+Level 2: obstacles=34, siblings=8, foxes=3, mother=(880, 40), player_start=(40, 560)
+  fox bounds OK
+Level 3: obstacles=43, siblings=10, foxes=5, mother=(480, 0), player_start=(480, 600)
+  fox bounds OK
+ALL LEVELS OK
+
+● Bash(cd "C:\Users\cassandra\savetheduckling" && SDL_VIDEODRIVER=dummy python -c "
+  import pygame, main, level, constants
+  from main import GameState, load_level
+
+  main.ensure_assets()
+  pygame.init()
+  screen = pygame.display.set_mode((constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT))
+  images = main.load_images()
+
+  current_level = 0
+  player, obstacles, siblings, mother, foxes, player_start_px, total_siblings = load_level(images, current_level)
+  state = GameState.PLAYING
+  collected = 0
+  level_complete_timer = 0.0
+  dt = 1/60
+
+  def simulate_win_and_advance():
+      global current_level, player, obstacles, siblings, mother, foxes, player_start_px, total_siblings, state, collected, level_complete_timer
+      # collect all siblings by teleporting player onto each
+      for s in list(siblings):
+          player.rect.topleft = s.rect.topleft
+          hits = pygame.sprite.spritecollide(player, siblings, dokill=True)
+          collected += len(hits)
+      assert collected == total_siblings, f'{collected} != {total_siblings}'
+      # touch mother
+      player.rect.topleft = mother.rect.topleft
+      if player.rect.colliderect(mother.rect) and collected >= total_siblings:
+          if current_level + 1 < len(level.LEVELS):
+              state = GameState.LEVEL_COMPLETE
+              level_complete_timer = constants.LEVEL_COMPLETE_DURATION
+          else:
+              state = GameState.WIN
+      print(f'After level {current_level+1}: state={state}')
+      # simulate LEVEL_COMPLETE countdown
+      while state == GameState.LEVEL_COMPLETE:
+          level_complete_timer -= dt
+          if level_complete_timer <= 0:
+              current_level += 1
+              player, obstacles, siblings, mother, foxes, player_start_px, total_siblings = load_level(images, current_level)
+              collected = 0
+              state = GameState.PLAYING
+      print(f'  -> advanced. current_level={current_level}, state={state}, collected={collected}, total_siblings={total_siblings}')
+
+  simulate_win_and_advance()  # finish level 1 -> level 2
+  simulate_win_and_advance()  # finish level 2 -> level 3
+  simulate_win_and_advance()  # finish level 3 -> WIN
+  assert state == GameState.WIN
+  print('FINAL STATE:', state)
+  pygame.quit()
+  print('PROGRESSION TEST OK')
+  "
+  )
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.9)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+After level 1: state=GameState.LEVEL_COMPLETE
+  -> advanced. current_level=1, state=GameState.PLAYING, collected=0, total_siblings=8
+After level 2: state=GameState.LEVEL_COMPLETE
+  -> advanced. current_level=2, state=GameState.PLAYING, collected=0, total_siblings=10
+After level 3: state=GameState.WIN
+  -> advanced. current_level=2, state=GameState.WIN, collected=10, total_siblings=10
+FINAL STATE: GameState.WIN
+PROGRESSION TEST OK
+
+
+The full progression works exactly as designed: level 1 → level 2 (8 siblings) → level 3 (10 siblings) → final WIN. Now let's grab visual screenshots of all three levels.
+
+● Bash(cd "C:\Users\cassandra\savetheduckling" && SDL_VIDEODRIVER=dummy python -c "
+  import pygame, main, level, constants
+  main.ensure_assets()
+  pygame.init()
+  screen = pygame.display.set_mode((constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT))
+  images = main.load_images()
+  background = level.build_background(images)
+  font = pygame.font.SysFont(None, 28)
+
+  for i in range(len(level.LEVELS)):
+      player, obstacles, siblings, mother, foxes = level.build_level(images, i)
+      screen.blit(background, (0,0))
+      obstacles.draw(screen)
+      screen.blit(mother.image, mother.rect)
+      siblings.draw(screen)
+      foxes.draw(screen)
+      screen.blit(player.image, player.rect)
+      screen.blit(font.render(f'Level {i+1}/3   Siblings found: 0/{len(siblings)}', True, constants.HUD_COLOR), (10,10))
+      pygame.image.save(screen, f'screenshot_level{i+1}.png')
+  pygame.quit()
+  print('saved')
+  "
+  )
+pygame 2.6.1 (SDL 2.28.4, Python 3.11.9)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+saved
+
+● Read(C:\Users\cassandra\savetheduckling\screenshot_level1.png)
+Read image (24.6KB)
+
+● Read(C:\Users\cassandra\savetheduckling\screenshot_level2.png)
+Read image (28.9KB)
+
+● Read(C:\Users\cassandra\savetheduckling\screenshot_level3.png)
+Read image (30KB)
+
+
+All three levels look great — clear visual escalation from sparse (level 1) to a denser pond-cluster maze (level 2) to a symmetric corridor maze with visible vertical patrol lanes (level 3). Let's clean up test files and do a final live launch check.
+
+● Bash(rm "C:\Users\cassandra\savetheduckling\screenshot_level1.png" "C:\Users\cassandra\savetheduckling\screenshot_level2.png" "C:\Users\cassandra\savetheduckling\screenshot_level3.png")
+Done
+
+● Bash(cd "C:\Users\cassandra\savetheduckling" && timeout 3 python main.py; echo "exit code: $?")
+exit code: 124
+
+
+Confirmed running fine (killed by timeout, no crash). The game now has three levels of increasing difficulty:
+
+- Level 1 (unchanged): 21 obstacles, 6 siblings, 2 horizontal-patrol foxes.
+- Level 2: 34 obstacles, 8 siblings, 3 foxes (2 horizontal + 1 vertical), foxes move faster (105 vs 90 px/s).
+- Level 3: 43 obstacles, 10 siblings, 5 foxes (3 horizontal + 2 vertical) in a symmetric corridor maze, foxes fastest yet (120 px/s).
+
+Reaching mother with all siblings collected shows a "Level N Complete!" overlay for 2 seconds, then auto-loads the next level with a fresh player position, siblings, obstacles, and foxes (progress/collection count resets). After level 3, it shows the original "You found your family!" final win screen. The HUD now reads "Level N/3   Siblings found: X/Y". All layouts were verified programmatically for reachability (BFS) and to ensure no obstacles block sibling/mother tiles or fox patrol lanes.
+
+✻ Cooked for 14m 57s

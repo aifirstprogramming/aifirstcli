@@ -45,7 +45,10 @@ export const WITHHELD_COMMANDS: Record<string, string> = {
 
 /** Claude Code permission entries, e.g. `Bash(aifirst show:*)`. */
 export function claudeEntries(): string[] {
-  return ALLOWED_COMMANDS.map((c) => `Bash(aifirst ${c}:*)`);
+  return [
+    ...ALLOWED_COMMANDS.map((c) => `Bash(aifirst ${c}:*)`),
+    "Bash(aifirst replay execute:*)",
+  ];
 }
 
 export const CODEX_BEGIN = "# >>> aifirst >>>";

@@ -15,6 +15,32 @@ import { clear, mark, read } from "../log/progress";
 import type { Via } from "../log/progress";
 import { CliError, bold, dim, glyph, green, json, out, yellow } from "../output";
 
+function parseVariant(raw: string | undefined): { kind: "adaptive" | "authored"; answers: Record<string, string> } | undefined {
+  if (raw === undefined) return undefined;
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    throw new CliError("--variant-json must be valid JSON", "bad_option");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new CliError("--variant-json must be an object", "bad_option");
+  }
+  const variant = value as { kind?: unknown; answers?: unknown };
+  if (variant.kind !== "adaptive" && variant.kind !== "authored") {
+    throw new CliError("--variant-json kind must be adaptive or authored", "bad_option");
+  }
+  if (!variant.answers || typeof variant.answers !== "object" || Array.isArray(variant.answers)) {
+    throw new CliError("--variant-json answers must be an object", "bad_option");
+  }
+  const answers = variant.answers as Record<string, unknown>;
+  if (!Object.entries(answers).every(([key, answer]) =>
+    /^[a-z][a-z0-9_]*$/.test(key) && typeof answer === "string" && /^[a-z][a-z0-9_]*$/.test(answer))) {
+    throw new CliError("--variant-json answers must contain stable question and option ids", "bad_option");
+  }
+  return { kind: variant.kind, answers: answers as Record<string, string> };
+}
+
 function resolveExerciseId(args: Args, command: string): string {
   const input = args.positionals[0];
   if (!input) {
@@ -35,17 +61,24 @@ function parseVia(raw: string | undefined): Via {
 export function done(args: Args): void {
   const format = formatFlag(args, ["text", "json"]);
   const id = resolveExerciseId(args, "done");
+  const via = parseVia(stringFlag(args, "via"));
+  const agent = stringFlag(args, "agent");
+  const variant = parseVariant(stringFlag(args, "variant-json"));
+  if (variant && (via !== "agent" || !agent)) {
+    throw new CliError("--variant-json requires --via agent and --agent <name>", "bad_option");
+  }
   const entry = mark(id, {
     status: "done",
-    via: parseVia(stringFlag(args, "via")),
-    agent: stringFlag(args, "agent"),
+    via,
+    agent,
+    variant,
   });
 
   if (format === "json") {
     json({ exerciseId: id, entry });
     return;
   }
-  out(`  ${green(glyph.done)} ${bold(id)} marked done`);
+  out(`  ${green(glyph.done)} ${bold(id)} marked done${entry.variant ? dim(` (${entry.variant.kind} variant)`) : ""}`);
 }
 
 export function skip(args: Args): void {
