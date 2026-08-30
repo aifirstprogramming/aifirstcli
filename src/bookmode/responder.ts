@@ -614,7 +614,10 @@ function selectedReplayReply(
   if (step.replay.workflow && planning) {
     if (prePlanSegments(step.replay).length > 0) return prePlanReply(step, content, tools, planning, 0);
     const outcome = beginPlanning(step, planning, tools);
-    return planningOutcomeReply(step, content, tools, planning, outcome);
+    return withLeadingText(
+      planningOutcomeReply(step, content, tools, planning, outcome),
+      prePlanTrailingText(step.replay),
+    );
   }
   return nativeReplayReply(step, content, tools, 0);
 }
@@ -1189,11 +1192,12 @@ export function respond(
     return ambiguityReply(content, candidates, request.tools);
   }
   if (replay.kind === "exact" && replay.step.replay?.workflow && options.planning) {
-    if (prePlanSegments(replay.step.replay).length > 0) {
-      return prePlanReply(replay.step, content, request.tools, options.planning, 0);
-    }
-    const outcome = beginPlanning(replay.step, options.planning, request.tools);
-    return planningOutcomeReply(replay.step, content, request.tools, options.planning, outcome);
+    return selectedReplayReply(
+      replay.step,
+      content,
+      request.tools,
+      options.planning,
+    );
   }
   if (replay.kind === "exact" && replay.step.replay && replayToolUse(replay.step, 0, request.tools)) {
     return nativeReplayReply(replay.step, content, request.tools, 0);

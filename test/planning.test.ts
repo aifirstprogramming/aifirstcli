@@ -152,6 +152,25 @@ describe("model-free planning workflow", () => {
 });
 
 describe("responder planning integration", () => {
+  test("preserves a text-only pre-plan preamble before the first question", () => {
+    const candidateContent = structuredClone(content);
+    const candidate = candidateContent.steps.find(
+      (step) => step.id === "py-9-01",
+    )! as ReplayStep;
+    candidate.replay!.prePlanEvents = [
+      { type: "text", text: "I will clarify the design before planning." },
+    ];
+    const planning = state();
+    const result = respond(
+      { messages: [{ role: "user", content: candidate.prompt }], tools: TOOLS },
+      candidateContent,
+      emptyLog(),
+      { planning },
+    );
+    expect(result.text).toBe("I will clarify the design before planning.");
+    expect(result.toolUse?.id).toContain("question_game_style+challenge+art_style");
+  });
+
   test("an exact workflow prompt runs captured read-only preflight before planning", () => {
     const planning = state();
     const first = respond({ messages: [{ role: "user", content: duckling.prompt }], tools: TOOLS }, content, emptyLog(), { planning });

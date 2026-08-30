@@ -17,6 +17,7 @@
     "sync-content": "bun scripts/sync-content.ts",
     "build": "bun scripts/build.ts",
     "build:local": "bun scripts/build.ts --local",
+    "capture:claude-e2e": "bun scripts/capture-claude-showtail-e2e.ts",
     "check": "bun scripts/sync-content.ts --check && tsc -p tsconfig.json && bun test"
   },
   "//dependencies": [
