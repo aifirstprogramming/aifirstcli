@@ -256,14 +256,7 @@ describe("the server", () => {
     await Bun.sleep(20);
     const second = post({
       model: "claude-opus-5",
-      messages: [{
-        role: "user",
-        content: [{
-          type: "tool_result",
-          tool_use_id: "aifirst_choose_replay",
-          content: "User answered Claude's questions:\n· Which AI First exercise did you mean? → Save the Duckling (py-9-01)",
-        }],
-      }],
+      messages: [{ role: "user", content: "2" }],
       tools: [
         ...TOOLS,
         { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
@@ -274,7 +267,7 @@ describe("the server", () => {
     const [pickerResponse, selectedResponse] = await Promise.all([first, second]);
     const picker = await pickerResponse.json() as { content: Array<{ id?: string }> };
     const selected = await selectedResponse.json() as { content: Array<{ id?: string }> };
-    expect(picker.content.some((block) => block.id === "aifirst_choose_replay")).toBe(true);
+    expect(picker.content.some((block) => block.id?.startsWith("aifirst_choose_replay_"))).toBe(true);
     expect(selected.content.some((block) => block.id === "aifirst_preplan_py-9-01_0")).toBe(true);
   });
 });

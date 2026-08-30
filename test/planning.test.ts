@@ -3,6 +3,7 @@ import {
   beginPlanning,
   continuePlanning,
   finishPlanningInterlude,
+  planningToolCancelled,
   planningToolResult,
   type PlanningSession,
 } from "../src/bookmode/planning";
@@ -13,6 +14,7 @@ import { emptyLog } from "../src/log/progress";
 
 const content = resolveContent().content;
 const duckling = content.steps.find((step) => step.id === "py-9-01")! as ReplayStep;
+const editor = content.steps.find((step) => step.id === "py-10-01")! as ReplayStep;
 const TOOLS = [
   { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
   { name: "Write", input_schema: { properties: { file_path: { type: "string" }, content: { type: "string" } } } },
@@ -148,6 +150,22 @@ describe("model-free planning workflow", () => {
       Challenge: "Collect siblings",
       Visuals: "Simple sprites",
     });
+    expect(planningToolCancelled([{ role: "user", content: [{
+      type: "tool_result",
+      tool_use_id: "aifirst_plan_py-9-01_question_gameplay",
+      is_error: true,
+      content: "The user doesn't want to proceed with this tool use. The tool use was rejected.",
+    }] }])).toBe(true);
+    expect(planningToolCancelled([{ role: "user", content: [{
+      type: "tool_result",
+      tool_use_id: "aifirst_plan_py-9-01_question_gameplay",
+      content: "(no content)",
+    }] }])).toBe(true);
+    expect(planningToolCancelled([{ role: "user", content: [{
+      type: "tool_result",
+      tool_use_id: "aifirst_plan_py-9-01_question_gameplay",
+      content: '{"answers":{"Gameplay":"Top-down maze/exploration (Book Recommended)"}}',
+    }] }])).toBe(false);
   });
 });
 
@@ -205,6 +223,58 @@ describe("responder planning integration", () => {
       tools: TOOLS,
     }, content, emptyLog(), { planning, confirmation });
     expect(second.toolUse?.id).toBe("aifirst_preplan_py-9-01_0");
+    expect(planning.stepId).toBeUndefined();
+  });
+
+  test("routes a new exercise prompt after the planning question is rejected", () => {
+    const planning = state();
+    const confirmation: { stepId?: string; stepIds?: string[] } = {};
+    const questions = reply(beginPlanning(editor, planning, TOOLS));
+    const fallback = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: questions.toolUse?.id,
+        content: JSON.stringify({ answers: {
+          level_format: "JSON files (Book Recommended)",
+          editor_ui: "In-game edit mode",
+          feature_scope: "Fox patrol editing",
+        } }),
+      }] }],
+      tools: TOOLS,
+    }, content, emptyLog(), { planning, confirmation });
+    expect(fallback.text).toContain("This choice needs an LLM");
+
+    const restarted = respond({
+      messages: [{ role: "user", content: [
+        {
+          type: "tool_result",
+          tool_use_id: fallback.toolUse?.id,
+          is_error: true,
+          content: "The user doesn't want to proceed with this tool use. The tool use was rejected.",
+        },
+        { type: "text", text: "duckling" },
+      ] }],
+      tools: TOOLS,
+    }, content, emptyLog(), { planning, confirmation });
+    expect(restarted.text).toContain("Several AI First exercises may match this prompt");
+    expect(restarted.text).not.toContain("This choice needs an LLM");
+    expect(restarted.toolUse?.id).toStartWith("aifirst_choose_replay_");
+    expect(planning.stepId).toBeUndefined();
+  });
+
+  test("ends planning cleanly when a native question returns no content", () => {
+    const planning = state();
+    const questions = reply(beginPlanning(editor, planning, TOOLS));
+    const cancelled = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: questions.toolUse?.id,
+        content: "(no content)",
+      }] }],
+      tools: TOOLS,
+    }, content, emptyLog(), { planning });
+    expect(cancelled.text).toBe("Planning cancelled. No files were changed and no progress was recorded.");
+    expect(cancelled.toolUse).toBeUndefined();
     expect(planning.stepId).toBeUndefined();
   });
 

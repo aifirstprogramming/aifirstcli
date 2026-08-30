@@ -29,6 +29,7 @@ import {
   clearActivePlanning,
   continuePlanning,
   finishPlanningInterlude,
+  planningToolCancelled,
   planningToolResult,
   type ActivePlanPath,
   type PlanningSession,
@@ -130,6 +131,14 @@ function confirmationQuestion(step: ReplayStep, tools: ToolDefinition[] | undefi
 interface ConfirmationState {
   stepId?: string;
   stepIds?: string[];
+  ambiguityToolId?: string;
+}
+
+const AMBIGUITY_TOOL_PREFIX = "aifirst_choose_replay";
+
+function newAmbiguityToolId(): string {
+  // Full Claude histories can retain older picker results, so each transaction needs its own id.
+  return `${AMBIGUITY_TOOL_PREFIX}_${crypto.randomUUID()}`;
 }
 
 function confirmationIds(state: ConfirmationState | undefined): string[] {
@@ -145,16 +154,25 @@ function setConfirmation(state: ConfirmationState | undefined, stepIds: string[]
     savePendingReplay(stepIds);
     return;
   }
+  const previous = confirmationIds(state);
+  const sameCandidates = previous.length === stepIds.length &&
+    previous.every((id, index) => id === stepIds[index]);
   delete state.stepId;
   delete state.stepIds;
-  if (stepIds.length === 1) state.stepId = stepIds[0];
-  else state.stepIds = stepIds.slice(0, 3);
+  if (stepIds.length === 1) {
+    delete state.ambiguityToolId;
+    state.stepId = stepIds[0];
+  } else {
+    if (!sameCandidates || !state.ambiguityToolId) state.ambiguityToolId = newAmbiguityToolId();
+    state.stepIds = stepIds.slice(0, 3);
+  }
 }
 
 function clearConfirmation(state: ConfirmationState | undefined): void {
   if (state) {
     delete state.stepId;
     delete state.stepIds;
+    delete state.ambiguityToolId;
   }
   clearPendingReplay();
 }
@@ -181,11 +199,12 @@ function ambiguityQuestion(
   content: Content,
   candidates: ReplayCandidate[],
   tools: ToolDefinition[] | undefined,
+  toolUseId = newAmbiguityToolId(),
 ): Reply["toolUse"] | undefined {
   const name = questionTool(tools);
   if (!name) return undefined;
   return {
-    id: "aifirst_choose_replay",
+    id: toolUseId,
     name,
     input: {
       questions: [{
@@ -208,8 +227,9 @@ function ambiguityReply(
   content: Content,
   candidates: ReplayCandidate[],
   tools: ToolDefinition[] | undefined,
+  toolUseId?: string,
 ): Reply {
-  const question = ambiguityQuestion(content, candidates, tools);
+  const question = ambiguityQuestion(content, candidates, tools, toolUseId);
   return {
     text: question
       ? "Several AI First exercises may match this prompt. Choose one, or choose None of these to make no changes."
@@ -488,11 +508,20 @@ function toolAnswer(block: ContentBlock): string {
   }
 }
 
-function ambiguityToolResult(messages: RequestMessage[] | undefined): { answer: string; failed: boolean } | undefined {
+function ambiguityToolResult(
+  messages: RequestMessage[] | undefined,
+  expectedToolId?: string,
+): { answer: string; failed: boolean } | undefined {
   const message = [...(messages ?? [])].reverse().find((candidate) => candidate.role !== "system");
-  const result = message?.role === "user" && Array.isArray(message.content)
-    ? message.content.find((block) => block?.type === "tool_result" && block.tool_use_id === "aifirst_choose_replay")
-    : undefined;
+  const results = message?.role === "user" && Array.isArray(message.content)
+    ? message.content.filter((block) =>
+        block?.type === "tool_result" &&
+        typeof block.tool_use_id === "string" &&
+        (expectedToolId
+          ? block.tool_use_id === expectedToolId
+          : block.tool_use_id.startsWith(AMBIGUITY_TOOL_PREFIX)))
+    : [];
+  const result = results.at(-1);
   if (!result) return undefined;
   return { answer: toolAnswer(result), failed: result.is_error === true };
 }
@@ -1121,7 +1150,19 @@ export function respond(
     return prePlanReply(step, content, request.tools, options.planning, prePlanResult.operationIndex + 1);
   }
 
-  const planAnswer = planningToolResult(request.messages);
+  let cancelledPlanningTool = false;
+  if (options.planning?.stepId && planningToolCancelled(request.messages)) {
+    clearActivePlanning(options.planning);
+    cancelledPlanningTool = true;
+    if (isEmptyContinuation(readerText(request.messages))) {
+      return {
+        text: "Planning cancelled. No files were changed and no progress was recorded.",
+        stopReason: "end_turn",
+      };
+    }
+  }
+
+  const planAnswer = cancelledPlanningTool ? undefined : planningToolResult(request.messages);
   if (planAnswer !== undefined && options.planning?.stepId) {
     const step = planningStep(
       content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
@@ -1133,7 +1174,7 @@ export function respond(
     }
   }
 
-  const ambiguityResult = ambiguityToolResult(request.messages);
+  const ambiguityResult = ambiguityToolResult(request.messages, options.confirmation?.ambiguityToolId);
   if (ambiguityResult) {
     const stepIds = pendingConfirmationIds(options.confirmation);
     const selection = ambiguityResult.failed ? "cancel" : replaySelection(ambiguityResult.answer, stepIds);
@@ -1187,19 +1228,24 @@ export function respond(
   }
 
   const result = toolResult(request.messages);
-  if (result) {
+  if (result && !cancelledPlanningTool) {
     return { text: closing(log, content, result), stopReason: "end_turn" };
   }
 
   const typed = readerText(request.messages);
   if (typed && options.planning?.stepId && options.planning.awaiting) {
-    const step = planningStep(
-      content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
-      options.planning,
-    );
-    if (step?.replay?.workflow) {
-      const outcome = continuePlanning(step, options.planning, request.tools, typed);
-      return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
+    const replacement = resolveReplay(typed, content, options.language);
+    if (replacement.kind !== "none") {
+      clearActivePlanning(options.planning);
+    } else {
+      const step = planningStep(
+        content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
+        options.planning,
+      );
+      if (step?.replay?.workflow) {
+        const outcome = continuePlanning(step, options.planning, request.tools, typed);
+        return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
+      }
     }
   }
 
@@ -1219,7 +1265,7 @@ export function respond(
       const step = content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
       return step?.replay ? [{ step, score: 0 }] : [];
     });
-    return ambiguityReply(content, candidates, request.tools);
+    return ambiguityReply(content, candidates, request.tools, options.confirmation?.ambiguityToolId);
   }
   if (pendingIds.length === 1 && isEmptyContinuation(typed)) {
     const step = content.steps.find((candidate) => candidate.id === pendingIds[0]) as ReplayStep | undefined;
@@ -1300,7 +1346,7 @@ export function respond(
         })
       : replay.candidates;
     setConfirmation(options.confirmation, candidates.map((candidate) => candidate.step.id));
-    return ambiguityReply(content, candidates, request.tools);
+    return ambiguityReply(content, candidates, request.tools, options.confirmation?.ambiguityToolId);
   }
   if (replay.kind === "exact" && replay.step.replay?.workflow && options.planning) {
     return selectedReplayReply(replay.step, content, request.tools, options.planning);

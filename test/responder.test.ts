@@ -215,7 +215,7 @@ describe("answering a book prompt", () => {
     );
     expect(first.exerciseId).toBeUndefined();
     expect(first.stopReason).toBe("tool_use");
-    expect(first.toolUse?.id).toBe("aifirst_choose_replay");
+    expect(first.toolUse?.id).toStartWith("aifirst_choose_replay_");
     expect(JSON.stringify(first.toolUse?.input)).toContain("Add Two Harder Levels (py-9-03)");
     expect(JSON.stringify(first.toolUse?.input)).toContain("java-6-04");
     expect(JSON.stringify(first.toolUse?.input)).toContain("None of these");
@@ -227,7 +227,7 @@ describe("answering a book prompt", () => {
           role: "user",
           content: [{
             type: "tool_result",
-            tool_use_id: "aifirst_choose_replay",
+            tool_use_id: first.toolUse?.id,
             content: '{"answers":{"Exercise":"Add Two Harder Levels (py-9-03)"}}',
           }],
         }],
@@ -246,7 +246,7 @@ describe("answering a book prompt", () => {
   it("does nothing when the ambiguous-match picker selects no exercise", () => {
     const confirmation: { stepId?: string; stepIds?: string[] } = {};
     const planning = { answers: {} };
-    respond(
+    const picker = respond(
       { messages: [{ role: "user", content: "levels" }], tools: NATIVE_TOOLS_WITH_QUESTION },
       content,
       log,
@@ -258,7 +258,7 @@ describe("answering a book prompt", () => {
           role: "user",
           content: [{
             type: "tool_result",
-            tool_use_id: "aifirst_choose_replay",
+            tool_use_id: picker.toolUse?.id,
             content: '{"answers":{"Exercise":"None of these"}}',
           }],
         }],
@@ -275,6 +275,74 @@ describe("answering a book prompt", () => {
     expect(confirmation.stepId).toBeUndefined();
     expect(confirmation.stepIds).toBeUndefined();
     expect(planning).toEqual({ answers: {} });
+  });
+
+  it("does not reuse a cancelled picker transaction for the next ambiguous prompt", () => {
+    const confirmation: { stepId?: string; stepIds?: string[] } = {};
+    const planning = { answers: {} };
+    const first = respond(
+      { messages: [{ role: "user", content: "duckling" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation, planning },
+    );
+    const firstId = first.toolUse?.id;
+    expect(firstId).toStartWith("aifirst_choose_replay_");
+
+    const cancelled = respond(
+      {
+        messages: [{
+          role: "user",
+          content: [{
+            type: "tool_result",
+            tool_use_id: firstId,
+            content: '{"answers":{"Exercise":"None of these"}}',
+          }],
+        }],
+        tools: NATIVE_TOOLS_WITH_QUESTION,
+      },
+      content,
+      log,
+      { confirmation, planning },
+    );
+    expect(cancelled.text).toBe("No exercise selected. Nothing was changed or recorded.");
+
+    const second = respond(
+      { messages: [{ role: "user", content: "duckling" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation, planning },
+    );
+    const secondId = second.toolUse?.id;
+    expect(secondId).toStartWith("aifirst_choose_replay_");
+    expect(secondId).not.toBe(firstId);
+
+    const selected = respond(
+      {
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: firstId,
+              content: '{"answers":{"Exercise":"None of these"}}',
+            },
+            {
+              type: "tool_result",
+              tool_use_id: secondId,
+              content: '{"answers":{"Exercise":"Design a Level Editor (py-10-01)"}}',
+            },
+          ],
+        }],
+        tools: NATIVE_TOOLS_WITH_QUESTION,
+      },
+      content,
+      log,
+      { confirmation, planning },
+    );
+    expect(selected.exerciseId).toBe("py-10-01");
+    expect(selected.toolUse?.name).toBe("AskUserQuestion");
+    expect(selected.text).not.toBe("No exercise selected. Nothing was changed or recorded.");
   });
 
   it("returns the book envelope and starts its exact replay with a native tool", () => {

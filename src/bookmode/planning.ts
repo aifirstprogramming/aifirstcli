@@ -5,6 +5,7 @@ interface ContentBlock {
   text?: string;
   tool_use_id?: string;
   content?: unknown;
+  is_error?: boolean;
 }
 
 interface RequestMessage {
@@ -80,11 +81,37 @@ function resultText(block: ContentBlock): string {
   return "";
 }
 
-export function planningToolResult(messages: RequestMessage[] | undefined): string | Record<string, string> | undefined {
+function planningResultBlock(messages: RequestMessage[] | undefined): ContentBlock | undefined {
   const message = [...(messages ?? [])].reverse().find((candidate) => candidate.role !== "system");
   if (!message || message.role !== "user" || !Array.isArray(message.content)) return undefined;
-  const result = message.content.find((block) =>
-    block?.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.startsWith("aifirst_plan_"));
+  return message.content.find((block) =>
+    block?.type === "tool_result" &&
+    typeof block.tool_use_id === "string" &&
+    block.tool_use_id.startsWith("aifirst_plan_"));
+}
+
+export function planningToolCancelled(messages: RequestMessage[] | undefined): boolean {
+  const result = planningResultBlock(messages);
+  if (!result) return false;
+  if (result.is_error === true) return true;
+  const text = resultText(result).trim();
+  if (!text || /^\(?no content\)?$/i.test(text)) return true;
+  if (/tool use was rejected|user (?:declined|doesn't want|does not want) to (?:answer|proceed)/i.test(text)) {
+    return true;
+  }
+  if (typeof result.content === "string") {
+    try {
+      const parsed = JSON.parse(result.content) as { answers?: Record<string, unknown> };
+      if (parsed.answers && Object.keys(parsed.answers).length === 0) return true;
+    } catch {
+      // Plain-text answers are handled by planningToolResult.
+    }
+  }
+  return false;
+}
+
+export function planningToolResult(messages: RequestMessage[] | undefined): string | Record<string, string> | undefined {
+  const result = planningResultBlock(messages);
   if (!result) return undefined;
   if (typeof result.content === "string") {
     try {

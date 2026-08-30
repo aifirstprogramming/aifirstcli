@@ -58,7 +58,7 @@ export function startBookServer({ port = 0, quiet = false, replay, textPacing, o
   onReply?: (reply: { exerciseId?: string; stopReason: string }, confirmationStepId?: string) => void;
 } = {}): BookServer {
   const replaySource = replay ? new ReplayContentSource(loadReplayPack(replay)) : undefined;
-  const confirmation: { stepId?: string; stepIds?: string[] } = {};
+  const confirmation: { stepId?: string; stepIds?: string[]; ambiguityToolId?: string } = {};
   const planning: PlanningSession = { answers: {} };
   let messagesTail = Promise.resolve();
   const inMessageOrder = async <T>(operation: () => Promise<T>): Promise<T> => {
