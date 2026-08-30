@@ -226,4 +226,55 @@ describe("the server", () => {
     const r = await realFetch(`${base}/v1/messages`, { method: "POST", body: "not json" });
     expect(r.status).toBe(400);
   });
+
+  it("processes overlapping picker requests in arrival order", async () => {
+    const encoder = new TextEncoder();
+    let finishBody: ((body: string) => void) | undefined;
+    const slowBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode("{"));
+        finishBody = (body) => {
+          controller.enqueue(encoder.encode(body.slice(1)));
+          controller.close();
+        };
+      },
+    });
+    const ask = JSON.stringify({
+      model: "claude-opus-5",
+      messages: [{ role: "user", content: "duckling" }],
+      tools: [
+        ...TOOLS,
+        { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
+      ],
+    });
+    const first = realFetch(`${base}/v1/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: slowBody,
+      duplex: "half",
+    } as RequestInit);
+    await Bun.sleep(20);
+    const second = post({
+      model: "claude-opus-5",
+      messages: [{
+        role: "user",
+        content: [{
+          type: "tool_result",
+          tool_use_id: "aifirst_choose_replay",
+          content: "User answered Claude's questions:\n· Which AI First exercise did you mean? → Save the Duckling (py-9-01)",
+        }],
+      }],
+      tools: [
+        ...TOOLS,
+        { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
+      ],
+    });
+    finishBody?.(ask);
+
+    const [pickerResponse, selectedResponse] = await Promise.all([first, second]);
+    const picker = await pickerResponse.json() as { content: Array<{ id?: string }> };
+    const selected = await selectedResponse.json() as { content: Array<{ id?: string }> };
+    expect(picker.content.some((block) => block.id === "aifirst_choose_replay")).toBe(true);
+    expect(selected.content.some((block) => block.id === "aifirst_preplan_py-9-01_0")).toBe(true);
+  });
 });

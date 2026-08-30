@@ -26,6 +26,7 @@ export interface ActivePlanPath {
 
 export interface PlanningSession {
   stepId?: string;
+  replayMode?: "captured" | "standalone";
   answers: Record<string, string>;
   awaiting?:
     | { kind: "question"; questionIds: string[] }
@@ -389,6 +390,7 @@ export function continuePlanning(
       return askFallback(step, state, tools, question, awaiting.choice);
     }
     state.stepId = undefined;
+    state.replayMode = undefined;
     state.answers = {};
     state.awaiting = undefined;
     return {
@@ -414,6 +416,7 @@ export function continuePlanning(
     return askApproval(step, state, tools, active);
   }
   state.stepId = undefined;
+  state.replayMode = undefined;
   state.answers = {};
   state.awaiting = undefined;
   return {
@@ -435,6 +438,7 @@ export function finishPlanningInterlude(
 
 export function clearActivePlanning(state: PlanningSession): void {
   state.stepId = undefined;
+  state.replayMode = undefined;
   state.answers = {};
   state.awaiting = undefined;
   state.active = undefined;

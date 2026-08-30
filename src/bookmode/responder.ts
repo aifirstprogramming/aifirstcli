@@ -12,6 +12,7 @@
  */
 
 import { findMatchingStep } from "@aifirst/content";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { chatCommandError, isLocalCommand, localHelp, parseChatCommand } from "./commands";
 import type { ContentSource, SourceState } from "./contentSource";
@@ -222,6 +223,10 @@ function replayToolId(stepId: string, operationIndex: number): string {
   return `aifirst_replay_${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}_${operationIndex}`;
 }
 
+function standaloneReplayToolId(stepId: string, operationIndex: number): string {
+  return `aifirst_replay_standalone_${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}_${operationIndex}`;
+}
+
 function prePlanToolId(stepId: string, operationIndex: number): string {
   return `aifirst_preplan_${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}_${operationIndex}`;
 }
@@ -324,10 +329,15 @@ function replayToolUse(
   tools: ToolDefinition[] | undefined,
   replay: Replay | undefined = step.replay,
   phase: "replay" | "preplan" = "replay",
+  standalone = false,
 ): Reply["toolUse"] | undefined {
   const operation = (phase === "preplan" ? prePlanSegments(replay) : replaySegments(replay))[operationIndex]?.operation;
   if (!operation) return undefined;
-  const id = phase === "preplan" ? prePlanToolId(step.id, operationIndex) : replayToolId(step.id, operationIndex);
+  const id = phase === "preplan"
+    ? prePlanToolId(step.id, operationIndex)
+    : standalone
+      ? standaloneReplayToolId(step.id, operationIndex)
+      : replayToolId(step.id, operationIndex);
   return operationToolUse(id, operation, tools);
 }
 
@@ -395,10 +405,11 @@ function operationToolUse(
   };
 }
 
-function replayToolResult(messages: RequestMessage[] | undefined): { stepId: string; operationIndex: number; failed: boolean; detail: string } | undefined {
+function replayToolResult(messages: RequestMessage[] | undefined): { stepId: string; operationIndex: number; standalone: boolean; failed: boolean; detail: string } | undefined {
   const result = latestToolResult(messages);
   if (!result || typeof result.tool_use_id !== "string") return undefined;
-  const match = result.tool_use_id.match(/^aifirst_replay_(.+)_([0-9]+)$/);
+  const standaloneMatch = result.tool_use_id.match(/^aifirst_replay_standalone_(.+)_([0-9]+)$/);
+  const match = standaloneMatch ?? result.tool_use_id.match(/^aifirst_replay_(.+)_([0-9]+)$/);
   if (!match) return undefined;
   const raw = result.content;
   const detail = typeof raw === "string"
@@ -406,7 +417,13 @@ function replayToolResult(messages: RequestMessage[] | undefined): { stepId: str
     : Array.isArray(raw)
       ? (raw as ContentBlock[]).map((block) => block.text ?? "").join("\n")
       : "";
-  return { stepId: match[1], operationIndex: Number(match[2]), failed: result.is_error === true, detail: detail.trim() };
+  return {
+    stepId: match[1],
+    operationIndex: Number(match[2]),
+    standalone: standaloneMatch !== null,
+    failed: result.is_error === true,
+    detail: detail.trim(),
+  };
 }
 
 function prePlanToolResult(messages: RequestMessage[] | undefined): { stepId: string; operationIndex: number; failed: boolean; detail: string } | undefined {
@@ -522,8 +539,9 @@ function nativeReplayReply(
   tools: ToolDefinition[] | undefined,
   operationIndex: number,
   replay: Replay | undefined = step.replay,
+  standalone = false,
 ): Reply {
-  const toolUse = replayToolUse(step, operationIndex, tools, replay);
+  const toolUse = replayToolUse(step, operationIndex, tools, replay, "replay", standalone);
   if (!toolUse) {
     return {
       text: `${replayPrelude(step, content)}\n\nReplay cannot continue because Claude Code did not expose the required native tool.`,
@@ -573,7 +591,16 @@ function planningOutcomeReply(
   outcome: ReturnType<typeof continuePlanning>,
 ): Reply {
   if (outcome.kind === "reply") return outcome.reply;
-  if (outcome.kind === "run") return nativeReplayReply(step, content, tools, 0, outcome.active.replay);
+  if (outcome.kind === "run") {
+    return nativeReplayReply(
+      step,
+      content,
+      tools,
+      0,
+      outcome.active.replay,
+      planning.replayMode === "standalone",
+    );
+  }
   return planningInterludeReply(step, content, tools, planning, outcome.questionId, 0);
 }
 
@@ -602,6 +629,52 @@ function planningInterludeReply(
   return { text: segment.text, toolUse, stopReason: "tool_use", exerciseId: step.id };
 }
 
+type ReplayMode = "captured" | "standalone";
+
+function scaffoldContent(
+  file: NonNullable<ReplayStep["scaffold"]>["files"][number],
+  content: Content,
+): string | undefined {
+  if (file.content !== undefined) return file.content;
+  if (!file.fromExercise) return undefined;
+  return content.steps.find((candidate) => candidate.id === file.fromExercise)?.response;
+}
+
+function workspaceMatchesInitialState(step: ReplayStep, content: Content): boolean {
+  const initialId = step.replay?.initialState?.fromExercise;
+  if (!initialId) return true;
+  const initial = content.steps.find((candidate) => candidate.id === initialId);
+  const files = initial?.scaffold?.files ?? [];
+  if (files.length === 0) return false;
+  return files.every((file) => {
+    const expected = scaffoldContent(file, content);
+    if (expected === undefined) return false;
+    try {
+      const actual = readFileSync(resolve(process.cwd(), file.path), "utf8");
+      return actual === expected || (!expected.endsWith("\n") && actual === `${expected}\n`);
+    } catch {
+      return false;
+    }
+  });
+}
+
+function standaloneReplay(replay: Replay): Replay {
+  const { prePlanEvents: _prePlanEvents, events: _events, workflow, ...fallback } = replay;
+  if (!workflow) return fallback;
+  const { interludes: _interludes, ...standaloneWorkflow } = workflow;
+  return { ...fallback, workflow: standaloneWorkflow };
+}
+
+function replayStepForMode(step: ReplayStep, mode: ReplayMode): ReplayStep {
+  if (mode === "captured" || !step.replay) return step;
+  return { ...step, replay: standaloneReplay(step.replay) };
+}
+
+function planningStep(step: ReplayStep | undefined, planning: PlanningSession | undefined): ReplayStep | undefined {
+  if (!step) return undefined;
+  return replayStepForMode(step, planning?.replayMode ?? "captured");
+}
+
 function selectedReplayReply(
   step: ReplayStep | undefined,
   content: Content,
@@ -611,15 +684,36 @@ function selectedReplayReply(
   if (!step?.replay) {
     return { text: "That replay is no longer available. Please repeat the exercise prompt.", stopReason: "end_turn" };
   }
-  if (step.replay.workflow && planning) {
-    if (prePlanSegments(step.replay).length > 0) return prePlanReply(step, content, tools, planning, 0);
-    const outcome = beginPlanning(step, planning, tools);
+  const replayMode = workspaceMatchesInitialState(step, content) ? "captured" : "standalone";
+  const selectedStep = replayStepForMode(step, replayMode);
+  const notice = replayMode === "standalone" && step.replay.initialState
+    ? `The captured ${step.replay.initialState.fromExercise} project is not present, so this exercise will use its self-contained build path. No files have been changed.`
+    : "";
+  if (selectedStep.replay!.workflow && planning) {
+    planning.replayMode = replayMode;
+    if (prePlanSegments(selectedStep.replay).length > 0) {
+      return withLeadingText(prePlanReply(selectedStep, content, tools, planning, 0), notice);
+    }
+    const outcome = beginPlanning(selectedStep, planning, tools);
     return withLeadingText(
-      planningOutcomeReply(step, content, tools, planning, outcome),
-      prePlanTrailingText(step.replay),
+      withLeadingText(
+        planningOutcomeReply(selectedStep, content, tools, planning, outcome),
+        prePlanTrailingText(selectedStep.replay),
+      ),
+      notice,
     );
   }
-  return nativeReplayReply(step, content, tools, 0);
+  return withLeadingText(
+    nativeReplayReply(
+      selectedStep,
+      content,
+      tools,
+      0,
+      selectedStep.replay,
+      replayMode === "standalone",
+    ),
+    notice,
+  );
 }
 
 function noExerciseReply(): Reply {
@@ -998,7 +1092,10 @@ export function respond(
 
   const interludeResult = interludeToolResult(request.messages);
   if (interludeResult && options.planning) {
-    const step = content.steps.find((candidate) => candidate.id === interludeResult.stepId) as ReplayStep | undefined;
+    const step = planningStep(
+      content.steps.find((candidate) => candidate.id === interludeResult.stepId) as ReplayStep | undefined,
+      options.planning,
+    );
     const segment = eventSegments(step ? workflowInterludeEvents(step, interludeResult.questionId) : [])[interludeResult.operationIndex];
     if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, interludeResult)) {
       return {
@@ -1026,7 +1123,10 @@ export function respond(
 
   const planAnswer = planningToolResult(request.messages);
   if (planAnswer !== undefined && options.planning?.stepId) {
-    const step = content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined;
+    const step = planningStep(
+      content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
+      options.planning,
+    );
     if (step?.replay?.workflow) {
       const outcome = continuePlanning(step, options.planning, request.tools, planAnswer);
       return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
@@ -1062,7 +1162,13 @@ export function respond(
     const planning = options.planning;
     const active = planning?.active;
     const matchingActive = active?.stepId === step?.id ? active : undefined;
-    const replay = matchingActive?.replay ?? step?.replay;
+    const replay = matchingActive?.replay ?? (
+      step?.replay
+        ? replayResult.standalone
+          ? standaloneReplay(step.replay)
+          : step.replay
+        : undefined
+    );
     if (!step?.replay || !replayResultMatches(step, replayResult.operationIndex, replayResult, replay)) {
       if (options.planning) clearActivePlanning(options.planning);
       return {
@@ -1072,7 +1178,9 @@ export function respond(
       };
     }
     const next = replayResult.operationIndex + 1;
-    if (next < replaySegments(replay).length) return nativeReplayReply(step, content, request.tools, next, replay);
+    if (next < replaySegments(replay).length) {
+      return nativeReplayReply(step, content, request.tools, next, replay, replayResult.standalone);
+    }
     const completed = replayCompletion(step, content, replayResult.detail, matchingActive);
     if (options.planning) clearActivePlanning(options.planning);
     return completed;
@@ -1085,7 +1193,10 @@ export function respond(
 
   const typed = readerText(request.messages);
   if (typed && options.planning?.stepId && options.planning.awaiting) {
-    const step = content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined;
+    const step = planningStep(
+      content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
+      options.planning,
+    );
     if (step?.replay?.workflow) {
       const outcome = continuePlanning(step, options.planning, request.tools, typed);
       return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
@@ -1192,15 +1303,14 @@ export function respond(
     return ambiguityReply(content, candidates, request.tools);
   }
   if (replay.kind === "exact" && replay.step.replay?.workflow && options.planning) {
-    return selectedReplayReply(
-      replay.step,
-      content,
-      request.tools,
-      options.planning,
-    );
+    return selectedReplayReply(replay.step, content, request.tools, options.planning);
   }
-  if (replay.kind === "exact" && replay.step.replay && replayToolUse(replay.step, 0, request.tools)) {
-    return nativeReplayReply(replay.step, content, request.tools, 0);
+  if (replay.kind === "exact" && replay.step.replay) {
+    const mode = workspaceMatchesInitialState(replay.step, content) ? "captured" : "standalone";
+    const selected = replayStepForMode(replay.step, mode);
+    if (replayToolUse(selected, 0, request.tools, selected.replay, "replay", mode === "standalone")) {
+      return selectedReplayReply(replay.step, content, request.tools, options.planning);
+    }
   }
 
   const state: SourceState = {};

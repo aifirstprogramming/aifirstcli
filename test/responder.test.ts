@@ -239,8 +239,8 @@ describe("answering a book prompt", () => {
     );
     expect(second.exerciseId).toBe("py-9-03");
     expect(second.stopReason).toBe("tool_use");
-    expect(second.toolUse?.name).toBe("Read");
-    expect(second.toolUse?.id).toBe("aifirst_preplan_py-9-03_0");
+    expect(second.toolUse?.name).toBe("AskUserQuestion");
+    expect(second.text).toContain("self-contained build path");
   });
 
   it("does nothing when the ambiguous-match picker selects no exercise", () => {

@@ -60,6 +60,18 @@ export function startBookServer({ port = 0, quiet = false, replay, textPacing, o
   const replaySource = replay ? new ReplayContentSource(loadReplayPack(replay)) : undefined;
   const confirmation: { stepId?: string; stepIds?: string[] } = {};
   const planning: PlanningSession = { answers: {} };
+  let messagesTail = Promise.resolve();
+  const inMessageOrder = async <T>(operation: () => Promise<T>): Promise<T> => {
+    const previous = messagesTail;
+    let release!: () => void;
+    messagesTail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  };
   const server = Bun.serve({
     // Never 0.0.0.0. See the note at the top of this file.
     hostname: "127.0.0.1",
@@ -85,45 +97,47 @@ export function startBookServer({ port = 0, quiet = false, replay, textPacing, o
         });
       }
 
-      let request: MessagesRequest;
-      try {
-        request = (await req.json()) as MessagesRequest;
-      } catch {
-        return new Response(
-          JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "malformed JSON" } }),
-          { status: 400, headers: { "content-type": "application/json" } },
-        );
-      }
-      onRequest?.(request);
-      // Read fresh each time: the reader may finish exercises while this runs, and
-      // the closing message should tell them the truth about where they are.
-      const { content } = resolveContent();
-      const reply = respond(request, content, readLog(), { language: readerLanguage(), confirmation, planning }, replaySource);
-      onReply?.(reply, confirmation.stepId ?? confirmation.stepIds?.[0]);
+      return inMessageOrder(async () => {
+        let request: MessagesRequest;
+        try {
+          request = (await req.json()) as MessagesRequest;
+        } catch {
+          return new Response(
+            JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "malformed JSON" } }),
+            { status: 400, headers: { "content-type": "application/json" } },
+          );
+        }
+        onRequest?.(request);
+        // Read fresh each time: the reader may finish exercises while this runs, and
+        // the closing message should tell them the truth about where they are.
+        const { content } = resolveContent();
+        const reply = respond(request, content, readLog(), { language: readerLanguage(), confirmation, planning }, replaySource);
+        onReply?.(reply, confirmation.stepId ?? confirmation.stepIds?.[0]);
 
-      const ids = {
-        messageId: id("msg"),
-        toolUseId: id("toolu"),
-        model: request.model ?? "aifirst-book-mode",
-      };
+        const ids = {
+          messageId: id("msg"),
+          toolUseId: id("toolu"),
+          model: request.model ?? "aifirst-book-mode",
+        };
 
-      if (!quiet) {
-        // The exercise id, or that it missed. Never the prompt: a reader's typed
-        // text is not ours to print into a terminal that may be shared or logged.
-        out(dim(`  ${reply.exerciseId ?? (reply.stopReason === "end_turn" ? "—" : "?")}  ${reply.stopReason}`));
-      }
+        if (!quiet) {
+          // The exercise id, or that it missed. Never the prompt: a reader's typed
+          // text is not ours to print into a terminal that may be shared or logged.
+          out(dim(`  ${reply.exerciseId ?? (reply.stopReason === "end_turn" ? "—" : "?")}  ${reply.stopReason}`));
+        }
 
-      if (request.stream) {
-        return new Response(textPacing ? pacedStreamReply(reply, ids, textPacing) : streamReply(reply, ids), {
-          headers: {
-            "content-type": "text/event-stream",
-            "cache-control": "no-cache",
-            connection: "keep-alive",
-          },
-        });
-      }
+        if (request.stream) {
+          return new Response(textPacing ? pacedStreamReply(reply, ids, textPacing) : streamReply(reply, ids), {
+            headers: {
+              "content-type": "text/event-stream",
+              "cache-control": "no-cache",
+              connection: "keep-alive",
+            },
+          });
+        }
 
-      return Response.json(bodyReply(reply, ids));
+        return Response.json(bodyReply(reply, ids));
+      });
     },
   });
 

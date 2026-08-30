@@ -76,6 +76,7 @@ export interface PlanWorkflow {
 
 export interface Replay {
   prompt?: string;
+  initialState?: { fromExercise: string };
   operations: ReplayOperation[];
   commentary?: string[];
   prePlanEvents?: ReplayEvent[];
