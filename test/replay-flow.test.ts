@@ -41,8 +41,11 @@ describe("replay resolution", () => {
     expect(match.kind).toBe("fuzzy");
   });
 
-  it("treats one distinctive word as a confirmable partial match", () => {
-    const match = resolveReplay("duckling", resolveContent().content);
+  it("treats one distinctive phrase as a confirmable partial match", () => {
+    const match = resolveReplay(
+      "baby duckling who is trying to find its mother",
+      resolveContent().content,
+    );
     expect(match.kind).toBe("fuzzy");
     if (match.kind === "fuzzy") expect(match.step.id).toBe("py-9-01");
   });

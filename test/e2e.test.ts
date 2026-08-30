@@ -141,7 +141,7 @@ describe("show", () => {
   });
 
   it("accepts an unambiguous prefix", async () => {
-    const r = await aifirst(["show", "py-1", "--format", "json"]);
+    const r = await aifirst(["show", "py-1-0", "--format", "json"]);
     expect(JSON.parse(r.stdout).id).toBe("py-1-01");
   });
 });
@@ -235,7 +235,7 @@ describe("apply", () => {
 describe("progress", () => {
   it("counts only authored exercises", async () => {
     const r = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(r.stdout).overall.total).toBe(142);
+    expect(JSON.parse(r.stdout).overall.total).toBe(146);
   });
 
   it("does not count empty chapters toward a denominator", async () => {

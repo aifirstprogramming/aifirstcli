@@ -41,18 +41,18 @@ describe("model-free planning workflow", () => {
     expect(first.toolUse?.name).not.toBe("Write");
 
     const assets = reply(continuePlanning(duckling, planning, TOOLS, JSON.stringify({ answers: {
-      gameplay: "Top-down maze/exploration (Book Recommended)",
+      game_style: "Top-down maze/exploration (Book Recommended)",
       challenge: "Collect siblings (Book Recommended)",
-      visual_style: "Simple sprite images (Book Recommended)",
+      art_style: "Simple sprite images (Book Recommended)",
     } })));
     expect(assets.text).toBe("");
     expect(JSON.stringify(assets.toolUse?.input)).toContain("How should the duckling/mother/sibling/background sprites be sourced");
 
-    const interlude = continuePlanning(duckling, planning, TOOLS, "Generate PNG sprites (Book Recommended)");
+    const interlude = continuePlanning(duckling, planning, TOOLS, "Generate simple PNG sprites programmatically (Book Recommended)");
     expect(interlude.kind).toBe("interlude");
     if (interlude.kind !== "interlude") throw new Error("expected planning interlude");
     expect(interlude.events.some((event) => event.type === "operation" && event.operation.type === "command")).toBe(true);
-    const approval = reply(finishPlanningInterlude(duckling, planning, TOOLS, "asset_source"));
+    const approval = reply(finishPlanningInterlude(duckling, planning, TOOLS, "sprite_source"));
     expect(approval.text).toContain("## Proposed plan");
     expect(approval.text).toContain("No files have been changed yet.");
     expect(approval.toolUse?.name).toBe("AskUserQuestion");
@@ -74,7 +74,7 @@ describe("model-free planning workflow", () => {
     expect(JSON.stringify(fallback.toolUse?.input)).toContain("Use book-recommended answer");
 
     const resumed = reply(continuePlanning(duckling, planning, TOOLS, "Use book-recommended answer"));
-    expect(planning.answers.gameplay).toBe("top_down");
+    expect(planning.answers.game_style).toBe("top_down_maze_exploration");
     expect(JSON.stringify(resumed.toolUse?.input)).toContain("What should make the search challenging");
   });
 
@@ -97,10 +97,9 @@ describe("model-free planning workflow", () => {
     candidate.replay!.workflow!.variants = [{
       id: "side_scroller",
       answers: {
-        gameplay: "side_scroller",
+        game_style: "side_scrolling_platformer",
         challenge: "collect_siblings",
-        visual_style: "sprite_images",
-        asset_source: "generate_png",
+        art_style: "simple_sprite_images",
       },
       plan: "Build the authored side-scrolling version.",
       operations: [{ type: "write", path: "variant.txt", content: "side scroller\n" }],
@@ -109,10 +108,7 @@ describe("model-free planning workflow", () => {
     beginPlanning(candidate, planning, TOOLS);
     continuePlanning(candidate, planning, TOOLS, "Side-scrolling platformer");
     continuePlanning(candidate, planning, TOOLS, "Collect siblings (Book Recommended)");
-    continuePlanning(candidate, planning, TOOLS, "Simple sprite images (Book Recommended)");
-    const interlude = continuePlanning(candidate, planning, TOOLS, "Generate PNG sprites (Book Recommended)");
-    expect(interlude.kind).toBe("interlude");
-    const approval = finishPlanningInterlude(candidate, planning, TOOLS, "asset_source");
+    const approval = continuePlanning(candidate, planning, TOOLS, "Simple sprite images (Book Recommended)");
     expect(approval.kind === "reply" ? approval.reply.text : "").toContain("authored side-scrolling version");
     const run = continuePlanning(candidate, planning, TOOLS, "Approve and build");
     expect(run.kind).toBe("run");
@@ -169,14 +165,14 @@ describe("responder planning integration", () => {
       type: "tool_result", tool_use_id: "aifirst_preplan_py-9-01_1", content: "Python 3.11.9", is_error: false,
     }] }], tools: TOOLS }, content, emptyLog(), { planning });
     expect(result.toolUse?.name).toBe("AskUserQuestion");
-    expect(result.toolUse?.id).toContain("question_gameplay+challenge+visual_style");
+    expect(result.toolUse?.id).toContain("question_game_style+challenge+art_style");
     expect(planning.stepId).toBe("py-9-01");
   });
 
   test("a partial duckling prompt confirms before planning", () => {
     const planning = state();
     const confirmation: { stepId?: string } = {};
-    const first = respond({ messages: [{ role: "user", content: "duckling" }], tools: TOOLS }, content, emptyLog(), { planning, confirmation });
+    const first = respond({ messages: [{ role: "user", content: "baby duckling who is trying to find its mother" }], tools: TOOLS }, content, emptyLog(), { planning, confirmation });
     expect(first.toolUse?.name).toBe("AskUserQuestion");
     expect(first.toolUse?.id).toBe("aifirst_confirm_py-9-01");
     expect(planning.stepId).toBeUndefined();

@@ -23,7 +23,7 @@ COMPLETION_MARKERS = (
 def answer_is_requested(answer: str, result: str) -> bool:
     if answer.startswith("{"):
         parsed = json.loads(answer).get("answers", {})
-        if "gameplay" in parsed:
+        if "game_style" in parsed:
             return "What style of gameplay" in result
         if "transition" in parsed:
             return "How should the game transition between levels" in result
@@ -34,10 +34,10 @@ def answer_is_requested(answer: str, result: str) -> bool:
         "Side-scrolling platformer": "What style of gameplay",
         "Collect siblings (Book Recommended)": "What should make the search challenging",
         "Simple sprite images (Book Recommended)": "What visual style",
-        "Generate PNG sprites (Book Recommended)": "How should the duckling/mother/sibling/background sprites be sourced",
-        "Brief Level Complete screen (Book Recommended)": "How should the game transition between levels",
+        "Generate simple PNG sprites programmatically (Book Recommended)": "How should the duckling/mother/sibling/background sprites be sourced",
+        "Brief 'Level Complete' screen, then auto-advance (Book Recommended)": "How should the game transition between levels",
         "Add patrol variety (Book Recommended)": "How should difficulty ramp up",
-        "Increase per level (Book Recommended)": "Should the number of siblings increase",
+        "Increase siblings per level (e.g. 6, 8, 10) (Book Recommended)": "Should the number of siblings to collect also increase",
         "Use book-recommended answer": "This choice needs an LLM",
         "Approve and build": "Proposed plan",
     }
@@ -51,31 +51,31 @@ def user_message(text: str) -> str:
 def main() -> int:
     bun, entry, workspace, mode = sys.argv[1:5]
     game_answers = json.dumps({"answers": {
-        "gameplay": "Top-down maze/exploration (Book Recommended)",
+        "game_style": "Top-down maze/exploration (Book Recommended)",
         "challenge": "Collect siblings (Book Recommended)",
-        "visual_style": "Simple sprite images (Book Recommended)",
+        "art_style": "Simple sprite images (Book Recommended)",
     }})
     level_answers = json.dumps({"answers": {
-        "transition": "Brief Level Complete screen (Book Recommended)",
-        "difficulty": "Add patrol variety (Book Recommended)",
-        "siblings": "Increase per level (Book Recommended)",
+        "transition": "Brief 'Level Complete' screen, then auto-advance (Book Recommended)",
+        "difficulty_style": "Add patrol variety (Book Recommended)",
+        "sibling_count": "Increase siblings per level (e.g. 6, 8, 10) (Book Recommended)",
     }})
     if mode == "fox":
         answers = [FOX_PROMPT]
     elif mode == "levels":
         answers = [LEVELS_PROMPT, level_answers, "Approve and build"]
     elif mode == "fuzzy":
-        answers = ["duckling", "yes", game_answers, "Generate PNG sprites (Book Recommended)", "Approve and build"]
+        answers = ["baby duckling who is trying to find its mother", "yes", game_answers, "Generate simple PNG sprites programmatically (Book Recommended)", "Approve and build"]
     elif mode == "fallback":
         answers = [DUCKLING_PROMPT, "Side-scrolling platformer", "Use book-recommended answer"]
         answers.extend([
             "Collect siblings (Book Recommended)",
             "Simple sprite images (Book Recommended)",
-            "Generate PNG sprites (Book Recommended)",
+            "Generate simple PNG sprites programmatically (Book Recommended)",
             "Approve and build",
         ])
     else:
-        answers = [DUCKLING_PROMPT, game_answers, "Generate PNG sprites (Book Recommended)", "Approve and build"]
+        answers = [DUCKLING_PROMPT, game_answers, "Generate simple PNG sprites programmatically (Book Recommended)", "Approve and build"]
 
     proc = subprocess.Popen(
         [

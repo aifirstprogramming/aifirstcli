@@ -45,17 +45,21 @@ describe("skill-mode planning hook", () => {
     expect(context).toContain("Enter Claude Code native plan mode");
     expect(payload.questionSteps).toHaveLength(2);
     expect(payload.questionSteps[0].kind).toBe("group");
-    expect(payload.questionSteps[0].group).toBe("game_design");
-    expect(payload.questionSteps[0].questions?.map((question) => question.id)).toEqual(["gameplay", "challenge", "visual_style"]);
+    expect(payload.questionSteps[0].group).toBe("group_1");
+    expect(payload.questionSteps[0].questions?.map((question) => question.id)).toEqual(["game_style", "challenge", "art_style"]);
     expect(payload.questionSteps[0].questions?.find((question) => question.id === "challenge")?.options.map((option) => option.id)).toEqual([
-      "predators", "collect_siblings", "timer_energy", "exploration",
+      "avoid_predators", "collect_siblings", "timer_limited_energy", "just_exploration",
     ]);
     expect(payload.questionSteps[0].questions?.find((question) => question.id === "challenge")?.options[1].label).toBe("Collect siblings (Book Recommended)");
     expect(payload.questionSteps[1]).toEqual({
       kind: "question",
       question: expect.objectContaining({
-        id: "asset_source",
-        when: { visual_style: "sprite_images" },
+        id: "sprite_source",
+        when: {
+          game_style: "top_down_maze_exploration",
+          challenge: "collect_siblings",
+          art_style: "simple_sprite_images",
+        },
       }),
     });
     expect(context).toContain('"canonicalPlan"');

@@ -1,9 +1,9 @@
 /**
  * End-to-end regression for the chapter 9 duckling replay through real Claude Code.
  *
- * The reference transcript came from the original authoring session. The local
- * responder may add book envelopes and native-tool formatting, so comparison is
- * semantic rather than byte-for-byte, while the generated source files are exact.
+ * The authoritative v2 reports come from the original authoring session. The
+ * local responder adds book envelopes and native-tool formatting, but every
+ * captured assistant block and operation must survive exactly and in order.
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { resolveContent } from "../src/content";
+import type { ReplayStep } from "../src/content/types";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const claude = Bun.which("claude");
@@ -162,25 +163,66 @@ function expectInOrder(actual: string, anchors: string[]): void {
 }
 
 function seedWorkspace(workspace: string, stepId: string): void {
-  const step = resolveContent().content.steps.find((candidate) => candidate.id === stepId)!;
+  const step = resolveContent().content.steps.find(
+    (candidate) => candidate.id === stepId,
+  )! as ReplayStep;
   for (const file of step.scaffold?.files ?? []) {
     if (file.content === undefined) continue;
     writeFileSync(join(workspace, file.path), file.content);
   }
 }
 
-interface FidelityFixture {
-  turns: Array<{ aiOutputs?: Array<{ text: string }> }>;
-  expectedOperationCounts?: Record<string, number>;
+function showtailReferenceOutputs(stepId: string): string[] {
+  const contentRoot = process.env.AIFIRST_CONTENT_REPO ?? join(import.meta.dir, "..", "..", "aifirstcontent");
+  const report = JSON.parse(readFileSync(join(
+    contentRoot,
+    "replays",
+    "python",
+    "chapter-09",
+    stepId,
+    "bundle",
+    "report.json",
+  ), "utf8")) as { turns: Array<{ aiOutputs?: Array<{ text: string }> }> };
+  return (report.turns[0]?.aiOutputs ?? []).map((output) => output.text);
 }
 
-function fidelityFixture(filename: string): FidelityFixture {
-  return JSON.parse(readFileSync(join(import.meta.dir, "fixtures", filename), "utf8")) as FidelityFixture;
+function showtailReference(stepId: string): string {
+  return showtailReferenceOutputs(stepId).join("\n\n");
 }
 
-function showtailReference(filename: string): string {
-  const report = fidelityFixture(filename);
-  return (report.turns.at(-1)?.aiOutputs ?? []).map((output) => output.text).join("\n\n");
+function expectCapturedAssistantBlocks(stdout: string, stepId: string): void {
+  const actual: string[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    try {
+      const event = JSON.parse(line) as StreamEvent;
+      if (event.type !== "assistant") continue;
+      for (const block of event.message?.content ?? [])
+        if (block.type === "text" && block.text)
+          actual.push(block.text.replace(/\r\n/g, "\n"));
+    } catch {
+      // Ignore non-stream diagnostics.
+    }
+  }
+  let blockIndex = 0;
+  let blockOffset = 0;
+  for (const expected of showtailReferenceOutputs(stepId)) {
+    const normalized = expected.replace(/\r\n/g, "\n");
+    let foundBlock = -1;
+    let foundOffset = -1;
+    for (let index = blockIndex; index < actual.length; index++) {
+      const offset = actual[index].indexOf(
+        normalized,
+        index === blockIndex ? blockOffset : 0,
+      );
+      if (offset < 0) continue;
+      foundBlock = index;
+      foundOffset = offset;
+      break;
+    }
+    expect(foundBlock, `Missing exact ${stepId} assistant text: ${normalized.slice(0, 120)}`).toBeGreaterThanOrEqual(0);
+    blockIndex = foundBlock;
+    blockOffset = foundOffset + normalized.length;
+  }
 }
 
 function nativeOperationCounts(stdout: string): Record<string, number> {
@@ -202,12 +244,28 @@ function nativeOperationCounts(stdout: string): Record<string, number> {
   return counts;
 }
 
-function expectOperationCounts(stdout: string, filename: string): void {
-  const expected = fidelityFixture(filename).expectedOperationCounts;
-  expect(expected, `${filename} has no expectedOperationCounts`).toBeDefined();
+function replayOperationCounts(stepId: string): Record<string, number> {
+  const step = resolveContent().content.steps.find(
+    (candidate) => candidate.id === stepId,
+  )! as ReplayStep;
+  const allEvents = [
+    ...(step.replay?.prePlanEvents ?? []),
+    ...(step.replay?.workflow?.interludes ?? []).flatMap((interlude) => interlude.events),
+    ...(step.replay?.events ?? []),
+  ];
+  const counts: Record<string, number> = {};
+  for (const event of allEvents) {
+    if (event.type !== "operation") continue;
+    counts[event.operation.type] = (counts[event.operation.type] ?? 0) + 1;
+  }
+  return counts;
+}
+
+function expectOperationCounts(stdout: string, stepId: string): void {
+  const expected = replayOperationCounts(stepId);
   const actual = nativeOperationCounts(stdout);
-  for (const key of new Set([...Object.keys(expected ?? {}), ...Object.keys(actual)])) {
-    expect(actual[key] ?? 0, `${filename} ${key} operation count`).toBe(expected?.[key] ?? 0);
+  for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+    expect(actual[key] ?? 0, `${stepId} ${key} operation count`).toBe(expected[key] ?? 0);
   }
 }
 
@@ -221,7 +279,7 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     if (root) rmSync(root, { recursive: true, force: true });
   });
 
-  test("reconstructs the game and closely matches the captured Claude Code transcript", async () => {
+  test("reconstructs the game and exactly preserves the captured Claude text", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-duckling-live-"));
     const state = join(root, "state");
     const workspace = join(root, "workspace");
@@ -244,12 +302,13 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
 
     const transcript = renderedTranscript(stdout);
     const assistant = assistantTranscript(stdout);
-    const reference = showtailReference("showtail-duckling-repaired.json");
+    const reference = showtailReference("py-9-01");
     const coverage = orderedReferenceCoverage(assistant, reference);
     console.warn(`duckling-learn-live: ordered reference coverage ${(coverage * 100).toFixed(1)}%`);
-    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBeGreaterThan(0.995);
+    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBe(1);
+    expectCapturedAssistantBlocks(stdout, "py-9-01");
     expectInOrder(assistant, ["Good — Python 3.11.9", "Pillow is available too", "I've kicked off the design planning agent", "## Proposed plan", "Now I'll implement the plan", "Found a bug", "The core logic", "The game is complete and working"]);
-    expectOperationCounts(stdout, "showtail-duckling-repaired.json");
+    expectOperationCounts(stdout, "py-9-01");
     expect(transcript).toContain("Found a bug");
     expect(transcript).toContain("The core logic (movement, collision, collecting siblings, win condition) checks out.");
     expect(transcript).toContain("The game is complete and working");
@@ -270,7 +329,7 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     expect(existsSync(join(workspace, "screenshot.png"))).toBe(false);
   }, 60_000);
 
-  test("adds fox enemies and closely matches the captured follow-up transcript", async () => {
+  test("adds fox enemies and exactly preserves the captured Claude text", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-duckling-fox-live-"));
     const state = join(root, "state");
     const workspace = join(root, "workspace");
@@ -294,15 +353,16 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
 
     const transcript = renderedTranscript(stdout);
     const assistant = assistantTranscript(stdout);
-    const reference = showtailReference("showtail-duckling-fox.json");
+    const reference = showtailReference("py-9-02");
     const coverage = orderedReferenceCoverage(assistant, reference);
     console.warn(`duckling-fox-live: ordered reference coverage ${(coverage * 100).toFixed(1)}%`);
-    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBeGreaterThan(0.95);
+    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBe(1);
+    expectCapturedAssistantBlocks(stdout, "py-9-02");
     expectInOrder(assistant, ["Now let's regenerate and preview the fox sprite", "That reads clearly as a fox", "Now let's wire foxes", "Fox patrol and catch logic work correctly", "Added two foxes"]);
     expect(transcript).not.toContain("## Planning");
     expect(transcript).toContain("Added two foxes");
     expect(transcript).not.toContain("## Claude Code Replay (continued)");
-    expectOperationCounts(stdout, "showtail-duckling-fox.json");
+    expectOperationCounts(stdout, "py-9-02");
 
     const step = resolveContent().content.steps.find((candidate) => candidate.id === "py-9-02")!;
     for (const file of step.scaffold?.files ?? []) {
@@ -342,12 +402,13 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     ]);
     const transcript = renderedTranscript(stdout);
     const assistant = assistantTranscript(stdout);
-    const reference = showtailReference("showtail-duckling-levels.json");
+    const reference = showtailReference("py-9-03");
     const coverage = orderedReferenceCoverage(assistant, reference);
     console.warn(`duckling-levels-live: ordered reference coverage ${(coverage * 100).toFixed(1)}%`);
-    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBeGreaterThan(0.995);
+    expect(coverage, `Ordered Claude transcript coverage was ${(coverage * 100).toFixed(1)}%\n${assistant.slice(-8000)}`).toBe(1);
+    expectCapturedAssistantBlocks(stdout, "py-9-03");
     expectInOrder(assistant, ["How should the game transition", "The design agent is working", "Let me verify the proposed level 2/3 layouts", "Both maps are fully connected", "## Proposed plan", "Now implementing", "The full progression works exactly as designed", "The game now has three levels"]);
-    expectOperationCounts(stdout, "showtail-duckling-levels.json");
+    expectOperationCounts(stdout, "py-9-03");
     expect(transcript.indexOf("## Proposed plan")).toBeLessThan(transcript.indexOf("Edit(constants.py)"));
     expect(transcript).toContain("## Proposed plan");
     expect(transcript).toContain("The game now has three levels of increasing difficulty");

@@ -211,7 +211,7 @@ describe("book scoping", () => {
     // next auto-runs in bare-mode; use show to read without running
     const s = JSON.parse((await aifirst(["show", "py-1-01", "--format", "json"])).stdout);
     expect(s.language).toBe("python");
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(55);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(59);
   });
 
   it("never hands a Python reader a Java exercise", async () => {
@@ -263,7 +263,7 @@ describe("book scoping", () => {
 
   it("all unscopes", async () => {
     await aifirst(["book", "all"]);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(142);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(146);
   });
 
   it("keeps the book choice when progress is reset", async () => {

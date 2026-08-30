@@ -36,4 +36,5 @@ docker run --rm \
   ./test/learn-session.test.ts \
   ./test/learn-confirmation-live.test.ts \
   ./test/duckling-learn-live.test.ts \
+  ./test/chapter10-learn-live.test.ts \
   ./test/rocket-showtail-e2e.test.ts
