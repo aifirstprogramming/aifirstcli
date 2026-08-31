@@ -82,7 +82,7 @@ jobs:
           python3 -m pip install pygame Pillow
           bun scripts/sync-content.ts --check
           bunx tsc -p tsconfig.json
-          AIFIRST_ASSET_RUNTIME=1 bun test test
+          AIFIRST_ASSET_RUNTIME=1 bun test test/*.test.ts
           AIFIRST_CLAUDE_LIVE=1 AIFIRST_ASSET_RUNTIME=1 bun run explore:learn:full
 
       - name: Upload candidate reports
