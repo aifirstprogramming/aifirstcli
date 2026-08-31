@@ -41,7 +41,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
   }
   if (isWin) {
     const capturePath = capture.replace(/'/g, "''");
-    const powershellScript = join(bin, "claude-capture.ps1");
+    const powershellScript = join(bin, "claude.ps1");
     const scriptPath = powershellScript.replace(/'/g, "''");
     const winScript = `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $environment = [ordered]@{}

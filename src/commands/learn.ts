@@ -18,9 +18,12 @@ export function learnTextRate(): number | undefined {
 }
 
 function executable(name: string): string | undefined {
+  const suffixes = process.platform === "win32" ? [".exe", ".ps1", ".cmd", ".bat", ""] : [""];
   for (const directory of (process.env.PATH ?? "").split(delimiter)) {
-    const path = `${directory}/${name}`;
-    if (existsSync(path)) return path;
+    for (const suffix of suffixes) {
+      const path = `${directory}/${name}${suffix}`;
+      if (existsSync(path)) return path;
+    }
   }
   return undefined;
 }
@@ -41,6 +44,12 @@ function escapeCmdArgument(value: string, doubleEscapeMeta: boolean): string {
 
 function clientCommand(command: string, args: string[]): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
   if (process.platform !== "win32" || /\.(?:com|exe)$/i.test(command)) return { command, args };
+  if (/\.ps1$/i.test(command)) {
+    return {
+      command: "powershell.exe",
+      args: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", command, ...args],
+    };
+  }
   const normalized = normalize(command);
   const doubleEscapeMeta = CMD_SHIM.test(normalized);
   const shellCommand = [
@@ -61,10 +70,9 @@ export async function learn(args: Args): Promise<void> {
     return;
   }
 
-  const isWin = process.platform === "win32";
   const foundClaude = executable("claude");
   if (!foundClaude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
-  const claude = isWin && !foundClaude.endsWith(".cmd") ? `${foundClaude}.cmd` : foundClaude;
+  const claude = foundClaude;
 
   const session = createSession();
   let server: ReturnType<typeof startBookServer> | undefined;
