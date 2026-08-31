@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+bin
+dist
+build
+*.tgz
+.claude
+.codex
+docs/ai
+test

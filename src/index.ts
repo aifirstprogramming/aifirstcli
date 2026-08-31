@@ -9,6 +9,7 @@ import { apply } from "./commands/apply";
 import { at } from "./commands/at";
 import { book } from "./commands/book";
 import { bookMode } from "./commands/bookmode";
+import { claude } from "./commands/claude";
 import { diff } from "./commands/diff";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
@@ -49,6 +50,7 @@ const COMMANDS: Record<string, Handler> = {
   books: book,
   "book-mode": bookMode,
   bookmode: bookMode,
+  claude,
   search,
   find: search,
   serve,

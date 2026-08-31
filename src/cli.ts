@@ -91,6 +91,7 @@ const VALUE_FLAGS = new Set([
   "chapter",
   "via",
   "agent",
+  "variant-json",
   "step",
   "dir",
   // `diff --file <path>` appeared to work without this, but only because diff also
@@ -101,6 +102,7 @@ const VALUE_FLAGS = new Set([
   "replay",
   "name",
   "force",
+  "mode",
 ]);
 
 const SHORT_FLAGS: Record<string, string> = {

@@ -20,12 +20,13 @@ import { startBookServer, type BookServer } from "../src/commands/serve";
 import { mark } from "../src/log/progress";
 
 const claudeBin = Bun.which("claude");
-const describeLive = claudeBin ? describe : describe.skip;
+const liveEnabled = process.env.AIFIRST_CLAUDE_LIVE === "1";
+const describeLive = liveEnabled && claudeBin ? describe : describe.skip;
 
-if (!claudeBin) {
+if (!liveEnabled || !claudeBin) {
   console.warn(
-    "learn-interactive-regression: no `claude` binary on PATH -- skipping the live " +
-      "harness. This environment cannot verify book-mode chat routing against a real client.",
+    "learn-interactive-regression: set AIFIRST_CLAUDE_LIVE=1 with `claude` on PATH " +
+      "to verify book-mode chat routing against a real client.",
   );
 }
 

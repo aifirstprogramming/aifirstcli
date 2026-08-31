@@ -19,10 +19,11 @@ import type { Args } from "../cli";
 import { formatFlag, numberFlag, stringFlag } from "../cli";
 import { claudeEntries } from "../permissions";
 import { CliError, bold, cyan, dim, glyph, green, json, out, red } from "../output";
-import { loadReplayPack } from "./replay";
+import { loadReplayPack } from "../replay/store";
 
 /** The key we set, and the only one we will ever remove. */
 const KEY = "ANTHROPIC_BASE_URL";
+const NATIVE_KEY = "AIFIRST_NATIVE_REPLAY";
 
 function env(data: Record<string, unknown>): Record<string, unknown> {
   const existing = data.env;
@@ -109,6 +110,7 @@ export async function bookMode(args: Args): Promise<void> {
     const ok = updateClaudeSettings((data) => {
       const current = env(data);
       delete current[KEY];
+      delete current[NATIVE_KEY];
       // Leave no empty `env` behind that we invented.
       if (Object.keys(current).length === 0) delete data.env;
       else data.env = current;
@@ -131,7 +133,7 @@ export async function bookMode(args: Args): Promise<void> {
   const approved = preApproved();
 
   const ok = updateClaudeSettings((data) => {
-    data.env = { ...env(data), [KEY]: url };
+    data.env = { ...env(data), [KEY]: url, [NATIVE_KEY]: "1" };
   });
   if (!ok) unparseable();
 

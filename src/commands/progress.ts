@@ -38,6 +38,7 @@ export function progress(args: Args): void {
     out(`# AI First progress`);
     out();
     out(`${r.overall.done} of ${r.overall.total} exercises complete (${pct(r.overall.fraction)}).`);
+    if (r.overall.variants > 0) out(`${r.overall.variants} completed as verified variants.`);
     out();
     for (const book of r.books) {
       out(`## ${book.bookTitle}`);
@@ -64,7 +65,8 @@ export function progress(args: Args): void {
   out(`  ${bold("AI First progress")}   ${dim(`content pack ${version}`)}`);
   out();
   out(`  ${bar(r.overall.fraction)}  ${bold(pct(r.overall.fraction))}   ${dim(
-    `${r.overall.done} done, ${r.overall.skipped} skipped, ${r.overall.remaining} to go`,
+    `${r.overall.done} done${r.overall.variants ? ` (${r.overall.variants} variants)` : ""}, ` +
+      `${r.overall.skipped} skipped, ${r.overall.remaining} to go`,
   )}`);
   out();
 

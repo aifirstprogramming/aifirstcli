@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { BookServer } from "../src/commands/serve";
 import { respond, toolResult } from "../src/bookmode/responder";
-import { bodyReply, streamReply } from "../src/bookmode/sse";
+import { bodyReply, pacedStreamReply, streamReply } from "../src/bookmode/sse";
 import { resolveContent } from "../src/content";
 import { emptyLog } from "../src/log/progress";
 
@@ -48,11 +48,11 @@ describe("the event stream", () => {
     );
   });
 
-  it("carries the tool call as input_json_delta a client can accumulate", () => {
+  it("carries the first native replay operation as a tool call", () => {
     const delta = events.find((e) => (e.data.delta as { type?: string })?.type === "input_json_delta");
     expect(delta).toBeDefined();
     const partial = (delta!.data.delta as { partial_json: string }).partial_json;
-    expect(JSON.parse(partial).command).toBe("aifirst run py-1-01");
+    expect(JSON.parse(partial).command).toContain("hello.py");
   });
 
   it("reports the stop reason the reply asked for", () => {
@@ -67,8 +67,38 @@ describe("the event stream", () => {
   });
 });
 
+describe("paced event stream", () => {
+  it("splits cached prose into delayed deltas before releasing the tool call", async () => {
+    const delays: number[] = [];
+    const reply = {
+      text: "Alpha beta gamma delta epsilon zeta.",
+      toolUse: { name: "Bash", input: { command: "echo done" } },
+      stopReason: "tool_use" as const,
+    };
+    const raw = await new Response(pacedStreamReply(reply, IDS, {
+      charsPerSecond: 200,
+      chunkChars: 8,
+      sleep: async (milliseconds) => { delays.push(milliseconds); },
+    })).text();
+    const events = parseEvents(raw);
+    const textDeltas = events
+      .map((entry) => entry.data.delta as { type?: string; text?: string } | undefined)
+      .filter((delta) => delta?.type === "text_delta");
+    expect(textDeltas.length).toBeGreaterThan(2);
+    expect(textDeltas.map((delta) => delta?.text ?? "").join("")).toBe(reply.text);
+    expect(delays).toHaveLength(textDeltas.length - 1);
+    expect(delays.every((delay) => delay >= 10)).toBe(true);
+    const finalText = events.reduce(
+      (last, entry, index) => (entry.data.delta as { type?: string })?.type === "text_delta" ? index : last,
+      -1,
+    );
+    const toolStart = events.findIndex((entry) => (entry.data.content_block as { type?: string })?.type === "tool_use");
+    expect(toolStart).toBeGreaterThan(finalText);
+  });
+});
+
 describe("the non-streaming body", () => {
-  it("carries the same answer and tool call", () => {
+  it("carries the same native replay operation", () => {
     const reply = respond(
       { messages: [{ role: "user", content: "Write a Hello World app" }], tools: TOOLS },
       content,
@@ -80,7 +110,7 @@ describe("the non-streaming body", () => {
     expect(body.stop_reason).toBe("tool_use");
     expect(blocks[0].type).toBe("text");
     expect(blocks[1].type).toBe("tool_use");
-    expect((blocks[1].input as { command: string }).command).toBe("aifirst run py-1-01");
+    expect((blocks[1].input as { command: string }).command).toContain("hello.py");
   });
 });
 
@@ -168,7 +198,7 @@ describe("the server", () => {
     });
     const text = await r.text();
     expect(r.headers.get("content-type")).toContain("text/event-stream");
-    expect(text).toContain("aifirst run py-1-01");
+    expect(text).toContain("hello.py");
 
     // The test's own requests go through the saved original, so the counter only
     // moves if the *server* reached out. Book mode's claim is that it never does.
@@ -195,5 +225,49 @@ describe("the server", () => {
   it("rejects a malformed body rather than crashing", async () => {
     const r = await realFetch(`${base}/v1/messages`, { method: "POST", body: "not json" });
     expect(r.status).toBe(400);
+  });
+
+  it("processes overlapping picker requests in arrival order", async () => {
+    const encoder = new TextEncoder();
+    let finishBody: ((body: string) => void) | undefined;
+    const slowBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode("{"));
+        finishBody = (body) => {
+          controller.enqueue(encoder.encode(body.slice(1)));
+          controller.close();
+        };
+      },
+    });
+    const ask = JSON.stringify({
+      model: "claude-opus-5",
+      messages: [{ role: "user", content: "duckling" }],
+      tools: [
+        ...TOOLS,
+        { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
+      ],
+    });
+    const first = realFetch(`${base}/v1/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: slowBody,
+      duplex: "half",
+    } as RequestInit);
+    await Bun.sleep(20);
+    const second = post({
+      model: "claude-opus-5",
+      messages: [{ role: "user", content: "2" }],
+      tools: [
+        ...TOOLS,
+        { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
+      ],
+    });
+    finishBody?.(ask);
+
+    const [pickerResponse, selectedResponse] = await Promise.all([first, second]);
+    const picker = await pickerResponse.json() as { content: Array<{ id?: string }> };
+    const selected = await selectedResponse.json() as { content: Array<{ id?: string }> };
+    expect(picker.content.some((block) => block.id?.startsWith("aifirst_choose_replay_"))).toBe(true);
+    expect(selected.content.some((block) => block.id === "aifirst_preplan_py-9-01_0")).toBe(true);
   });
 });

@@ -5,6 +5,28 @@ function fence(language: string): string {
   return language === "java" ? "java" : "python";
 }
 
+/** Render the book metadata separately from the captured Claude transcript. */
+export function renderBookEnvelope(example: Example, step: Step, phase: "start" | "complete"): string {
+  if (phase === "complete") {
+    const parts = ["## Replay completed", "", "### Explanation", ""];
+    if (step.explanation) {
+      parts.push(step.explanation.summary);
+      for (const line of step.explanation.lines) parts.push("", `- \`${line.code.trim()}\`: ${line.text}`);
+    }
+    return parts.join("\n");
+  }
+
+  const parts = [
+    "## AI First",
+    `**Book:** ${example.bookTitle}`,
+    `**Chapter:** ${example.chapterTitle}`,
+    `**Exercise:** ${example.title} (${step.id})`,
+  ];
+  if (example.description) parts.push(`**Description:** ${example.description}`);
+  parts.push(`**Prompt:** ${step.prompt}`);
+  return parts.join("\n");
+}
+
 /** Render stored learning material in the order a reader uses it. */
 export function renderStep(example: Example, step: Step): string {
   const parts = [

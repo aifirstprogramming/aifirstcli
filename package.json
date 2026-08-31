@@ -17,15 +17,20 @@
     "sync-content": "bun scripts/sync-content.ts",
     "build": "bun scripts/build.ts",
     "build:local": "bun scripts/build.ts --local",
+    "capture:claude-e2e": "bun scripts/capture-claude-showtail-e2e.ts",
+    "explore:learn": "bun scripts/explore-learn.ts",
+    "explore:learn:pr": "bun scripts/explore-learn.ts --profile pr",
+    "explore:learn:full": "bun scripts/explore-learn.ts --profile full",
+    "test:learn:live": "bun test test/duckling-learn-live.test.ts test/chapter10-learn-live.test.ts test/learn-confirmation-live.test.ts test/learn-interactive-regression.test.ts test/replay-learn-regression.test.ts",
     "check": "bun scripts/sync-content.ts --check && tsc -p tsconfig.json && bun test"
   },
   "//dependencies": [
-    "Pinned to a tag rather than a sibling path so `bun install` works in CI and",
+    "Pinned to an exact content commit rather than a sibling path so `bun install` works in CI and",
     "on a fresh clone. For local content work, run `bun link` in an aifirstcontent",
     "checkout and `bun link @aifirst/content` here."
   ],
   "dependencies": {
-    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.4.0"
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#84bd38488f52f71a227988f32953e0d620924176"
   },
   "devDependencies": {
     "@types/bun": "latest",

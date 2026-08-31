@@ -10,7 +10,7 @@ export interface SourceState {
 export interface SourceReply {
   text: string;
   exerciseId?: string;
-  toolUse?: { name: string; input: Record<string, unknown> };
+  toolUse?: { id?: string; name: string; input: Record<string, unknown> };
   stopReason: "end_turn" | "tool_use";
 }
 export interface ContentSource {

@@ -43,6 +43,25 @@
                   }
                 ],
                 "run": "java HelloWorld.java"
+              },
+              "replay": {
+                "prompt": "Write a Hello World program in Java.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-1-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the traditional first Java program: it prints the single line \"Hello, World!\" to the screen and then ends. Everything else in the file is the minimum structure Java requires before you are allowed to run one statement."
+                ]
               }
             }
           ]
@@ -81,6 +100,25 @@
                   }
                 ],
                 "run": "java DisplayReminder.java"
+              },
+              "replay": {
+                "prompt": "Create a reminder by declaring a String variable and print the reminder.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program stores a reminder message in a variable and then prints that variable to the console. It is the first step beyond printing text directly: the text now lives in a named container that can be reused and changed in one place."
+                ]
               }
             },
             {
@@ -112,6 +150,25 @@
                       }
                     ],
                     "run": "java PrintNumber.java"
+                  },
+                  "replay": {
+                    "prompt": "Write code that prints a number variable.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-2-02.1",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores the number 42 in a variable and prints it to the console. It is the same shape as the reminder example, but the variable holds a number instead of text."
+                    ]
                   }
                 },
                 {
@@ -148,6 +205,25 @@
                       }
                     ],
                     "run": "java PrintNumber.java"
+                  },
+                  "replay": {
+                    "prompt": "Update the code to add two numbers and display their sum.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-2-02.2",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores two whole numbers in variables, adds them together into a third variable, and prints the result. It is the previous PrintNumber example extended to perform a mathematical operation."
+                    ]
                   }
                 }
               ]
@@ -198,6 +274,25 @@
                   }
                 ],
                 "run": "java ShortIntTypes.java"
+              },
+              "replay": {
+                "prompt": "Write intro code using both a short data type and an int data type.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program stores one whole number in a short variable and a larger one in an int, then shows what happens when the two are used together in arithmetic. It prints both values along with their sum and the doubled short."
+                ]
               }
             },
             {
@@ -233,6 +328,25 @@
                   }
                 ],
                 "run": "java WidenTypeCasting.java"
+              },
+              "replay": {
+                "prompt": "Write code to calculate splitting the length of a piece of printer paper into 2 pieces, converting two integer variables to a double in the calculation.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program divides an 11-inch sheet of printer paper into 2 equal pieces and prints the length of each piece. Because the two measurements are stored as whole numbers, they are widened to double so the division keeps its fractional part."
+                ]
               }
             },
             {
@@ -270,6 +384,25 @@
                   }
                 ],
                 "run": "java NarrowTypeCasting.java"
+              },
+              "replay": {
+                "prompt": "Write code to narrow casting by displaying an integer value of a price of $100.30 for an advertisement.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program stores a price with cents in a double and then converts it to an int, dropping the decimal part so an advertisement can show a round dollar amount. It prints $100 instead of $100.30."
+                ]
               }
             },
             {
@@ -319,6 +452,25 @@
                   }
                 ],
                 "run": "java FloatDoubleTypes.java"
+              },
+              "replay": {
+                "prompt": "Write intro code using both a float data type and a double data type.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program stores the value of pi in two decimal types \\  64-bit double, prints both, then adds them and converts the double back down to a float. It shows how Java handles decimal numbers of different sizes and what happens when you squeeze the larger one into the smaller one."
+                ]
               }
             },
             {
@@ -425,6 +577,25 @@
                   }
                 ],
                 "run": "java PizzaPartyCalculator.java"
+              },
+              "replay": {
+                "prompt": "Write a simple pizza calculator with variables for people in party and slices per pizza.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program figures out how many pizzas to order for a party by storing the party size, the slices in each pizza, and how many slices each person will eat, then doing the arithmetic and printing all the values back out."
+                ]
               }
             },
             {
@@ -457,6 +628,25 @@
                   }
                 ],
                 "run": "java WelcomeName.java"
+              },
+              "replay": {
+                "prompt": "Write a Welcome {Name} application without taking input.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This short program stores a person's name in a variable and joins it onto a greeting so the message prints as one line of text. It is the starting point for a welcome application, before any user input is involved."
+                ]
               }
             },
             {
@@ -501,6 +691,25 @@
                   }
                 ],
                 "run": "java WelcomeNameInput.java"
+              },
+              "replay": {
+                "prompt": "Write a simple Welcome {Name} program in Java that accepts the user's name as input.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program asks the user to type their name, reads what they type from the console, and prints a personalized welcome message."
+                ]
               }
             },
             {
@@ -545,6 +754,25 @@
                   }
                 ],
                 "run": "java DessertServingsCalculation.java"
+              },
+              "replay": {
+                "prompt": "Create an intro Java example for serving 2 cake slices per person using mathematical operators for division and modulus.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program works out how many people a cake will serve when each guest gets two slices, and how many slices are left over. It uses the division operator to get the number of guests and the modulus operator to get the remainder."
+                ]
               }
             },
             {
@@ -591,6 +819,25 @@
                   }
                 ],
                 "run": "java WelcomeNameInput.java"
+              },
+              "replay": {
+                "prompt": "Rewrite this code to use an import statement for Scanner rather than the full package within the code.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-12",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program asks the user to type their name at the console and then greets them by name. It is the same program as before, except the Scanner class is brought in with an import statement at the top instead of being spelled out with its full package name inside the code."
+                ]
               }
             },
             {
@@ -633,6 +880,25 @@
                   }
                 ],
                 "run": "java BooleanType.java"
+              },
+              "replay": {
+                "prompt": "Write intro code using a boolean data type without conditional logic.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-2-13",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program declares two boolean variables, prints their values, and then combines them with logical operators to work out a third value. It shows that a boolean can only ever hold true or false, and that Java can calculate one boolean from others."
+                ]
               }
             }
           ]
@@ -676,6 +942,25 @@
                       }
                     ],
                     "run": "java IfPrintGameLevel.java"
+                  },
+                  "replay": {
+                    "prompt": "Write a Java program without input that prints 'Novice Level' if the number variable is less than 10.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-01.1",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores a player's game level in a variable and prints \"Novice Level\" only when that level is below 10. It is the simplest form of a decision in Java: one condition, one outcome."
+                    ]
                   }
                 },
                 {
@@ -714,6 +999,25 @@
                       }
                     ],
                     "run": "java ElsePrintGameLevel.java"
+                  },
+                  "replay": {
+                    "prompt": "Update the code to add an else to print 'Expert Level' and update the variable to fit that criterion.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-01.2",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores a player's level in a variable and prints one of two messages depending on whether that level is below 10. The `else` block guarantees the player always sees a status, even when the `if` condition is not met."
+                    ]
                   }
                 },
                 {
@@ -754,6 +1058,25 @@
                       }
                     ],
                     "run": "java ElseIfPrintGameLevel.java"
+                  },
+                  "replay": {
+                    "prompt": "Add an else if for an 'Intermediate Level'.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-01.3",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program checks a player's level number against a cascade of conditions and prints the matching skill tier. With the number set to 12, it prints \"Intermediate Level\"."
+                    ]
                   }
                 }
               ]
@@ -848,6 +1171,25 @@
                   }
                 ],
                 "run": "java SwitchOrderStatus.java"
+              },
+              "replay": {
+                "prompt": "Use a switch statement to evaluate a status number variable and print 'Starting' for 1, 'Processing' for 2, 'Ready' for 3, and 'Unknown' as default.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-3-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program tracks a coffee shop order by checking a status number and printing the matching message. A switch statement compares the value of status against each case and runs the block that matches, or the default block when nothing matches."
+                ]
               }
             },
             {
@@ -891,6 +1233,25 @@
                       }
                     ],
                     "run": "java WhileOrderStatus.java"
+                  },
+                  "replay": {
+                    "prompt": "Write a coffee order program using a while loop to print the status and increment until it reaches 100.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-04.1",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program tracks a coffee order's progress with a while loop, printing the status in ten percent steps until it passes one hundred, then announcing that the coffee is ready."
+                    ]
                   }
                 },
                 {
@@ -929,6 +1290,25 @@
                       }
                     ],
                     "run": "java DoWhileOrderStatus.java"
+                  },
+                  "replay": {
+                    "prompt": "Change the code to use a do-while loop instead of a while loop.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-04.2",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program counts a coffee order's progress from 0% to 100% in steps of ten, printing each status update, then announces that the coffee is ready. It uses a do-while loop, so the status message is guaranteed to appear at least once."
+                    ]
                   }
                 }
               ]
@@ -972,6 +1352,25 @@
                       }
                     ],
                     "run": "java LapsForLoop.java"
+                  },
+                  "replay": {
+                    "prompt": "Use a for loop to increment a lap number variable and print each lap.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-05.1",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program uses a for loop to run three laps around a track, printing each lap number, then prints a message once the loop finishes."
+                    ]
                   }
                 },
                 {
@@ -1003,6 +1402,25 @@
                       }
                     ],
                     "run": "java LapsForLoop.java"
+                  },
+                  "replay": {
+                    "prompt": "Update the for loop to decrement the lap instead.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-05.2",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program counts laps backward, printing \"Lap 3\", \"Lap 2\", and \"Lap 1\" before announcing that all laps are complete. It is the countdown version of the same for loop, changed only in the three control pieces inside the parentheses."
+                    ]
                   }
                 },
                 {
@@ -1039,6 +1457,25 @@
                       }
                     ],
                     "run": "java StatusForLoop.java"
+                  },
+                  "replay": {
+                    "prompt": "Write an intro for loop to print a status list of 'Starting', 'Processing', 'Finished'.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-05.3",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores three status messages in an array and uses a traditional for loop with a counter variable to print each one in order."
+                    ]
                   }
                 },
                 {
@@ -1071,6 +1508,25 @@
                       }
                     ],
                     "run": "java ForEachStatus.java"
+                  },
+                  "replay": {
+                    "prompt": "Update to a for-each loop.",
+                    "operations": [
+                      {
+                        "type": "command",
+                        "command": [
+                          "aifirst",
+                          "run",
+                          "java-3-05.4",
+                          "--force",
+                          "--format",
+                          "json"
+                        ]
+                      }
+                    ],
+                    "commentary": [
+                      "This program stores three order statuses in an array and prints each one using a for-each loop, which walks through every item without any counter or index."
+                    ]
                   }
                 }
               ]
@@ -1135,6 +1591,25 @@
                   }
                 ],
                 "run": "java PizzaOrder.java"
+              },
+              "replay": {
+                "prompt": "Write an intro Java pizza order program that offers 3 kinds of pizza, a user chooses which pizza, and the order is displayed back.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-3-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program prints a numbered pizza menu, reads the customer's choice from the keyboard, and either confirms the order or reports an invalid selection. It brings together an array, a for loop, a ternary operator, and an if/else statement."
+                ]
               }
             }
           ]
@@ -1181,6 +1656,25 @@
                   }
                 ],
                 "run": "java IntroFunction.java"
+              },
+              "replay": {
+                "prompt": "Could you write an intro function example?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program defines a function named showWelcomeMessage() that prints a greeting, and the main method calls that function twice so the message appears two times."
+                ]
               }
             },
             {
@@ -1248,6 +1742,25 @@
                   }
                 ],
                 "run": "java ShareMessageModifiers.java"
+              },
+              "replay": {
+                "prompt": "Could you create a relatable intro Java example that shows how the four function modifiers work? Please start from widest access to narrowest access in your examples.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program demonstrates Java's four function access modifiers \finby decl\fusing."
+                ]
               }
             },
             {
@@ -1310,6 +1823,25 @@
                   }
                 ],
                 "run": "java GrowPlant.java"
+              },
+              "replay": {
+                "prompt": "Write an intro Java program for basic houseplant care with functions using different return types and avoiding parameters.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program models basic houseplant care with four functions, each showing a different return type: one that returns nothing, one that returns a boolean, one an int, and one a String. The main method calls each in turn and prints the values that come back."
+                ]
               }
             },
             {
@@ -1353,6 +1885,25 @@
                   }
                 ],
                 "run": "java GrowPlantParameters.java"
+              },
+              "replay": {
+                "prompt": "Please update the code to one grow plant function that passes sunlight and water in as parameters.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program defines a single growPlant function that takes sunlight and water as parameters, then calls it with specific values from main. The function prints the conditions it was given and uses a ternary operator to decide whether the plant is growing or needs care."
+                ]
               }
             },
             {
@@ -1398,6 +1949,25 @@
                   }
                 ],
                 "run": "java TemperatureConverter.java"
+              },
+              "replay": {
+                "prompt": "Write an intro Java program that uses a function to convert Celsius to Fahrenheit for a travel agency application.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program converts a Celsius temperature to Fahrenheit by handing the value off to a function that does the math and returns the result. The main method then prints both temperatures in one message."
+                ]
               }
             },
             {
@@ -1449,6 +2019,25 @@
                   }
                 ],
                 "run": "java TemperatureConverterErrors.java"
+              },
+              "replay": {
+                "prompt": "Please update this example to accept user input and do intro error handling with one try catch block.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program asks you to type a Celsius temperature, converts it to Fahrenheit with a helper function, and wraps the risky part in a try-catch block so that mistyped input produces a friendly message instead of a crash."
+                ]
               }
             },
             {
@@ -1502,6 +2091,25 @@
                   }
                 ],
                 "run": "java TemperatureConverterNumberFormat.java"
+              },
+              "replay": {
+                "prompt": "Please update this example to also catch a NumberFormatException.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program asks for a temperature in Celsius, converts it to Fahrenheit with a helper function, and prints the result. It now handles bad input with a specific catch block for NumberFormatException before falling back to the general one."
+                ]
               }
             },
             {
@@ -1571,6 +2179,25 @@
                   }
                 ],
                 "run": "java TemperatureConverterInputValidation.java"
+              },
+              "replay": {
+                "prompt": "Please update this example to intro input validation that accepts a value between -273.15 and 100.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the temperature converter keeps asking until the user types a number that is both numeric and inside the valid Celsius range of -273.15 to 100, then converts it to Fahrenheit. It combines a while loop with try-catch so a bad entry no longer ends the program."
+                ]
               }
             },
             {
@@ -1642,6 +2269,25 @@
                   }
                 ],
                 "run": "java TemperatureConverterFinally.java"
+              },
+              "replay": {
+                "prompt": "Please update this code to include a finally block.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the temperature converter adds a finally block, so a farewell message always prints when the program finishes — whether the conversion succeeded or an exception was caught. The rest of the program still loops until the user types a numeric Celsius value inside the allowed range."
+                ]
               }
             },
             {
@@ -1701,6 +2347,25 @@
                   }
                 ],
                 "run": "java MakeCoffeeWithArgs.java"
+              },
+              "replay": {
+                "prompt": "Write an intro Java program that uses a function with arguments to make coffee. Add some magic as extra business logic in the function.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program defines a makeCoffee() method that takes two arguments — the type of coffee and the number of shots — and calls it twice with different values. Inside the method, a bit of extra business logic decides whether the order earns a magical flavor boost."
+                ]
               }
             },
             {
@@ -1764,6 +2429,25 @@
                   }
                 ],
                 "run": "java MakeCoffeeArgsErrorHandling.java"
+              },
+              "replay": {
+                "prompt": "Please update this code to throw a particular error.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the coffee program checks its arguments before doing any work: if the coffee type is missing or the shot count is less than one, it throws an IllegalArgumentException and stops. The first call brews normally, and the second call deliberately passes 0 shots so you can see the error halt the program."
+                ]
               }
             },
             {
@@ -1833,6 +2517,25 @@
                   }
                 ],
                 "run": "java MakeCoffeeCustomException.java"
+              },
+              "replay": {
+                "prompt": "Could we update this to use a fun custom exception?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-4-12",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the coffee maker defines its own exception type, CoffeeConjuringException, and throws it whenever the requested coffee type or shot count doesn't make sense. The first call brews an espresso successfully; the second asks for zero shots, so the custom exception is thrown and the program stops with that message."
+                ]
               }
             }
           ]
@@ -1913,6 +2616,25 @@
                   }
                 ],
                 "run": "javac -d out House.java"
+              },
+              "replay": {
+                "prompt": "Please create a House class with the following properties: address, bedrooms, and bathrooms (double).",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This defines a House class: a blueprint describing what the program should remember about a house, namely its address and its number of bedrooms and bathrooms. It has no main method, so it is meant to be compiled and then used by other classes rather than run on its own."
+                ]
               }
             },
             {
@@ -1965,6 +2687,25 @@
                     "path": "House.java",
                     "fromExercise": "java-5-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please create a few sample house objects from the House.java class for Harry Potter's Privet Drive, Sherlock Holmes' Baker Street, and Friends' Bedford Street.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This short program creates three House objects — one for each famous fictional address — and tries to print each one with System.out.println. The output is not what you would hope for, which is exactly the lesson."
                 ]
               }
             },
@@ -2053,6 +2794,25 @@
                   }
                 ],
                 "entrypoint": "HouseBuilder.java"
+              },
+              "replay": {
+                "prompt": "Please update the House class to include a toString method that returns a string representation of the house object.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the finished House domain class: it stores an address, bedroom count, and bathroom count privately, exposes them through getters and setters, and now overrides toString() so printing a House shows its actual values instead of a cryptic memory reference."
+                ]
               }
             },
             {
@@ -2138,6 +2898,25 @@
                   }
                 ],
                 "run": "javac -d out Room.java"
+              },
+              "replay": {
+                "prompt": "Could you create a domain class for house rooms with name, length, and width fields?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is a domain class that models a single room in a house, storing its name, length, and width. It packages that data together with the methods needed to read and change each field, plus a method that describes the room as text."
+                ]
               }
             },
             {
@@ -2187,6 +2966,25 @@
                     "path": "Room.java",
                     "fromExercise": "java-5-04"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please write an intro example to create a few objects using the no-argument constructor of the Room.java domain class.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This short program creates three Room objects using Room's no-argument constructor and prints each one. It shows how you can bring objects into existence first and supply their details later."
                 ]
               }
             },
@@ -2333,6 +3131,25 @@
                     "content": "import java.util.ArrayList;\nimport java.util.List;\n\npublic class House {\n    private String address;\n    private int bedrooms;\n    private double bathrooms;\n    private List<Room> rooms = new ArrayList<>();\n\n    public House() {\n    }\n\n    public House(String address, int bedrooms, double bathrooms) {\n        this.address = address;\n        this.bedrooms = bedrooms;\n        this.bathrooms = bathrooms;\n    }\n\n    public String getAddress() {\n        return address;\n    }\n\n    public void setAddress(String address) {\n        this.address = address;\n    }\n\n    public int getBedrooms() {\n        return bedrooms;\n    }\n\n    public void setBedrooms(int bedrooms) {\n        this.bedrooms = bedrooms;\n    }\n\n    public double getBathrooms() {\n        return bathrooms;\n    }\n\n    public void setBathrooms(double bathrooms) {\n        this.bathrooms = bathrooms;\n    }\n\n    public List<Room> getRooms() {\n        return rooms;\n    }\n\n    public void setRooms(List<Room> rooms) {\n        this.rooms = rooms;\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you update the HouseBuilder class to let builders input house layouts with how many rooms, use, and size? And then print the house info?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program asks the builder for a house's address, bedroom and bathroom counts, and then for a list of rooms with their use and dimensions. It stores each room as a Room object inside a House object and prints the finished layout back out."
+                ]
               }
             },
             {
@@ -2383,6 +3200,25 @@
                   }
                 ],
                 "entrypoint": "CookieDemo.java"
+              },
+              "replay": {
+                "prompt": "Please create an intro example with Java class for a cookie with a flavor field and a describe method.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the bakery's cookie template: a domain class that stores one cookie's flavor and can hand back a sentence describing it for the menu. It has no main method, so it is meant to be compiled and used by other classes rather than run on its own."
+                ]
               }
             },
             {
@@ -2431,6 +3267,25 @@
                     "path": "Cookie.java",
                     "content": "public class Cookie {\n\n    private String flavor;\n\n    public Cookie(String flavor) {\n        this.flavor = flavor;\n    }\n\n    public String getFlavor() {\n        return flavor;\n    }\n\n    public String describe() {\n        return \"This is a \" + flavor + \" cookie.\";\n    }\n}\n"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Make a class for a decorated cookie that extends Cookie.java. Add a contructor and a override the describe method.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This class defines a decorated cookie that builds on the general Cookie class: it inherits the flavor field and adds its own description mentioning sprinkles and icing."
                 ]
               }
             },
@@ -2486,6 +3341,25 @@
                     "path": "DecoratedCookie.java",
                     "fromExercise": "java-5-08"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please create a few sample cookie objects from the Cookie and DecoratedCookie classes and call their describe methods.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This small application is the \"customer\" of the two domain classes: it creates one plain Cookie and one DecoratedCookie, then asks each object to describe itself and prints the answer. It shows that a subclass object is used exactly like its parent, but supplies its own version of the shared behavior."
                 ]
               }
             },
@@ -2579,6 +3453,25 @@
                   }
                 ],
                 "entrypoint": "Main.java"
+              },
+              "replay": {
+                "prompt": "Please create example GiftCookie code that extends Cookie and has simple methods for packaging cookies.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "GiftCookie is a subclass of Cookie that adds gift-wrapping behaviour: one public method walks through the whole packaging routine by calling three small private helper methods, each responsible for a single step."
+                ]
               }
             },
             {
@@ -2651,6 +3544,25 @@
                     "content": "public class GiftCookie extends Cookie {\n\n    public GiftCookie(String flavor) {\n        super(flavor);\n    }\n\n    @Override\n    public String describe() {\n        return \"A \" + getFlavor() + \" cookie, ready to be wrapped as a gift.\";\n    }\n\n    public String packageCookie() {\n        return \"Packaged \" + getFlavor() + \" cookie in a gift box.\";\n    }\n\n    public String packageCookie(String giftNote) {\n        return packageCookie() + \" Gift note: \" + giftNote;\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Let's update the CookieBakery application for an intro business app, including use of Cookie, DecoratedCookie, and GiftCookie.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-5-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the finished bakery application: it creates one plain cookie, one decorated cookie, and one gift cookie, prints them as the day's menu, and then processes a gift order with a personal note attached."
+                ]
               }
             }
           ]
@@ -2704,6 +3616,25 @@
                   }
                 ],
                 "run": "javac -d out Thermostat.java"
+              },
+              "replay": {
+                "prompt": "Create a Java class with a currentTemp variable and a method that returns \"Heating\", \"Cooling\", or \"Idle\" at certain temperatures.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This class models a smart thermostat that stores the current temperature and reports whether the system should be heating, cooling, or sitting idle. It has no main method, so it is compiled and then used by other classes rather than run on its own."
+                ]
               }
             },
             {
@@ -2747,6 +3678,25 @@
                     "path": "Thermostat.java",
                     "fromExercise": "java-6-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please write an intro app that uses the Thermostat class to create an object and print the status.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This small app creates a Thermostat object set to 72 degrees and prints the status it reports, so you can check the class's behavior with your own eyes."
                 ]
               }
             },
@@ -2800,6 +3750,25 @@
                     "fromExercise": "java-6-01"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Would you create an intro JUnit test for Thermostat.java that checks that status is heating when the temperature is low?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is a JUnit test class that checks one rule of the Thermostat: when the current temperature is 60 degrees, which is below the 68-degree threshold, the status should be \"Heating\". Instead of you reading the output and judging it, JUnit runs the check and reports pass or fail."
+                ]
               }
             },
             {
@@ -2851,6 +3820,25 @@
                   }
                 ],
                 "entrypoint": "RestaurantDemo.java"
+              },
+              "replay": {
+                "prompt": "Please create a Restaurant class with a method to get the spice level for a food that accepts an int for the level. Levels can be 1-5 with 1 mild and 5 spicy. Add unit tests, as well.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This Restaurant class holds a single method, getSpiceLevel, that turns a number from 1 to 5 into a readable spice description like \"Mild\" or \"Spicy\". It is a small, testable unit: give it a number, get a string back."
+                ]
               }
             },
             {
@@ -2918,6 +3906,25 @@
                   }
                 ],
                 "entrypoint": "ThermostatDemo.java"
+              },
+              "replay": {
+                "prompt": "Could you add intro code for a new feature of eco mode to reduce the energy consumption by widening temperature thresholds?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the Thermostat class updated with an eco mode setting. When eco mode is on, the thermostat waits longer before heating and longer before cooling, so it runs less often and uses less energy."
+                ]
               }
             },
             {
@@ -2975,6 +3982,25 @@
                     "path": "Thermostat.java",
                     "fromExercise": "java-6-05"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please update with an intro JUnit test to check that eco mode allows cooler temperatures before heating.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the thermostat's JUnit test class with a second test added for the new eco mode feature. One test checks that a cold room reports \"Heating\", and the new one checks that with eco mode on, a cooler room is still considered comfortable."
                 ]
               }
             },
@@ -3034,6 +4060,25 @@
                   }
                 ],
                 "run": "javac -d out Thermostat.java"
+              },
+              "replay": {
+                "prompt": "Could you please add a void printStatusToDisplay method that prints the thermostat status?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the smart thermostat class, now with a method that writes its current mode to the device display. The status logic itself is unchanged: the thermostat reports Heating, Cooling, or Idle based on the current temperature and whether eco mode is on."
+                ]
               }
             },
             {
@@ -3104,6 +4149,25 @@
                     "fromExercise": "java-6-07"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you add a test for the new printStatusToDisplay() method?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This JUnit test checks that a thermostat's printStatusToDisplay() method writes the right text to the console. Because the method prints instead of returning a value, the test has to temporarily capture System.out into a buffer and compare that buffer's contents to the expected line."
+                ]
               }
             },
             {
@@ -3146,6 +4210,25 @@
                   }
                 ],
                 "entrypoint": "ThermostatDemo.java"
+              },
+              "replay": {
+                "prompt": "Please modify the printStatusToDisplay method to return a String instead.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the improved version of the thermostat's display method: instead of printing the status to the console, it returns the status message as a String so the caller can decide what to do with it."
+                ]
               }
             },
             {
@@ -3234,6 +4317,25 @@
                     "content": "public class Thermostat {\n    private int temperature;\n    private boolean ecoMode;\n\n    public Thermostat(int temperature, boolean ecoMode) {\n        this.temperature = temperature;\n        this.ecoMode = ecoMode;\n    }\n\n    public String getStatus() {\n        int heatBelow = ecoMode ? 65 : 68;\n        int coolAbove = ecoMode ? 78 : 75;\n\n        if (temperature < heatBelow) {\n            return \"Heating\";\n        } else if (temperature > coolAbove) {\n            return \"Cooling\";\n        } else {\n            return \"Idle\";\n        }\n    }\n\n    public String printStatusToDisplay() {\n        return \"Thermostat status: \" + getStatus();\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Please write a intro tests for each thermostat status (regular and eco mode).",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is a JUnit test class for the smart thermostat, with one small test per behavior: each of the three statuses in regular mode, each of them again in eco mode, and the display string. Each test builds its own Thermostat and makes a single assertion."
+                ]
               }
             },
             {
@@ -3289,6 +4391,25 @@
                   }
                 ],
                 "run": "javac -d out TrafficLight.java"
+              },
+              "replay": {
+                "prompt": "Would you please create a few bad unit tests for a traffic light example?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This class models a traffic light that starts on red and cycles red \\u2192 green \\u2192 yellow \\u2192 red each time advance() is called, plus a method that reports whether traffic must stop. It is the subject under test for the badly written traffic light tests that follow."
+                ]
               }
             },
             {
@@ -3398,6 +4519,25 @@
                     "fromExercise": "java-6-11"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you update the tests and fix them?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-12",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the cleaned-up JUnit test class for the TrafficLight from earlier in the chapter. Each test method now checks a single fact about the light \"Red\" \"Green\" \"Yellow\" \"Red\" \"Green\" \"Yellow\" — its starting color, one step of advancement, or whether a stop is required at a particular color."
+                ]
               }
             },
             {
@@ -3440,6 +4580,25 @@
                   }
                 ],
                 "entrypoint": "TemperatureSensorDemo.java"
+              },
+              "replay": {
+                "prompt": "Could we modify this with intro code to read temperature from a sensor?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-13",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This declares a Java interface named TemperatureSensor, which lists one behavior any temperature sensor must provide: returning the current temperature as a whole number. It is a contract, not a working sensor."
+                ]
               }
             },
             {
@@ -3569,6 +4728,25 @@
                   }
                 ],
                 "entrypoint": "RestaurantDemo.java"
+              },
+              "replay": {
+                "prompt": "Expand our Restaurant example for placing food orders. Orders should only be allowed at 11am or after, and tests should mock the current time.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-15",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the Restaurant class adds a placeOrder method that only accepts orders at 11:00 AM or later. Rather than asking the system directly what time it is, the class receives a Clock it can be told about, so tests can hand it any time they like."
+                ]
               }
             }
           ]
@@ -3679,6 +4857,25 @@
                   }
                 ],
                 "run": "java Library.java"
+              },
+              "replay": {
+                "prompt": "Could you add code to display how many books are in the list, to get just the first book by its position, and try to add the same title twice.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a list of book titles, prints them, then reports how many there are, pulls out the book at a specific position, and adds a title that is already in the list. It shows the three everyday List operations: size, index access, and the fact that duplicates are allowed."
+                ]
               }
             },
             {
@@ -3751,6 +4948,25 @@
                     "path": "Book.java",
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Now could you update the Library to use List<Book> rather than List<String>?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a library as a list of Book objects instead of a list of plain title strings, then prints the collection, reports its size, fetches the first book by position, and shows that a List happily accepts the same book twice."
                 ]
               }
             },
@@ -3838,6 +5054,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you add examples to show removing an item, seeing if the list contains a certain book, and checking if the list is empty?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a library as an ArrayList of Book objects, prints them, and then demonstrates three more List methods: remove() to take a book off the shelf, contains() to ask whether a particular book is present, and isEmpty() to check whether the shelf has anything left on it."
+                ]
               }
             },
             {
@@ -3911,6 +5146,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Please add another list to find all Fantasy books from our collection.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a small library of Book objects in an ArrayList, then walks through that list and copies every book whose genre is Fantasy into a second list, which it prints. It shows how to filter a collection without disturbing the original."
+                ]
               }
             },
             {
@@ -3978,6 +5232,25 @@
                   }
                 ],
                 "run": "java PackingList.java"
+              },
+              "replay": {
+                "prompt": "Create a Java PackingList class that uses a List to for String packing items with a duplicate item. Should add an item, remove an item by name, and print the full list with each item numbered without defining methods.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program keeps a travel packing list in a List of Strings, prints it as a numbered list, then adds one item and removes another before printing the list again to confirm the changes."
+                ]
               }
             },
             {
@@ -4059,6 +5332,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you add Eragon and Fable to the books collection, then create a List<String> genres variable to store the book genres and print the genres?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a library of five Book objects, then walks through that list to collect each book's genre into a separate List<String> and prints the genres one per line."
+                ]
               }
             },
             {
@@ -4134,6 +5426,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you update the library to use a Set collection for the genres list?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the library builds its genre list as a Set instead of a List, so each genre appears only once no matter how many books share it. It then prints the de-duplicated genres, which is why \"Fantasy\" shows up a single time even though three books belong to that genre."
+                ]
               }
             },
             {
@@ -4187,6 +5498,25 @@
                   }
                 ],
                 "run": "java RSVP.java"
+              },
+              "replay": {
+                "prompt": "Create a Java RSVP class that uses a TreeSet to store rsvp names as Strings. Should add names to list (include duplicate), print the guest count, and print guests in alphabetical order.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program keeps a guest list for an event in a TreeSet, a collection that refuses duplicate entries and keeps what it holds in sorted order. Eight names are added, two of them repeats, and the program reports the real guest count and prints the list alphabetically."
+                ]
               }
             },
             {
@@ -4267,6 +5597,25 @@
                     "path": "Book.java",
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Could you create a Map<String,String> bookAuthors variable to look up an author by book title?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a list of Book objects and then creates a HashMap that pairs each book's title with its author, so an author can be retrieved by title in a single step. It looks up \"The Hobbit\" and prints the matching author."
                 ]
               }
             },
@@ -4350,6 +5699,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Could you update the library to use a Map<String, Book> collection for the book authors list?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the library builds a HashMap that pairs each book's title with the whole Book object, so a single lookup by title hands back the complete record instead of just one field. It then looks up \"The Hobbit\" and prints its details, guarding against a missing key first."
+                ]
               }
             },
             {
@@ -4408,6 +5776,25 @@
                   }
                 ],
                 "run": "java Glossary.java"
+              },
+              "replay": {
+                "prompt": "Create a Java program that uses a Map<String, String> as a glossary. Add the Java terms for List, Set, and Map along with their definitions. Print a specific definition by looking it up, and print all terms alphabetically.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-7-12",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a small glossary of Java collection terms using a Map, where each term is the key and its definition is the value. It looks up one definition by name, then prints every term in alphabetical order."
+                ]
               }
             }
           ]
@@ -4485,6 +5872,25 @@
                   }
                 ],
                 "entrypoint": "PlaylistApp.java"
+              },
+              "replay": {
+                "prompt": "Please create a subfolder with a small Maven Java app that includes JUnit as a dependency. Create two Java files: Song.java with fields for title, artist, genre, and energy level, and PlaylistApp.java with a main() method that stores Song objects in a list.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This defines the Song class, the building block for the playlist we will build throughout the chapter. Each Song object carries a title, artist, genre, and energy level, and knows how to describe itself as a line of text."
+                ]
               }
             },
             {
@@ -4565,6 +5971,25 @@
                     "path": "Song.java",
                     "fromExercise": "java-8-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Sort the playlist by title alphabetically, by descending energy level, and then by artist.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a playlist as a List of Song objects, prints it in the order the songs were added, and then reorders the same list three times with the sort method: alphabetically by title, by energy level from high to low, and alphabetically by artist."
                 ]
               }
             },
@@ -4647,6 +6072,25 @@
                     "path": "Song.java",
                     "fromExercise": "java-8-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please add a code example for the song list as a HashMap (printing results), then as a TreeMap and printed.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a playlist of Song objects in a List, then stores the same songs in a HashMap keyed by title and prints them, and finally copies that map into a TreeMap so the same songs come out sorted alphabetically by title."
                 ]
               }
             },
@@ -4737,6 +6181,25 @@
                   }
                 ],
                 "entrypoint": "Main.java"
+              },
+              "replay": {
+                "prompt": "Could you write an example to compare my playlist and a friend's playlist sets and find the intersection, union, and difference?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds two sets of song titles \\u2014 yours and a friend's \\u2014 and uses Java's Set operations to work out which songs you share, what a combined playlist would look like, and which songs are yours alone."
+                ]
               }
             },
             {
@@ -4844,6 +6307,25 @@
                     "content": "public class Book {\n    private String title;\n    private String author;\n    private String genre;\n\n    public Book(String title, String author, String genre) {\n        this.title = title;\n        this.author = author;\n        this.genre = genre;\n    }\n\n    public String getTitle() {\n        return title;\n    }\n\n    public String getAuthor() {\n        return author;\n    }\n\n    public String getGenre() {\n        return genre;\n    }\n\n    @Override\n    public String toString() {\n        return title + \" by \" + author + \" (\" + genre + \")\";\n    }\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Using the Library app from chapter 7, create a new Java file for a book list with the following:",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a list of Book objects from the Chapter 7 library app and sorts it three different ways \by genre and title together, then compares your set of book titles against a friend's to find the overlap, the combination, and the titles only you have read."
+                ]
               }
             },
             {
@@ -4931,6 +6413,25 @@
                     "fromExercise": "java-8-01"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Please add an example for the playlist as a Queue and use some methods to process it.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program stores a playlist in a Queue so songs are played strictly in the order they were added, then drains the queue one song at a time. It shows the three core queue operations: offer to add at the back, peek to look at the front, and poll to remove from the front."
+                ]
               }
             },
             {
@@ -4997,6 +6498,25 @@
                   }
                 ],
                 "run": "java PrintQueueExample.java"
+              },
+              "replay": {
+                "prompt": "Create a new file for a print queue with four print jobs. Check the queue before processing each job.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program models a printer's job queue: four filenames are added to the back of a queue, then a loop repeatedly looks at the job at the front and removes it until nothing is left. It shows the queue's first-in, first-out order in action."
+                ]
               }
             },
             {
@@ -5099,6 +6619,25 @@
                     "content": "// Support file for this exercise only.\n// The printed program uses ArrayDeque without importing java.util.ArrayDeque,\n// so this thin stand-in in the same package supplies the name. In your own\n// code, add \"import java.util.ArrayDeque;\" at the top of the file instead.\npublic class ArrayDeque<E> extends java.util.ArrayDeque<E> {\n    private static final long serialVersionUID = 1L;\n}\n"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "In the playlist app, please update songQueue to a Deque and use some Deque methods.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the playlist app stores songs in a Deque \"a double-ended queue\" so songs can be added and played from either the front or the back. It adds four songs (one of them jumped to the front), peeks at both ends without removing anything, then drains the playlist by alternating between the first and last song."
+                ]
               }
             },
             {
@@ -5164,6 +6703,25 @@
                   }
                 ],
                 "run": "java BrowserHistoryExample.java"
+              },
+              "replay": {
+                "prompt": "Create a Java program that uses an ArrayDeque<String> to simulate browser history. Add five page URLs. Simulate going back by polling from the front, then clear the two oldest entries from the back. Print the remaining history.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program uses an ArrayDeque to model a browser's history: each page you visit is pushed onto the front, pressing \"back\" takes a page off the front, and old entries are cleared off the back. It prints the history after each operation so you can watch both ends of the deque change."
+                ]
               }
             },
             {
@@ -5237,6 +6795,25 @@
                   }
                 ],
                 "run": "java PlaylistApp.java"
+              },
+              "replay": {
+                "prompt": "In the playlist app, please add code for the playlist as a PriorityQueue with only string titles. Process it with poll and display each one.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-10",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the playlist app stores song titles in a PriorityQueue, which keeps whichever title ranks best by its ordering rule at the front. Iterating over the queue prints the titles in no particular order, but polling them out one at a time plays them alphabetically."
+                ]
               }
             },
             {
@@ -5315,6 +6892,25 @@
                   }
                 ],
                 "entrypoint": "EnergyPlaylistDemo.java"
+              },
+              "replay": {
+                "prompt": "Please change the playlist app's PriorityQueue to Song objects compared by energyLevel. Process it with poll and display each one.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-11",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This snippet swaps the playlist's PriorityQueue from plain strings to Song objects, ordering them by their energyLevel from highest to lowest. Draining the queue with poll() plays the most energetic song first, no matter what order the songs were added in."
+                ]
               }
             },
             {
@@ -5417,6 +7013,25 @@
                     "path": "Song.java",
                     "fromExercise": "java-8-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Add an example to the playlist app that uses a LinkedList for the playlist. Include how to add and remove a song from within the list.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-8-12",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the playlist app copies the sorted playlist into a LinkedList, then inserts a new song at a chosen position and removes another one by index, printing the playlist after each change so you can see the chain relink."
                 ]
               }
             }
@@ -5524,6 +7139,25 @@
                   }
                 ],
                 "entrypoint": "FarmersMarketApp.java"
+              },
+              "replay": {
+                "prompt": "Please create a subfolder with a small Maven Java app that includes JUnit as a dependency. Create two Java files: MarketProduct.java with fields for name, vendor, price (double), category, season, and organic (boolean). Also create a FarmersMarketApp.java with a main() method that stores various MarketProduct objects in a list.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-01",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This defines the MarketProduct class, the domain object for the farmers' market application: a single item on a vendor's table, described by its name, vendor, price, category, season, and whether it is organic. Every stream exercise in this chapter processes lists of these objects."
+                ]
               }
             },
             {
@@ -5601,6 +7235,25 @@
                     "path": "MarketProduct.java",
                     "fromExercise": "java-9-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Using the farmers market list, write a stream pipeline that finds all organic summer items, sorts them by price, extracts just their names, and collects the results into a List<String>.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-02",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a small list of farmers' market products, prints the whole inventory, then uses a stream pipeline to pull out the names of the organic summer items in price order. The result is a List<String> of just the names."
                 ]
               }
             },
@@ -5716,6 +7369,25 @@
                     "fromExercise": "java-9-01"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Add a few more products to the list. Then write stream pipelines that: 1. extract vendors to a set, 2. display one vendor's menu of products and prices, 3. apply 10% discount to Baker's Lane products and collect new prices.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-03",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This program builds a larger list of farmers' market products and then runs three separate stream pipelines over it: one that collects the distinct vendor names, one that formats a single vendor's products into a printable menu, and one that computes discounted prices for that vendor. Each pipeline lives in its own helper method so the transformations are easy to read."
+                ]
               }
             },
             {
@@ -5809,6 +7481,25 @@
                   }
                 ],
                 "entrypoint": "MarketDemo.java"
+              },
+              "replay": {
+                "prompt": "Please write two more streams that 1. Sum all prices using mapToDouble, and 2. Average price of organic items.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-04",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This listing adds two number-crunching helper methods to the farmers' market app: one that converts each product's price into a stream of doubles and totals them, and one that keeps only the organic products before averaging their prices."
+                ]
               }
             },
             {
@@ -5884,6 +7575,25 @@
                   }
                 ],
                 "entrypoint": "WeatherApp.java"
+              },
+              "replay": {
+                "prompt": "Create a new file for a weather app and a WeatherEntry class with a date (String), Celsius temperature, and condition. Add ten weather entries across different conditions and temperatures in the app, then write 3 stream pipelines that: 1. Find all rainy days, 2. Convert temperatures from Celsius to Fahrenheit, 3. Find average Celsius temperature for a week.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-05",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the domain class for the weather app: a small, read-only record of one day's weather, holding the date, the temperature in Celsius, and the condition. The stream pipelines in the app filter, map, and average collections of these objects."
+                ]
               }
             },
             {
@@ -5995,6 +7705,25 @@
                   }
                 ],
                 "entrypoint": "FarmersMarketAppRunner.java"
+              },
+              "replay": {
+                "prompt": "Could you please make the following changes to the FarmersMarketApp streams? 1. getVendorSet should be a list that is sorted alphabetically. 2. getVendorMenu needs to limit to 3 results.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-06",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the farmers' market app with two stream pipelines updated: the vendor list is now deduplicated and alphabetized inside the pipeline, and the vendor menu is cut off after three items. It shows how sorting, deduplicating, and limiting are each just another step added to a stream."
+                ]
               }
             },
             {
@@ -6109,6 +7838,25 @@
                     "fromExercise": "java-9-01"
                   }
                 ]
+              },
+              "replay": {
+                "prompt": "Add a stream example for min and max that filters for a Craft category. Output 3 approaches to optional results (ifPresent, isPresent, orElse).",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-07",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the farmers' market app finds the cheapest and most expensive product in the Craft category using the stream min and max methods, then shows three different ways to deal with the Optional those methods hand back."
+                ]
               }
             },
             {
@@ -6184,6 +7932,25 @@
                   }
                 ],
                 "entrypoint": "TeamStatsApp.java"
+              },
+              "replay": {
+                "prompt": "Create a new file for a sports team stats app and a Player class with a name (String), position (String, e.g. Forward, Midfielder, Defender, Goalkeeper), and goals scored (int). Add ten player entries across different positions in the app, then write 3 stream pipelines that: 1. Group players by position, 2. Find the top scorer overall, 3. Find the top scorer in each position.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-08",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is the domain class for the sports team stats app: each Player object holds a name, a position, and the number of goals scored, along with getters and a toString method. It carries no logic of its own — it exists so the stream pipelines in the main app have objects to group, sort, and summarize."
+                ]
               }
             },
             {
@@ -6251,6 +8018,25 @@
                     "path": "MarketProduct.java",
                     "fromExercise": "java-9-01"
                   }
+                ]
+              },
+              "replay": {
+                "prompt": "Please take the getOrganicSummerItemNamesSortedByPrice stream and convert it to run in parallel. Are there any thread safety concerns with the current approach?",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-9-09",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This version of the farmers' market app runs the \"organic summer items sorted by price\" pipeline across multiple threads instead of one. The only change from the earlier version is the method that starts the stream."
                 ]
               }
             }

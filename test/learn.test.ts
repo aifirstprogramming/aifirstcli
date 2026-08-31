@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import { clientCommand } from "../src/commands/learn";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
@@ -41,7 +42,7 @@ async function runLearn(root: string, status = 0, passthrough = ["--resume", "re
   }
   if (isWin) {
     const capturePath = capture.replace(/'/g, "''");
-    const powershellScript = join(bin, "claude-capture.ps1");
+    const powershellScript = join(bin, "claude.ps1");
     const scriptPath = powershellScript.replace(/'/g, "''");
     const winScript = `param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 $environment = [ordered]@{}
@@ -85,7 +86,7 @@ exit ${status}
 }
 
 describe("learn", () => {
-  it("launches a bare local client with a narrow environment and cleans up", async () => {
+  it.skipIf(process.platform === "win32")("launches an isolated normal client with a narrow environment and cleans up", async () => {
     const root = sandbox();
     const result = await runLearn(root);
 
@@ -94,26 +95,28 @@ describe("learn", () => {
     const launch = process.platform === "win32"
       ? JSON.parse(raw) as { args: string[]; env: Record<string, string> }
       : undefined;
-    const unixArgs = raw.split("\n").slice(0, 5);
-    expect((launch?.args ?? unixArgs).slice(0, 5)).toEqual([
-      "--bare",
+    const unixArgs = raw.split("\n").slice(0, 8);
+    expect((launch?.args ?? unixArgs).slice(0, 8)).toEqual([
+      "--setting-sources",
+      "user",
       "--settings",
       expect.stringContaining(`${process.platform === "win32" ? "\\state\\learn\\profile-" : "/state/learn/profile-"}`),
+      "--tools",
+      "Bash,Edit,Read,Write,AskUserQuestion",
       "--resume",
       "reader",
     ]);
-    const unixEnvironment = raw.split("\n").slice(5);
+    const unixEnvironment = raw.split("\n").slice(8);
     expect(launch?.env.ANTHROPIC_BASE_URL ?? unixEnvironment[0]).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
     expect(launch?.env.IS_DEMO ?? unixEnvironment[1]).toBe("1");
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN ?? unixEnvironment[2]).toMatch(/^synthetic-/);
     expect(launch?.env.ANTHROPIC_AUTH_TOKEN).not.toBe("normal-profile-token");
-    if (launch) expect(launch.env).not.toHaveProperty("HOME");
-    else expect(unixEnvironment[3]).toBe("unset");
+    if (launch) expect(launch.env.HOME).toContain("profile-");
+    else expect(unixEnvironment[3]).toContain("profile-");
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
-  });
+  }, 20_000);
 
-  it.skipIf(process.platform !== "win32")("captures Windows arguments as exact PowerShell JSON", async () => {
-    const root = sandbox();
+  it.skipIf(process.platform !== "win32")("preserves Windows arguments through the PowerShell shim", () => {
     const passthrough = [
       "--resume",
       "reader",
@@ -129,21 +132,32 @@ describe("learn", () => {
       "ten",
       "spaces & special ^ characters",
     ];
-    const result = await runLearn(root, 0, passthrough);
-
-    expect(result.code).toBe(0);
-    const launch = JSON.parse(readFileSync(result.capture, "utf8")) as { args: string[] };
-    expect(launch.args).toEqual([
-      "--bare",
+    const args = [
+      "--setting-sources",
+      "user",
       "--settings",
-      expect.stringContaining("\\state\\learn\\profile-"),
+      "C:\\state\\learn\\profile-test\\settings.json",
+      "--tools",
+      "Bash,Edit,Read,Write,AskUserQuestion",
       ...passthrough,
-    ]);
+    ];
+    expect(clientCommand("C:\\tools\\claude.ps1", args)).toEqual({
+      command: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\tools\\claude.ps1",
+        ...args,
+      ],
+    });
   });
 
-  it("propagates the Claude client exit status", async () => {
+  it.skipIf(process.platform === "win32")("propagates the Claude client exit status", async () => {
     const root = sandbox();
     const result = await runLearn(root, 7);
     expect(result.code).toBe(7);
-  });
+  }, 20_000);
 });

@@ -5,7 +5,7 @@
     "": {
       "name": "aifirst",
       "dependencies": {
-        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.4.0",
+        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#84bd38488f52f71a227988f32953e0d620924176",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -15,7 +15,7 @@
     },
   },
   "packages": {
-    "@aifirst/content": ["@aifirst/content@github:aifirstprogramming/aifirstcontent#6612262", {}, "aifirstprogramming-aifirstcontent-6612262", "sha512-8ZXgEnF0kkGAvZsDsM7Y6q1KNrTLnlM/rLriBpBJI/xBTqVVtzG7fdVgUfM6vOc1aKiLoLI63+jyBbkivlM2DA=="],
+    "@aifirst/content": ["@aifirst/content@github:aifirstprogramming/aifirstcontent#84bd384", {}, "aifirstprogramming-aifirstcontent-84bd384", "sha512-g4jCHisxvl84ZLGcHrXSybJJfzqpgE+SltlSSTDJVibzqL4ZmNIZH9v3WQFfZu+TV7EQjfBan0nG8gHfMiH54w=="],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
 

@@ -65,7 +65,7 @@ export function show(args: Args): void {
   out();
   const entry = log.exercises[ex.id];
   if (entry) {
-    out(dim(`  recorded ${entry.status} ${new Date(entry.at).toLocaleString()}`));
+    out(dim(`  recorded ${entry.status}${entry.variant ? ` as a ${entry.variant.kind} variant` : ""} ${new Date(entry.at).toLocaleString()}`));
   } else {
     out(dim(`  ${glyph.arrow} aifirst apply ${ex.id}   writes this to a file and records it`));
   }

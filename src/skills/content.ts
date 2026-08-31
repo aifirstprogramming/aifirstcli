@@ -88,6 +88,40 @@ a multi-step exercise.
 
 ## Workflows
 
+**A captured Claude Code replay**
+
+The prompt hook may attach an AI First replay before you answer. When it says the
+prompt is an exact replay, use its captured commentary verbatim and do not invent
+an alternative response or run a second \`aifirst run\`. The hook has already
+applied the recorded files and commands in normal skill mode unless it reports an
+interactive planning workflow. In learn mode, the local responder applies them
+only after any required planning and approval.
+
+When the hook reports a possible fuzzy match, ask the learner whether they meant
+that replay. Never execute a fuzzy match without confirmation.
+
+When the hook reports an interactive planning workflow:
+
+1. Enter Claude Code native plan mode before implementation. If native plan mode
+   is unavailable, emulate it and do not use Write, Edit or Bash until the learner
+   approves the plan.
+2. Follow \`questionSteps\` exactly. Ask each \`group\` in one AskUserQuestion
+   call, but ask every ungrouped \`question\` separately and only after its
+   \`when\` conditions are satisfied. Never merge a conditional follow-up into
+   the preceding group. Preserve option order and display the supplied
+   \`(Book Recommended)\` suffix verbatim without adding another label.
+3. If every answer matches \`canonicalAnswers\`, present \`canonicalPlan\` verbatim.
+   All paths are relative to the current working directory; never mention or
+   recreate a captured absolute path. After approval, execute \`canonicalReplay\`
+   in order and verify every result.
+4. If any answer differs, explain the difference, create a tailored plan, obtain
+   approval, and implement and test that adaptive variant. Do not apply canonical
+   operations as though they represented the learner's choices.
+5. Record a verified adaptive variant with
+   \`aifirst done <id> --via agent --agent claude --variant-json '<json>' --format json\`,
+   using only the stable question and option ids supplied by the hook. Never put
+   free-form learner text in the progress log.
+
 **They ask to work in a particular chapter** ("let's do chapter 7")
 \`aifirst at <first id in that chapter>\`, then \`aifirst next\`. The bookmark
 stays there, so asking what is next later continues in that chapter rather than

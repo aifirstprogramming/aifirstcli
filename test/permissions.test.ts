@@ -58,8 +58,9 @@ describe("the allowlist itself", () => {
   it("scopes each entry to a single subcommand", () => {
     // `Bash(aifirst:*)` would cover reset too.
     for (const entry of claudeEntries()) {
-      expect(entry).toMatch(/^Bash\(aifirst [a-z]+:\*\)$/);
+      expect(entry).toMatch(/^Bash\(aifirst [a-z]+(?: [a-z]+)?:\*\)$/);
     }
+    expect(claudeEntries()).toContain("Bash(aifirst replay execute:*)");
   });
 });
 

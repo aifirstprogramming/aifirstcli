@@ -45,6 +45,12 @@ export interface Entry {
   agent?: string;
   /** Set on first completion and preserved across later updates. */
   firstAt?: string;
+  /** Present when verified work intentionally differs from canonical book code. */
+  variant?: {
+    kind: "adaptive" | "authored";
+    /** Stable content option ids only; no learner prose is stored. */
+    answers: Record<string, string>;
+  };
 }
 
 export interface ProgressLog {
@@ -108,12 +114,14 @@ function sanitize(raw: Record<string, unknown>): Record<string, Entry> {
     if (!value || typeof value !== "object") continue;
     const e = value as Partial<Entry>;
     if (e.status !== "done" && e.status !== "skipped") continue;
+    const variant = sanitizeVariant(e.variant);
     out[id] = {
       status: e.status,
       at: typeof e.at === "string" ? e.at : new Date(0).toISOString(),
       via: VIAS.includes(e.via as Via) ? (e.via as Via) : "self",
       ...(typeof e.agent === "string" ? { agent: e.agent } : {}),
       ...(typeof e.firstAt === "string" ? { firstAt: e.firstAt } : {}),
+      ...(variant ? { variant } : {}),
     };
   }
   return out;
@@ -151,6 +159,7 @@ export interface MarkOptions {
   status?: Status;
   via?: Via;
   agent?: string;
+  variant?: Entry["variant"];
   /** Injected in tests; defaults to now. */
   now?: Date;
   path?: string;
@@ -172,12 +181,24 @@ export function mark(id: string, options: MarkOptions = {}): Entry {
       at,
       via: options.via ?? "self",
       ...(options.agent ? { agent: options.agent } : {}),
+      ...(options.variant ? { variant: options.variant } : {}),
       // Keep the date of the learner's first completion even as they redo it.
       firstAt: existing?.firstAt ?? existing?.at ?? at,
     };
     log.exercises[id] = entry;
   }, options.path);
   return entry;
+}
+
+function sanitizeVariant(value: unknown): Entry["variant"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const variant = value as { kind?: unknown; answers?: unknown };
+  if (variant.kind !== "adaptive" && variant.kind !== "authored") return undefined;
+  if (!variant.answers || typeof variant.answers !== "object" || Array.isArray(variant.answers)) return undefined;
+  const answers = Object.entries(variant.answers);
+  if (!answers.every(([key, answer]) =>
+    /^[a-z][a-z0-9_]*$/.test(key) && typeof answer === "string" && /^[a-z][a-z0-9_]*$/.test(answer))) return undefined;
+  return { kind: variant.kind, answers: Object.fromEntries(answers) as Record<string, string> };
 }
 
 /**
