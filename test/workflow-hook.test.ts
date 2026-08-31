@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,15 +17,15 @@ describe("skill-mode planning hook", () => {
       prompt: "Make a game about a baby duckling who is trying to find its mother using pygame.",
       cwd: root,
     });
+    const inputPath = join(root, "hook-input.json");
+    writeFileSync(inputPath, input);
     const proc = Bun.spawn([process.execPath, "run", ENTRY, "replay", "hook"], {
       cwd: root,
       env: { ...process.env, AIFIRST_STATE_DIR: join(root, "state") },
-      stdin: "pipe",
+      stdin: Bun.file(inputPath),
       stdout: "pipe",
       stderr: "pipe",
     });
-    proc.stdin.write(input);
-    proc.stdin.end();
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),

@@ -54,11 +54,13 @@ function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, ro
     });
     const stdout = result.stdout ?? "";
     const stderr = result.error ? `${result.stderr ?? ""}${result.error.message}` : result.stderr ?? "";
+    const comparableStdout = stdout.replace(/\r\n/g, "\n");
+    const comparableStderr = stderr.replace(/\r\n/g, "\n");
     const exitCode = result.status ?? 127;
     const matchesExpected =
       (operation.expectedExitCode === undefined || operation.expectedExitCode === exitCode) &&
-      (operation.expectedStdout === undefined || operation.expectedStdout === stdout) &&
-      (operation.expectedStderr === undefined || operation.expectedStderr === stderr);
+      (operation.expectedStdout === undefined || operation.expectedStdout === comparableStdout) &&
+      (operation.expectedStderr === undefined || operation.expectedStderr === comparableStderr);
     return { command: operation.command, exitCode, stdout, stderr, matchesExpected };
   } catch (error) {
     return { command: operation.command, exitCode: 127, stdout: "", stderr: (error as Error).message, matchesExpected: false };

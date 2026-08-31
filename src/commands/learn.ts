@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 import type { Args } from "../cli";
@@ -23,31 +22,6 @@ function executable(name: string): string | undefined {
     if (existsSync(path)) return path;
   }
   return undefined;
-}
-
-const CMD_META = /([()\][%!^"`<>&|;, *?])/g;
-
-function escapeCmdCommand(value: string): string {
-  return value.replace(CMD_META, "^$1");
-}
-
-function escapeCmdArgument(value: string, doubleEscapeMeta: boolean): string {
-  let escaped = value.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, "$1$1");
-  escaped = `"${escaped}"`.replace(CMD_META, "^$1");
-  return doubleEscapeMeta ? escaped.replace(CMD_META, "^$1") : escaped;
-}
-
-function clientCommand(command: string, args: string[]): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
-  if (process.platform !== "win32" || !/\.(?:cmd|bat)$/i.test(command)) return { command, args };
-  const shellCommand = [
-    escapeCmdCommand(command),
-    ...args.map((argument) => escapeCmdArgument(argument, true)),
-  ].join(" ");
-  return {
-    command: process.env.ComSpec ?? "cmd.exe",
-    args: ["/d", "/s", "/c", `"${shellCommand}"`],
-    windowsVerbatimArguments: true,
-  };
 }
 
 export async function learn(args: Args): Promise<void> {
@@ -77,19 +51,15 @@ export async function learn(args: Args): Promise<void> {
     session.port = Number(new URL(server.baseUrl).port);
     updateSession(session);
     const launch = claudeLaunch(session, args.positionals, server.baseUrl, stringFlag(args, "replay"));
-    const client = clientCommand(claude, launch.args);
-    const child = spawn(client.command, client.args, {
-      stdio: "inherit",
-      shell: false,
-      windowsVerbatimArguments: client.windowsVerbatimArguments,
+    const child = Bun.spawn([claude, ...launch.args], {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
       env: launch.env,
     });
     session.childPid = child.pid;
     updateSession(session);
-    const status = await new Promise<number>((resolve, reject) => {
-      child.once("error", reject);
-      child.once("exit", (code) => resolve(code ?? 1));
-    });
+    const status = await child.exited;
     process.exitCode = status;
   } finally {
     server?.stop();
