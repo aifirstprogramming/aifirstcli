@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { AGENTS, agentByKey, keysFromFlags, selectAgents } from "../src/agents";
 import { antigravityIdeAgent } from "../src/agents/antigravity";
-import { claudeAgent } from "../src/agents/claude";
+import {
+  bashPath,
+  claudeAgent,
+  claudeCliCommand,
+  currentCliArgv,
+  launcherScript,
+  shellQuote,
+} from "../src/agents/claude";
 import { codexAgent } from "../src/agents/codex";
 import { CliError } from "../src/output";
 import { antigravityRules, commandFiles, parseSkillVersion, skillMarkdown } from "../src/skills/content";
@@ -119,6 +126,21 @@ describe("skill markdown", () => {
     expect(md).toContain("content library");
     expect(md).toContain("Present it verbatim");
   });
+
+  it("gives platform-specific install instructions instead of sending Windows to install.sh", () => {
+    expect(md).toContain("Native Windows, including Claude Code using Git Bash");
+    expect(md).toContain("install.ps1 | iex");
+    expect(md).toContain("macOS, Linux, or WSL");
+    expect(md).toContain("`install.sh` from Git Bash");
+  });
+
+  it("can render every executable instruction with a target-specific command", () => {
+    const command = "bash '/c/Users/Ada Lovelace/.claude/skills/aifirst/aifirst-cli.sh'";
+    const rendered = skillMarkdown(command);
+    expect(rendered).toContain(`${command} run py-2-06 --format json`);
+    expect(rendered).toContain(`${command} next --format json`);
+    expect(rendered).toContain(`${command} diff <id> <file>`);
+  });
 });
 
 describe("command files", () => {
@@ -132,6 +154,15 @@ describe("command files", () => {
   it("have unique names", () => {
     const names = commandFiles().map((c) => c.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("uses a target-specific command without changing command names", () => {
+    const command = "bash '/c/Users/Ada Lovelace/.claude/skills/aifirst/aifirst-cli.sh'";
+    const rendered = commandFiles(command);
+    expect(rendered.map((entry) => entry.name)).toEqual(commandFiles().map((entry) => entry.name));
+    expect(rendered.find((entry) => entry.name === "aifirst-next")!.body).toContain(
+      `${command} next --format json`,
+    );
   });
 
   it("aifirst-next instructs code, Explanation, then output order and has no book-provenance claim", () => {
@@ -208,12 +239,72 @@ describe("mutation guard", () => {
   });
 });
 
+describe("claude launcher", () => {
+  it("converts native Windows paths for Git Bash", () => {
+    expect(bashPath("C:\\Users\\Ada Lovelace\\.claude\\skills", "win32")).toBe(
+      "/c/Users/Ada Lovelace/.claude/skills",
+    );
+    expect(bashPath("/home/ada/.claude/skills", "linux")).toBe("/home/ada/.claude/skills");
+  });
+
+  it("quotes spaces and apostrophes without permitting shell expansion", () => {
+    expect(shellQuote("/home/O'Brien/aifirst")).toBe("'/home/O'\\''Brien/aifirst'");
+  });
+
+  it("preserves the source entrypoint but needs only the executable when compiled", () => {
+    const entry = join(import.meta.dir, "..", "src", "index.ts");
+    expect(currentCliArgv("/opt/bun", ["/opt/bun", entry, "init"])).toEqual(["/opt/bun", entry]);
+    expect(currentCliArgv("C:\\Program Files\\Bun\\bun.exe", ["bun.exe", entry, "init"])).toEqual([
+      "C:\\Program Files\\Bun\\bun.exe",
+      entry,
+    ]);
+    expect(currentCliArgv("C:\\Tools\\aifirst.exe", ["C:\\Tools\\aifirst.exe", "init"])).toEqual([
+      "C:\\Tools\\aifirst.exe",
+    ]);
+    expect(currentCliArgv("/opt/aifirst-linux-x64", ["/opt/aifirst-linux-x64", entry, "init"])).toEqual([
+      "/opt/aifirst-linux-x64",
+    ]);
+  });
+
+  it("writes a forwarding script using absolute Git Bash paths", () => {
+    const script = launcherScript(["C:\\Program Files\\Bun\\bun.exe", "C:\\work\\src\\index.ts"], "win32");
+    expect(script).toContain("exec '/c/Program Files/Bun/bun.exe' '/c/work/src/index.ts' \"$@\"");
+    expect(script).not.toContain("C:\\");
+  });
+});
+
 describe("claude adapter", () => {
   it("installs a skill and detects it as current", async () => {
     const result = await claudeAgent.install();
     expect(result.written.length).toBeGreaterThan(0);
-    expect(existsSync(join(home, ".claude", "skills", "aifirst", "SKILL.md"))).toBe(true);
+    const root = join(home, ".claude", "skills", "aifirst");
+    expect(existsSync(join(root, "SKILL.md"))).toBe(true);
+    expect(existsSync(join(root, "aifirst-cli.sh"))).toBe(true);
+    expect(readFileSync(join(root, "SKILL.md"), "utf8")).toContain(claudeCliCommand());
+    expect(readFileSync(join(root, "commands", "aifirst-next.md"), "utf8")).toContain(claudeCliCommand());
     expect(await claudeAgent.check()).toEqual({ state: "current", version: VERSION });
+  });
+
+  it("installs a marker-owned PATH-independent hook", async () => {
+    await claudeAgent.install();
+    const settings = JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8"));
+    const command = settings.hooks.UserPromptSubmit[0].hooks[0].command;
+    expect(command).toStartWith(`${claudeCliCommand()} replay hook`);
+    expect(command).toEndWith("# aifirst-managed-replay-hook-v1");
+    expect(command).not.toBe("aifirst replay hook");
+  });
+
+  it("migrates the legacy bare replay hook", async () => {
+    const settingsPath = join(home, ".claude", "settings.json");
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({
+      hooks: { UserPromptSubmit: [{ hooks: [{ type: "command", command: "aifirst replay hook" }] }] },
+    }));
+
+    await claudeAgent.install();
+    const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+    expect(settings.hooks.UserPromptSubmit).toHaveLength(1);
+    expect(settings.hooks.UserPromptSubmit[0].hooks[0].command).toStartWith(claudeCliCommand());
   });
 
   it("reports drift when the installed skill came from another version", async () => {

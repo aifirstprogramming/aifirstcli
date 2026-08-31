@@ -7,7 +7,7 @@
  */
 
 import { existsSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { claude as paths } from "../paths";
 import { claudeEntries } from "../permissions";
 import { commandFiles, parseSkillVersion, skillMarkdown } from "../skills/content";
@@ -16,19 +16,75 @@ import type { Agent, Detection, InstallResult, PermissionResult, PermissionState
 import { captureVersion, readIfExists, removeIfExists, which, writeFileTree } from "./util";
 
 const skillFile = () => join(paths.skill(), "SKILL.md");
+const launcherFile = () => join(paths.skill(), "aifirst-cli.sh");
 const settingsFile = () => join(paths.root(), "settings.json");
 const backupFile = () => join(paths.root(), "settings.json.aifirst-backup");
-const REPLAY_HOOK_COMMAND = "aifirst replay hook";
+const LEGACY_REPLAY_HOOK_COMMAND = "aifirst replay hook";
+const REPLAY_HOOK_MARKER = "# aifirst-managed-replay-hook-v1";
+
+/** Convert native Windows paths to the form understood by Claude's Git Bash. */
+export function bashPath(path: string, platform = process.platform): string {
+  const normalized = path.replaceAll("\\", "/");
+  if (platform !== "win32") return normalized;
+  const drive = /^([A-Za-z]):\/(.*)$/.exec(normalized);
+  return drive ? `/${drive[1]!.toLowerCase()}/${drive[2]}` : normalized;
+}
+
+/** Quote one argument for the Bash command strings stored in Claude settings. */
+export function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+/**
+ * The compiled binary is self-contained. During source development, preserve
+ * the Bun entrypoint too so a generated launcher remains executable.
+ */
+export function currentCliArgv(
+  executable = process.execPath,
+  argv = process.argv,
+): string[] {
+  const entry = argv[1];
+  const runtime = executable.replaceAll("\\", "/").split("/").at(-1)?.toLowerCase() ?? "";
+  if (/^bun(?:\.exe)?$/.test(runtime) && entry && /(?:^|[\\/])src[\\/]index\.(?:[cm]?[jt]s)$/.test(entry)) {
+    return [executable, resolve(entry)];
+  }
+  return [executable];
+}
+
+export function claudeCliCommand(
+  launcher = launcherFile(),
+  platform = process.platform,
+): string {
+  return `bash ${shellQuote(bashPath(launcher, platform))}`;
+}
+
+export function launcherScript(
+  argv = currentCliArgv(),
+  platform = process.platform,
+): string {
+  const command = argv.map((arg) => shellQuote(bashPath(arg, platform))).join(" ");
+  return `#!/usr/bin/env bash\nexec ${command} "$@"\n`;
+}
+
+function replayHookCommand(): string {
+  return `${claudeCliCommand()} replay hook ${REPLAY_HOOK_MARKER}`;
+}
 
 function replayHookEntry(): Record<string, unknown> {
-  return { hooks: [{ type: "command", command: REPLAY_HOOK_COMMAND }] };
+  return { hooks: [{ type: "command", command: replayHookCommand() }] };
 }
 
 function isReplayHook(value: unknown): boolean {
   if (!value || typeof value !== "object") return false;
   const hooks = (value as Record<string, unknown>).hooks;
   return Array.isArray(hooks) && hooks.some((hook) =>
-    Boolean(hook && typeof hook === "object" && (hook as Record<string, unknown>).command === REPLAY_HOOK_COMMAND),
+    Boolean(
+      hook &&
+        typeof hook === "object" &&
+        typeof (hook as Record<string, unknown>).command === "string" &&
+        ((hook as Record<string, unknown>).command === LEGACY_REPLAY_HOOK_COMMAND ||
+          ((hook as Record<string, unknown>).command as string).endsWith(` ${REPLAY_HOOK_MARKER}`)),
+    ),
   );
 }
 
@@ -126,8 +182,12 @@ export const claudeAgent: Agent = {
   },
 
   async install(): Promise<InstallResult> {
-    const written = [writeFileTree(skillFile(), skillMarkdown())];
-    for (const cmd of commandFiles()) {
+    const cliCommand = claudeCliCommand();
+    const written = [
+      writeFileTree(launcherFile(), launcherScript()),
+      writeFileTree(skillFile(), skillMarkdown(cliCommand)),
+    ];
+    for (const cmd of commandFiles(cliCommand)) {
       written.push(writeFileTree(join(paths.commands(), `${cmd.name}.md`), cmd.body));
     }
     if (installReplayHook()) written.push(settingsFile());
@@ -160,15 +220,21 @@ export const claudeAgent: Agent = {
         changed: [],
         notes: [
           `${settingsFile()} could not be parsed, so it was left untouched. ` +
-            `Add these to permissions.allow yourself: ${claudeEntries().join(", ")}`,
+            `Add these to permissions.allow yourself: ${claudeEntries(claudeCliCommand()).join(", ")}`,
         ],
       };
     }
 
     const existing = currentAllowList(settings.data);
-    const wanted = claudeEntries();
-    const missing = wanted.filter((e) => !existing.includes(e));
-    if (missing.length === 0) return { state: "allowlisted", changed: [] };
+    const legacy = new Set(claudeEntries());
+    const wanted = claudeEntries(claudeCliCommand());
+    const kept = existing.filter((entry) => !legacy.has(entry));
+    const missing = wanted.filter((entry) => !kept.includes(entry));
+    const next = [...kept, ...missing];
+    const replaced = existing.length - kept.length;
+    if (next.length === existing.length && next.every((entry, i) => entry === existing[i])) {
+      return { state: "allowlisted", changed: [] };
+    }
 
     // Keep a copy of whatever was there before the first modification, so a
     // learner (or we) can always get back to it.
@@ -178,14 +244,17 @@ export const claudeAgent: Agent = {
 
     const permissions = {
       ...((settings.data.permissions as Record<string, unknown>) ?? {}),
-      allow: [...existing, ...missing],
+      allow: next,
     };
     writeFileTree(settingsFile(), JSON.stringify({ ...settings.data, permissions }, null, 2) + "\n");
 
     return {
       state: "allowlisted",
       changed: [settingsFile()],
-      notes: [`Added ${missing.length} permission entr${missing.length === 1 ? "y" : "ies"}.`],
+      notes: [
+        `Added ${missing.length} permission entr${missing.length === 1 ? "y" : "ies"}` +
+          `${replaced > 0 ? ` and replaced ${replaced} legacy entr${replaced === 1 ? "y" : "ies"}` : ""}.`,
+      ],
     };
   },
 
@@ -193,14 +262,14 @@ export const claudeAgent: Agent = {
     const settings = readSettings();
     if (!settings) return "missing";
     const existing = currentAllowList(settings.data);
-    return claudeEntries().every((e) => existing.includes(e)) ? "allowlisted" : "missing";
+    return claudeEntries(claudeCliCommand()).every((e) => existing.includes(e)) ? "allowlisted" : "missing";
   },
 
   async revokePermissions(): Promise<string[]> {
     const settings = readSettings();
     if (!settings) return [];
     const existing = currentAllowList(settings.data);
-    const ours = new Set(claudeEntries());
+    const ours = new Set([...claudeEntries(), ...claudeEntries(claudeCliCommand())]);
     const kept = existing.filter((e) => !ours.has(e));
     if (kept.length === existing.length) return [];
 

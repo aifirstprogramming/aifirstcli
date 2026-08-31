@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { antigravityIdeAgent } from "../src/agents/antigravity";
-import { claudeAgent } from "../src/agents/claude";
+import { claudeAgent, claudeCliCommand } from "../src/agents/claude";
 import { codexAgent } from "../src/agents/codex";
 import { vscodeAgent } from "../src/agents/vscode";
 import { ALLOWED_COMMANDS, CODEX_BEGIN, WITHHELD_COMMANDS, claudeEntries } from "../src/permissions";
@@ -33,6 +33,7 @@ afterEach(() => {
 
 const settingsPath = () => join(home, ".claude", "settings.json");
 const rulesPath = () => join(home, ".codex", "rules", "default.rules");
+const installedClaudeEntries = () => claudeEntries(claudeCliCommand());
 
 function writeSettings(value: unknown): void {
   mkdirSync(join(home, ".claude"), { recursive: true });
@@ -69,7 +70,7 @@ describe("claude settings", () => {
     const result = await claudeAgent.grantPermissions();
     expect(result.state).toBe("allowlisted");
     const settings = JSON.parse(readFileSync(settingsPath(), "utf8"));
-    expect(settings.permissions.allow).toEqual(claudeEntries());
+    expect(settings.permissions.allow).toEqual(installedClaudeEntries());
   });
 
   it("preserves every unrelated setting", async () => {
@@ -93,7 +94,17 @@ describe("claude settings", () => {
     expect(settings.permissions.deny).toEqual(["Bash(rm:*)"]);
     // And the learner's own allow entry survives, first.
     expect(settings.permissions.allow[0]).toBe("Bash(ssh litellm:*)");
-    for (const entry of claudeEntries()) expect(settings.permissions.allow).toContain(entry);
+    for (const entry of installedClaudeEntries()) expect(settings.permissions.allow).toContain(entry);
+  });
+
+  it("migrates legacy bare-command permissions without disturbing unrelated entries", async () => {
+    writeSettings({ permissions: { allow: ["Bash(ssh host:*)", ...claudeEntries()] } });
+
+    await claudeAgent.grantPermissions();
+    const settings = JSON.parse(readFileSync(settingsPath(), "utf8"));
+    expect(settings.permissions.allow[0]).toBe("Bash(ssh host:*)");
+    for (const entry of claudeEntries()) expect(settings.permissions.allow).not.toContain(entry);
+    for (const entry of installedClaudeEntries()) expect(settings.permissions.allow).toContain(entry);
   });
 
   it("backs the file up before the first change", async () => {
@@ -120,7 +131,8 @@ describe("claude settings", () => {
     expect(result.changed).toEqual([]);
     // Untouched, and it tells the learner what to add by hand.
     expect(readFileSync(settingsPath(), "utf8")).toBe("{ this is not json");
-    expect(result.notes?.join(" ")).toContain("Bash(aifirst show:*)");
+    expect(result.notes?.join(" ")).toContain("aifirst-cli.sh");
+    expect(result.notes?.join(" ")).toContain(" show:*)");
   });
 
   it("reports state without changing anything", async () => {
@@ -143,6 +155,13 @@ describe("claude settings", () => {
     await claudeAgent.grantPermissions();
     await claudeAgent.revokePermissions();
     expect(await claudeAgent.revokePermissions()).toEqual([]);
+  });
+
+  it("revokes legacy entries left by an older installation", async () => {
+    writeSettings({ permissions: { allow: ["Bash(ssh host:*)", ...claudeEntries()] } });
+    await claudeAgent.revokePermissions();
+    const settings = JSON.parse(readFileSync(settingsPath(), "utf8"));
+    expect(settings.permissions.allow).toEqual(["Bash(ssh host:*)"]);
   });
 });
 

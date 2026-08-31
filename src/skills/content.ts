@@ -11,7 +11,7 @@
  * plainly, and repeated in the gotchas.
  */
 
-import { VERSION } from "../version";
+import { INSTALL_HOST, VERSION } from "../version";
 
 export const SKILL_NAME = "aifirst";
 
@@ -22,7 +22,7 @@ const DESCRIPTION =
   "exercise complete. Skip for general Python or Java questions unrelated to the books.";
 
 /** Body shared by every target, without frontmatter. */
-function body(): string {
+function body(cliCommand = "aifirst"): string {
   return `# AI First book companion
 
 The AI First books print a prompt and the exact code that prompt produces. Readers
@@ -44,7 +44,7 @@ means here. Never call \`aifirst done\` on your own initiative.
 ## The main flow
 
 \`\`\`bash
-aifirst run py-2-06 --format json
+${cliCommand} run py-2-06 --format json
 \`\`\`
 
 One command: it writes the book's code to a sensibly named file, executes it, and
@@ -54,22 +54,22 @@ output, and only when \`recorded\` is true or it was already recorded.
 
 If JSON reports \`missing_dependencies\`, show the learner the missing package
 names and ask whether to install them. Only after they agree, repeat the same
-\`run\` command with \`--yes\`. Never add \`--yes\` preemptively: package
+\`${cliCommand} run\` command with \`--yes\`. Never add \`--yes\` preemptively: package
 installation must remain the learner's choice. A declined or failed install
 leaves the exercise files unchanged.
 
-To show code without running it, use \`aifirst show <id> --format json\`. It returns
+To show code without running it, use \`${cliCommand} show <id> --format json\`. It returns
 a \`steps\` array; each step has a \`prompt\` and a \`response\`, and \`response\` is
 the code from the book. Emit it exactly as given.
 
 ## Which book?
 
 Readers own one book of a growing series. Before the first exercise, run
-\`aifirst next --format json\`. If it returns \`"needsBookChoice": true\`, **ask the
+\`${cliCommand} next --format json\`. If it returns \`"needsBookChoice": true\`, **ask the
 learner which book they are reading** and record it:
 
 \`\`\`bash
-aifirst book py      # or: aifirst book java
+${cliCommand} book py      # or: ${cliCommand} book java
 \`\`\`
 
 Never guess, and never hand them an exercise from a book they may not own.
@@ -78,17 +78,17 @@ Never guess, and never hand them an exercise from a book they may not own.
 
 | Command | Use |
 | --- | --- |
-| \`aifirst next --format json\` | Their next unfinished exercise, within their book. |
-| \`aifirst run <id> --format json\` | Write it, run it, record it. The main one. |
-| \`aifirst dependencies <id> --format json\` | List required packages and whether they are available. |
-| \`aifirst show <id> --format json\` | Canonical prompt(s) and response(s); records nothing. |
-| \`aifirst search "<prompt>" --format json\` | Find the exercise matching prompt text. |
-| \`aifirst list [py\|java] --format json\` | Browse books, chapters, exercises. |
-| \`aifirst apply <id> --into <file>\` | Write the code without running it. |
-| \`aifirst diff <id> [file] --format json\` | Does their file match the book? |
-| \`aifirst at [<id>]\` | Show or move where they are in the book. |
-| \`aifirst progress --format json\` | Their ledger so far. |
-| \`aifirst book <tag>\` | Set or switch which book they are reading. |
+| \`${cliCommand} next --format json\` | Their next unfinished exercise, within their book. |
+| \`${cliCommand} run <id> --format json\` | Write it, run it, record it. The main one. |
+| \`${cliCommand} dependencies <id> --format json\` | List required packages and whether they are available. |
+| \`${cliCommand} show <id> --format json\` | Canonical prompt(s) and response(s); records nothing. |
+| \`${cliCommand} search "<prompt>" --format json\` | Find the exercise matching prompt text. |
+| \`${cliCommand} list [py\|java] --format json\` | Browse books, chapters, exercises. |
+| \`${cliCommand} apply <id> --into <file>\` | Write the code without running it. |
+| \`${cliCommand} diff <id> [file] --format json\` | Does their file match the book? |
+| \`${cliCommand} at [<id>]\` | Show or move where they are in the book. |
+| \`${cliCommand} progress --format json\` | Their ledger so far. |
+| \`${cliCommand} book <tag>\` | Set or switch which book they are reading. |
 
 Exercise ids look like \`py-2-06\` or \`java-3-05\`; \`py-2-06.2\` addresses step 2 of
 a multi-step exercise.
@@ -125,26 +125,26 @@ When the hook reports an interactive planning workflow:
    approval, and implement and test that adaptive variant. Do not apply canonical
    operations as though they represented the learner's choices.
 5. Record a verified adaptive variant with
-   \`aifirst done <id> --via agent --agent claude --variant-json '<json>' --format json\`,
+   \`${cliCommand} done <id> --via agent --agent claude --variant-json '<json>' --format json\`,
    using only the stable question and option ids supplied by the hook. Never put
    free-form learner text in the progress log.
 
 **They ask to work in a particular chapter** ("let's do chapter 7")
-\`aifirst at <first id in that chapter>\`, then \`aifirst next\`. The bookmark
+\`${cliCommand} at <first id in that chapter>\`, then \`${cliCommand} next\`. The bookmark
 stays there, so asking what is next later continues in that chapter rather than
 jumping back.
 
 **They ask what is next** ("where was I", "what should I do now")
-\`aifirst next --format json\`. Show the prompt and let them try it themselves
+\`${cliCommand} next --format json\`. Show the prompt and let them try it themselves
 before revealing the book's answer.
 
 **They name an exercise** ("show me py-2-06", "let's do chapter 2 exercise 6")
-\`aifirst run <id> --format json\`, then present the output and the exercise's
+\`${cliCommand} run <id> --format json\`, then present the output and the exercise's
 stored \`explanation\`. If
 they only want to look at it, use \`show\`.
 
 **They paste a prompt from the book**
-\`aifirst search "<their text>" --format json\`. On a hit, use that exercise. On
+\`${cliCommand} search "<their text>" --format json\`. On a hit, use that exercise. On
 \`{"match": null}\`, say no book example matches and answer normally — do not invent
 an exercise id.
 
@@ -154,13 +154,13 @@ them in order. \`run\` executes the final step, which is the finished program.
 
 **They finish a book**
 \`next\` returns \`"complete": true\` with the book named. Congratulate them, then
-offer the books listed in \`otherBooks\` via \`aifirst book <tag>\`.
+offer the books listed in \`otherBooks\` via \`${cliCommand} book <tag>\`.
 
 **\`run\` fails with \`needs_interactive_run\`**
 The exercise reads input and no terminal is attached. Ask the learner to run it
 themselves so they can type the answers:
 
-    !aifirst run <id>
+    !${cliCommand} run <id>
 
 The leading \`!\` runs it in their own shell and shows you the output.
 
@@ -186,7 +186,7 @@ The leading \`!\` runs it in their own shell and shows you the output.
   packages merely because the flag exists.
 - **Python and Java have separate exercises.** Pass \`--language py\` or
   \`--language java\` to \`search\` when you know which book they are reading.
-- **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe
+- **Never run \`${cliCommand} reset --all\`** unless the learner explicitly asks to wipe
   their progress; it clears their whole log. It will ask for approval — do not
   approve it on their behalf.
 - **If you are answering through book mode, you already know.** Book mode replaces
@@ -199,11 +199,11 @@ The leading \`!\` runs it in their own shell and shows you the output.
   chapter 7 next even with gaps behind them. When it passes over earlier
   unfinished exercises it says how many, and \`--earliest\` goes back for them.
   If they want to read a different chapter, move the bookmark with
-  \`aifirst at <id>\` — do **not** skip the exercises in between to get there.
+  \`${cliCommand} at <id>\` — do **not** skip the exercises in between to get there.
   Skipping is a claim about those exercises and it goes in their ledger; the
   bookmark says nothing about them.
-- **Compare with \`aifirst diff\`, never with a shell pipeline.** To check whether
-  a learner's file matches the book, run \`aifirst diff <id> <file>\`. It is
+- **Compare with \`${cliCommand} diff\`, never with a shell pipeline.** To check whether
+  a learner's file matches the book, run \`${cliCommand} diff <id> <file>\`. It is
   pre-approved and reports the differing lines. Reaching for \`diff\`,
   \`<(...)\`, a temp file, or piping \`show --format json\` through python to
   reconstruct the code all do the same job less well, and process substitution
@@ -218,22 +218,27 @@ The leading \`!\` runs it in their own shell and shows you the output.
   the chapter.
 - **Do not overwrite their work.** \`run\` and \`apply\` refuse to replace a file
   whose contents differ. Do not add \`--force\` on their behalf.
-- If \`aifirst\` is missing, point them at
-  \`curl -fsSL https://aifirstprogramming.com/install.sh | bash\` rather than
-  reconstructing examples from memory — you will get them subtly wrong.
+- If \`aifirst\` is missing, use the installer for the environment where Claude
+  Code is running rather than reconstructing examples from memory:
+  - Native Windows, including Claude Code using Git Bash: ask the learner to run
+    \`irm ${INSTALL_HOST}/install.ps1 | iex\` in PowerShell. Do not run
+    \`install.sh\` from Git Bash.
+  - macOS, Linux, or WSL: \`curl -fsSL ${INSTALL_HOST}/install.sh | bash\`.
+  After installation, fully restart Claude Code and its terminal or editor host
+  so ordinary shell commands also inherit the updated PATH.
 
 `;
 }
 
 /** SKILL.md with YAML frontmatter, the format all three agents read. */
-export function skillMarkdown(): string {
+export function skillMarkdown(cliCommand = "aifirst"): string {
   return `---
 name: ${SKILL_NAME}
 description: ${DESCRIPTION}
 version: ${VERSION}
 ---
 
-${body()}`;
+${body(cliCommand)}`;
 }
 
 /** Parse the `version:` line back out, for drift detection in `aifirst doctor`. */
@@ -254,9 +259,9 @@ export interface CommandFile {
 
 /**
  * Small, single-purpose commands. Claude reads these from the skill's
- * `commands/`, Codex from `~/.codex/prompts/`; the bodies are identical.
+ * `commands/`, Codex from `~/.codex/prompts/`; only the executable prefix varies.
  */
-export function commandFiles(): CommandFile[] {
+export function commandFiles(cliCommand = "aifirst"): CommandFile[] {
   return [
     {
       name: "aifirst-next",
@@ -264,14 +269,14 @@ export function commandFiles(): CommandFile[] {
 description: Show my next unfinished AI First book exercise and coach me through it.
 ---
 
-Run \`aifirst next --format json\`.
+Run \`${cliCommand} next --format json\`.
 
 If it reports \`"needsBookChoice": true\`, ask me which book I'm reading and set it
-with \`aifirst book <tag>\` before going further.
+with \`${cliCommand} book <tag>\` before going further.
 
 Present the exercise title and its first prompt. Let me attempt the prompt myself
 first — do not reveal the book's answer until I ask or I've tried. When I ask for it,
-run \`aifirst run <id> --format json\`, which writes the code, runs it, and records
+run \`${cliCommand} run <id> --format json\`, which writes the code, runs it, and records
 the exercise. Present the code, then the exercise's \`Explanation:\`, then the real
 output it produced.
 `,
@@ -283,7 +288,7 @@ description: Run a specific AI First book exercise by id, with the book's exact 
 argument-hint: <exercise-id, e.g. py-2-06>
 ---
 
-Run \`aifirst run $ARGUMENTS --format json\`.
+Run \`${cliCommand} run $ARGUMENTS --format json\`.
 
 That writes the book's code, executes it, and records the exercise only if it ran.
 Present the code **verbatim** (no reformatting, no renaming, no added comments),
@@ -292,7 +297,7 @@ program's actual output. For a multi-step exercise, note that each step modifies
 the previous result.
 
 If it fails with \`needs_interactive_run\`, the exercise reads input: ask me to run
-\`!aifirst run $ARGUMENTS\` myself so I can type the answers.
+\`!${cliCommand} run $ARGUMENTS\` myself so I can type the answers.
 `,
     },
     {
@@ -301,7 +306,7 @@ If it fails with \`needs_interactive_run\`, the exercise reads input: ask me to 
 description: Summarize how far I've got through the AI First books.
 ---
 
-Run \`aifirst progress --format json\`.
+Run \`${cliCommand} progress --format json\`.
 
 Summarize briefly: how far through my book I am, and what's next. Percentages cover
 the exercises published today and are scoped to the book I'm reading — chapters with

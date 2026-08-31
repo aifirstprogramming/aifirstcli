@@ -32,9 +32,33 @@ A close but non-exact match never runs immediately. Claude asks for confirmation
 
 The Claude Code `UserPromptSubmit` hook performs replay in normal skill mode. In `aifirst learn`, the hook only supplies context and the local responder performs the same operations, preventing duplicate execution.
 
+The installed Claude integration calls a launcher inside
+`~/.claude/skills/aifirst/` rather than relying on `aifirst` being present in
+Claude Code's inherited `PATH`. This matters on Windows, where an already-running
+Windows Terminal, VS Code, or Claude Code process can retain the PATH from before
+the PowerShell installer ran.
+
+Existing installations with the older bare-command hook migrate when the skill
+is refreshed:
+
+```text
+aifirst skill install --claude
+```
+
+If PowerShell cannot resolve `aifirst` yet, use the default install path directly:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\aifirst\aifirst.exe" skill install --claude
+```
+
+Native Windows installs use `irm https://aifirstprogramming.com/install.ps1 | iex`
+in PowerShell. The shell installer is only for macOS, Linux, and WSL; it deliberately
+does not install the Windows binary from Git Bash.
+
 For workflow replays, the hook keeps planning context compact and supplies one
 trusted post-approval command: `aifirst replay execute <id> --format json`.
-`aifirst init` allowlists that exact command prefix, so Claude does not need to
+The installed Claude skill renders that command through its stable launcher, and
+`aifirst init` allowlists the resulting prefix. Claude therefore does not need to
 inspect its hook-result file with `wc`, `awk`, `sed`, or Python, and the learner
 does not receive approval prompts for replay plumbing.
 

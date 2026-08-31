@@ -14,7 +14,12 @@
  */
 
 import { baseUrl, DEFAULT_PORT } from "../bookmode/port";
-import { claudeSettingsPath, readClaudeSettings, updateClaudeSettings } from "../agents/claude";
+import {
+  claudeCliCommand,
+  claudeSettingsPath,
+  readClaudeSettings,
+  updateClaudeSettings,
+} from "../agents/claude";
 import type { Args } from "../cli";
 import { formatFlag, numberFlag, stringFlag } from "../cli";
 import { claudeEntries } from "../permissions";
@@ -55,7 +60,7 @@ function preApproved(): boolean {
   if (!data) return false;
   const perms = data.permissions as { allow?: unknown } | undefined;
   const allow = Array.isArray(perms?.allow) ? (perms!.allow as unknown[]) : [];
-  return claudeEntries().every((entry) => allow.includes(entry));
+  return claudeEntries(claudeCliCommand()).every((entry) => allow.includes(entry));
 }
 
 function unparseable(): never {

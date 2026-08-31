@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { claudeAgent } from "../src/agents/claude";
+import { bashPath, claudeAgent, claudeCliCommand } from "../src/agents/claude";
 import { claudeEntries } from "../src/permissions";
+import { VERSION } from "../src/version";
 
 /**
  * The upgrade path, and the diagnostic that is supposed to police it.
@@ -62,7 +63,7 @@ describe("skill install", () => {
     // This is the fix: `update` calls this path, so it has to grant.
     await cli(["skill", "install", "--claude", "--format", "json"]);
     const settings = JSON.parse(readFileSync(settingsPath(), "utf8"));
-    for (const entry of claudeEntries()) {
+    for (const entry of claudeEntries(claudeCliCommand())) {
       expect(settings.permissions.allow).toContain(entry);
     }
   });
@@ -72,6 +73,26 @@ describe("skill install", () => {
     expect(await claudeAgent.permissionState()).toBe("missing");
     const config = JSON.parse(readFileSync(join(state, "config.json"), "utf8"));
     expect(config.permissionsOptOut).toBe(true);
+  });
+
+  it.skipIf(!Bun.which("bash"))("runs the installed launcher with a PATH that cannot resolve aifirst", async () => {
+    await cli(["skill", "install", "--claude", "--format", "json"]);
+    const bash = Bun.which("bash")!;
+    const launcher = join(home, ".claude", "skills", "aifirst", "aifirst-cli.sh");
+    const proc = Bun.spawn([bash, bashPath(launcher), "--version"], {
+      cwd: home,
+      env: { ...process.env, PATH: "/nonexistent", AIFIRST_HOME_OVERRIDE: home },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+    expect(stderr).toBe("");
+    expect(proc.exitCode).toBe(0);
+    expect(stdout.trim()).toBe(VERSION);
   });
 });
 
