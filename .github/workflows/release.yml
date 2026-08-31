@@ -11,12 +11,14 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   learn-compatibility:
     uses: ./.github/workflows/learn-compatibility.yml
     permissions:
       contents: read
+      issues: write
 
   # Linux and Windows cross-compile cleanly from one Linux runner.
   build-linux-windows:
