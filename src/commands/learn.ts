@@ -42,7 +42,7 @@ function escapeCmdArgument(value: string, doubleEscapeMeta: boolean): string {
   return doubleEscapeMeta ? escaped.replace(CMD_META, "^$1") : escaped;
 }
 
-function clientCommand(command: string, args: string[]): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
+export function clientCommand(command: string, args: string[]): { command: string; args: string[]; windowsVerbatimArguments?: boolean } {
   if (process.platform !== "win32" || /\.(?:com|exe)$/i.test(command)) return { command, args };
   if (/\.ps1$/i.test(command)) {
     return {

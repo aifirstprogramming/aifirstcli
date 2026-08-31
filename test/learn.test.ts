@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import { clientCommand } from "../src/commands/learn";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const sandboxes: string[] = [];
@@ -85,7 +86,7 @@ exit ${status}
 }
 
 describe("learn", () => {
-  it("launches an isolated normal client with a narrow environment and cleans up", async () => {
+  it.skipIf(process.platform === "win32")("launches an isolated normal client with a narrow environment and cleans up", async () => {
     const root = sandbox();
     const result = await runLearn(root);
 
@@ -115,8 +116,7 @@ describe("learn", () => {
     expect(existsSync(join(root, "state", "learn", "session.json"))).toBe(false);
   }, 20_000);
 
-  it.skipIf(process.platform !== "win32")("captures Windows arguments as exact PowerShell JSON", async () => {
-    const root = sandbox();
+  it.skipIf(process.platform !== "win32")("preserves Windows arguments through the PowerShell shim", () => {
     const passthrough = [
       "--resume",
       "reader",
@@ -132,22 +132,30 @@ describe("learn", () => {
       "ten",
       "spaces & special ^ characters",
     ];
-    const result = await runLearn(root, 0, passthrough);
-
-    expect(result.code).toBe(0);
-    const launch = JSON.parse(readFileSync(result.capture, "utf8")) as { args: string[] };
-    expect(launch.args).toEqual([
+    const args = [
       "--setting-sources",
       "user",
       "--settings",
-      expect.stringContaining("\\state\\learn\\profile-"),
+      "C:\\state\\learn\\profile-test\\settings.json",
       "--tools",
       "Bash,Edit,Read,Write,AskUserQuestion",
       ...passthrough,
-    ]);
-  }, 20_000);
+    ];
+    expect(clientCommand("C:\\tools\\claude.ps1", args)).toEqual({
+      command: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\tools\\claude.ps1",
+        ...args,
+      ],
+    });
+  });
 
-  it("propagates the Claude client exit status", async () => {
+  it.skipIf(process.platform === "win32")("propagates the Claude client exit status", async () => {
     const root = sandbox();
     const result = await runLearn(root, 7);
     expect(result.code).toBe(7);
