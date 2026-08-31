@@ -7,12 +7,12 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
-  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
+import { expectScaffold, seedScaffold } from "./helpers/scaffold";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const claude = Bun.which("claude");
@@ -22,6 +22,7 @@ const pythonReady =
     env: { ...process.env, PYGAME_HIDE_SUPPORT_PROMPT: "1" },
   }).exitCode === 0;
 const describeLive = claude && pythonReady ? describe : describe.skip;
+const content = resolveContent().content;
 
 interface StreamBlock {
   type?: string;
@@ -35,18 +36,13 @@ interface StreamEvent {
 }
 
 function replayStep(id: string): ReplayStep {
-  return resolveContent().content.steps.find(
+  return content.steps.find(
     (candidate) => candidate.id === id,
   )! as ReplayStep;
 }
 
 function seedWorkspace(workspace: string, stepId: string): void {
-  for (const file of replayStep(stepId).scaffold?.files ?? []) {
-    if (file.content === undefined) continue;
-    const path = join(workspace, file.path);
-    mkdirSync(join(path, ".."), { recursive: true });
-    writeFileSync(path, file.content);
-  }
+  seedScaffold(workspace, replayStep(stepId), content);
   const generated = Bun.spawnSync({
     cmd: ["python3", "assets_gen.py"],
     cwd: workspace,
@@ -205,12 +201,7 @@ describeLive("chapter 10 level-editor replay through aifirst learn", () => {
     expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
     expectCapturedText(stdout, stepId);
     expectOperations(stdout, stepId);
-    const expected = replayStep(stepId);
-    for (const file of expected.scaffold?.files ?? []) {
-      expect(readFileSync(join(workspace, file.path), "utf8"), file.path).toBe(
-        file.content!,
-      );
-    }
+    expectScaffold(workspace, replayStep(stepId), content);
     expect(existsSync(join(workspace, "levels", "level_4.json"))).toBe(false);
   }
 

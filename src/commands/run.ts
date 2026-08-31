@@ -23,6 +23,7 @@ import { which } from "../agents/util";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
+import { writeScaffold } from "../content/scaffold";
 import type { Example, Step } from "../content/types";
 import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
@@ -44,34 +45,6 @@ function sameCode(a: string, b: string): boolean {
  */
 function canonicalOwner(text: string, content: Content): string | undefined {
   return content.steps.find((s) => sameCode(s.response, text))?.id;
-}
-
-/**
- * Write the extra files a non-runnable exercise needs.
- *
- * The book prints some code as a fragment: a class with no entry point, or a method
- * body shown on its own. The response stays exactly as printed, and whatever it needs
- * around it comes from the pack's scaffold. `fromExercise` points at another
- * exercise's code rather than duplicating it, so the two cannot drift apart.
- *
- * Existing files are never overwritten -- one of them may be the learner's own work.
- */
-function writeScaffold(dir: string, step: Step, content: Content): string[] {
-  const written: string[] = [];
-  for (const file of step.scaffold?.files ?? []) {
-    if (file.path.includes("..") || file.path.startsWith("/")) continue;
-    const body = file.fromExercise
-      ? content.steps.find((s) => s.id === file.fromExercise)?.response
-      : file.content;
-    if (body === undefined) continue;
-
-    const target = resolvePath(dir, file.path);
-    if (existsSync(target)) continue;
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, body.endsWith("\n") ? body : `${body}\n`);
-    written.push(file.path);
-  }
-  return written;
 }
 
 /**

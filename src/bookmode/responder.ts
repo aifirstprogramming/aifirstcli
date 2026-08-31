@@ -18,6 +18,7 @@ import { chatCommandError, isLocalCommand, localHelp, parseChatCommand } from ".
 import type { ContentSource, SourceState } from "./contentSource";
 import { renderBookEnvelope, renderStep } from "./render";
 import type { Content } from "../content/types";
+import { writeScaffold } from "../content/scaffold";
 import type { ProgressLog } from "../log/progress";
 import { markIfNew } from "../log/progress";
 import { executeReplay } from "../replay/executor";
@@ -621,6 +622,7 @@ function planningOutcomeReply(
 ): Reply {
   if (outcome.kind === "reply") return outcome.reply;
   if (outcome.kind === "run") {
+    writeScaffold(process.cwd(), step, content, { binaryOnly: true });
     return nativeReplayReply(
       step,
       content,
@@ -675,7 +677,9 @@ function workspaceMatchesInitialState(step: ReplayStep, content: Content): boole
   const initial = content.steps.find((candidate) => candidate.id === initialId);
   const files = initial?.scaffold?.files ?? [];
   if (files.length === 0) return false;
-  return files.every((file) => {
+  return files.every((rawFile) => {
+    const file = rawFile as typeof rawFile & { contentBase64?: string };
+    if (file.contentBase64 !== undefined) return true;
     const expected = scaffoldContent(file, content);
     if (expected === undefined) return false;
     try {
@@ -732,6 +736,7 @@ function selectedReplayReply(
       notice,
     );
   }
+  writeScaffold(process.cwd(), selectedStep, content, { binaryOnly: true });
   return withLeadingText(
     nativeReplayReply(
       selectedStep,
@@ -1094,6 +1099,7 @@ export class BookContentSource implements ContentSource {
   private execute(step: ReplayStep) {
     const example = this.content.examples.find((candidate) => candidate.id === step.exampleId);
     if (!example || !step.replay) return undefined;
+    writeScaffold(process.cwd(), step, this.content, { binaryOnly: true });
     const result = executeReplay(step.replay);
     return {
       text: [renderStep(example, step), result.text, result.ok ? "Replay completed." : "Replay diverged from its recorded result."].filter(Boolean).join("\n\n"),

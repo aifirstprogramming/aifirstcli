@@ -16,3 +16,7 @@ Thumbs.db
 # Agent scratch
 .claude/settings.local.json
 .claude/worktrees/
+
+# Exercise runtime output
+/assets/
+/__pycache__/

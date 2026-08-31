@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { beginPlanning, type PlanningSession } from "../src/bookmode/planning";
 import { respond } from "../src/bookmode/responder";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
 import { emptyLog } from "../src/log/progress";
+import { seedScaffold } from "./helpers/scaffold";
 
 const content = resolveContent().content;
 const step = (id: string) =>
@@ -43,12 +44,7 @@ const tools = [
 ];
 
 function seed(workspace: string, stepId: string): void {
-  for (const file of step(stepId).scaffold?.files ?? []) {
-    if (file.content === undefined) continue;
-    const path = join(workspace, file.path);
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, file.content);
-  }
+  seedScaffold(workspace, step(stepId), content);
 }
 
 describe("chapter 10 level-editor replays", () => {
@@ -149,6 +145,7 @@ describe("chapter 10 level-editor replays", () => {
         { planning },
       );
       expect(approval.text).toContain("## Proposed plan");
+      expect(existsSync(join(workspace, "assets"))).toBe(false);
 
       const build = respond(
         {
@@ -168,6 +165,9 @@ describe("chapter 10 level-editor replays", () => {
       );
       expect(build.toolUse?.name).toBe("Write");
       expect(build.toolUse?.id).toBe("aifirst_replay_standalone_py-10-01_0");
+      expect(readFileSync(join(workspace, "assets", "fox.png")).subarray(0, 8)).toEqual(
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      );
     } finally {
       process.chdir(original);
       rmSync(workspace, { recursive: true, force: true });

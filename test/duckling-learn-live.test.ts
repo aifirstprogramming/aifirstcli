@@ -7,11 +7,12 @@
  */
 
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
+import { expectScaffold, seedScaffold } from "./helpers/scaffold";
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 const claude = Bun.which("claude");
@@ -20,6 +21,7 @@ const pythonReady = Bun.spawnSync({
   env: { ...process.env, PYGAME_HIDE_SUPPORT_PROMPT: "1" },
 }).exitCode === 0;
 const describeLive = claude && pythonReady ? describe : describe.skip;
+const content = resolveContent().content;
 
 if (!claude || !pythonReady) {
   const missing = [!claude && "Claude Code", !pythonReady && "pygame/Pillow"].filter(Boolean).join(" and ");
@@ -163,13 +165,10 @@ function expectInOrder(actual: string, anchors: string[]): void {
 }
 
 function seedWorkspace(workspace: string, stepId: string): void {
-  const step = resolveContent().content.steps.find(
+  const step = content.steps.find(
     (candidate) => candidate.id === stepId,
   )! as ReplayStep;
-  for (const file of step.scaffold?.files ?? []) {
-    if (file.content === undefined) continue;
-    writeFileSync(join(workspace, file.path), file.content);
-  }
+  seedScaffold(workspace, step, content);
 }
 
 function showtailReferenceOutputs(stepId: string): string[] {
@@ -315,11 +314,8 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     expect(transcript).not.toContain("## Planning");
     expect(transcript).not.toContain("## Claude Code Replay (continued)");
 
-    const step = resolveContent().content.steps.find((candidate) => candidate.id === "py-9-01")!;
-    for (const file of step.scaffold?.files ?? []) {
-      expect(file.content, `${file.path} has no authored content`).toBeDefined();
-      expect(readFileSync(join(workspace, file.path), "utf8"), file.path).toBe(file.content!);
-    }
+    const step = content.steps.find((candidate) => candidate.id === "py-9-01")!;
+    expectScaffold(workspace, step, content);
     for (const asset of [
       "duckling.png", "mother_duck.png", "sibling_1.png", "sibling_2.png", "sibling_3.png",
       "grass_tile.png", "water_tile.png", "rock.png", "bush.png",
@@ -364,10 +360,8 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     expect(transcript).not.toContain("## Claude Code Replay (continued)");
     expectOperationCounts(stdout, "py-9-02");
 
-    const step = resolveContent().content.steps.find((candidate) => candidate.id === "py-9-02")!;
-    for (const file of step.scaffold?.files ?? []) {
-      expect(readFileSync(join(workspace, file.path), "utf8"), file.path).toBe(file.content!);
-    }
+    const step = content.steps.find((candidate) => candidate.id === "py-9-02")!;
+    expectScaffold(workspace, step, content);
     expect(existsSync(join(workspace, "assets", "fox.png"))).toBe(true);
     expect(existsSync(join(workspace, "screenshot.png"))).toBe(false);
   }, 60_000);
@@ -414,10 +408,8 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     expect(transcript).toContain("The game now has three levels of increasing difficulty");
     expect(transcript).not.toContain("## Claude Code Replay (continued)");
 
-    const step = resolveContent().content.steps.find((candidate) => candidate.id === "py-9-03")!;
-    for (const file of step.scaffold?.files ?? []) {
-      expect(readFileSync(join(workspace, file.path), "utf8"), file.path).toBe(file.content!);
-    }
+    const step = content.steps.find((candidate) => candidate.id === "py-9-03")!;
+    expectScaffold(workspace, step, content);
     expect(existsSync(join(workspace, "assets", "fox.png"))).toBe(true);
     for (let index = 1; index <= 3; index++) {
       expect(existsSync(join(workspace, `screenshot_level${index}.png`))).toBe(false);

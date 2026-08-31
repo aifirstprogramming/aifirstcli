@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { startBookServer } from "../src/commands/serve";
 import { resolveContent } from "../src/content";
 import { SERVER_TOOLS } from "../src/learn/session";
+import { seedScaffold } from "./helpers/scaffold";
 
 const claude = Bun.which("claude");
 const describeLive = claude ? describe : describe.skip;
@@ -175,10 +176,9 @@ describeLive("live fuzzy confirmation (real Claude Code client)", () => {
     const settings = join(root, "settings.json");
     mkdirSync(home, { recursive: true });
     mkdirSync(workspace, { recursive: true });
-    const base = resolveContent().content.steps.find((step) => step.id === "py-9-01")!;
-    for (const file of base.scaffold?.files ?? []) {
-      if (file.content !== undefined) writeFileSync(join(workspace, file.path), file.content);
-    }
+    const content = resolveContent().content;
+    const base = content.steps.find((step) => step.id === "py-9-01")!;
+    seedScaffold(workspace, base, content);
     writeFileSync(settings, JSON.stringify({ permissions: { allow: ["Bash(*)", "Edit(*)", "Read(*)", "Write(*)"] } }) + "\n", { mode: 0o600 });
     writeFileSync(join(home, ".claude.json"), JSON.stringify({
       hasCompletedOnboarding: true,
@@ -271,10 +271,9 @@ describeLive("live fuzzy confirmation (real Claude Code client)", () => {
       expect(compactTui(declined)).toContain("Nothingwaschangedorrecorded");
       expect(existsSync(join(workspace, "main.py"))).toBe(false);
 
-      const fox = resolveContent().content.steps.find((step) => step.id === "py-9-02")!;
-      for (const file of fox.scaffold?.files ?? []) {
-        if (file.content !== undefined) writeFileSync(join(workspace, file.path), file.content);
-      }
+      const content = resolveContent().content;
+      const fox = content.steps.find((step) => step.id === "py-9-02")!;
+      seedScaffold(workspace, fox, content);
       const selected = await run("select");
       expect(compactTui(selected)).toContain("AddTwoHarderLevels");
       expect(compactTui(selected)).toContain("Howshouldthegametransitionbetweenlevels?");
