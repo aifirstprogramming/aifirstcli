@@ -20,10 +20,12 @@ describe("skill-mode planning hook", () => {
     const proc = Bun.spawn([process.execPath, "run", ENTRY, "replay", "hook"], {
       cwd: root,
       env: { ...process.env, AIFIRST_STATE_DIR: join(root, "state") },
-      stdin: new Blob([input]),
+      stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
     });
+    proc.stdin.write(input);
+    proc.stdin.end();
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),

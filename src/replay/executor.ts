@@ -42,7 +42,10 @@ function inside(root: string, path: string): string {
 
 function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, root: string): ReplayCommandResult {
   try {
-    const result = spawnSync(operation.command[0] ?? "", operation.command.slice(1), {
+    const executable = process.platform === "win32" && operation.command[0] === "python3"
+      ? "python"
+      : operation.command[0] ?? "";
+    const result = spawnSync(executable, operation.command.slice(1), {
       cwd: inside(root, operation.cwd ?? "."),
       env: { ...process.env, ...operation.env },
       input: operation.stdin,
