@@ -17,8 +17,25 @@ concurrency:
 jobs:
   pinned-claude:
     runs-on: ubuntu-latest
+    env:
+      AIFIRST_CONTENT_REPO: ${{ github.workspace }}/aifirstcontent
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve pinned content commit
+        id: content
+        shell: bash
+        run: |
+          set -euo pipefail
+          REF=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).dependencies['@aifirst/content'].split('#').at(-1)")
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout replay reference fixtures
+        uses: actions/checkout@v4
+        with:
+          repository: aifirstprogramming/aifirstcontent
+          ref: ${{ steps.content.outputs.ref }}
+          path: aifirstcontent
 
       - uses: oven-sh/setup-bun@v2
         with:
