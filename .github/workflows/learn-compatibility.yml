@@ -73,7 +73,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          AIFIRST_ASSET_RUNTIME=1 bun run check
+          bun scripts/sync-content.ts --check
+          bunx tsc -p tsconfig.json
+          AIFIRST_ASSET_RUNTIME=1 bun test test
           AIFIRST_CLAUDE_LIVE=1 AIFIRST_ASSET_RUNTIME=1 bun run explore:learn:full
 
       - name: Upload compatibility reports
