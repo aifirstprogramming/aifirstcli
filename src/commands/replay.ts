@@ -24,7 +24,7 @@ function sanitizeCapturedText(value: string): string {
     .replace(/\bsavetheduckling\//g, "./");
 }
 
-function workflowContext(step: ReplayStep, root: string): string {
+export function workflowContext(step: ReplayStep, root: string): string {
   const replay = step.replay!;
   const workflow = replay.workflow!;
   const questions = workflow.questions.map((question) => ({

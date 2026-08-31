@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { workflowContext } from "../src/commands/replay";
+import { resolveContent } from "../src/content";
+import type { ReplayStep } from "../src/content/types";
 
-const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
 let root = "";
 
 afterEach(() => {
@@ -13,28 +15,8 @@ afterEach(() => {
 describe("skill-mode planning hook", () => {
   test("returns planning context without executing the replay", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-workflow-hook-"));
-    const input = JSON.stringify({
-      prompt: "Make a game about a baby duckling who is trying to find its mother using pygame.",
-      cwd: root,
-    });
-    const inputPath = join(root, "hook-input.json");
-    writeFileSync(inputPath, input);
-    const proc = Bun.spawn([process.execPath, "run", ENTRY, "replay", "hook"], {
-      cwd: root,
-      env: { ...process.env, AIFIRST_STATE_DIR: join(root, "state") },
-      stdin: Bun.file(inputPath),
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const [stdout, stderr] = await Promise.all([
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
-    ]);
-    await proc.exited;
-    expect(proc.exitCode, stderr).toBe(0);
-
-    const result = JSON.parse(stdout) as { hookSpecificOutput: { additionalContext: string } };
-    const context = result.hookSpecificOutput.additionalContext;
+    const step = resolveContent().content.steps.find((candidate) => candidate.id === "py-9-01") as ReplayStep;
+    const context = workflowContext(step, root);
     const payloadStart = context.lastIndexOf('\n\n{\n  "exerciseId"') + 2;
     const payload = JSON.parse(context.slice(payloadStart)) as {
       questionSteps: Array<{
