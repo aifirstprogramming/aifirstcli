@@ -47,15 +47,26 @@ describe("independent local-learning contract checks", () => {
   });
 
   test("the native verification harness and documented release matrix exist", () => {
-    expect(readFileSync("docs/learn-verification.md", "utf8")).toContain(
-      "Linux",
-    );
-    expect(readFileSync("docs/learn-verification.md", "utf8")).toContain(
-      "macOS",
-    );
-    expect(readFileSync("docs/learn-verification.md", "utf8")).toContain(
-      "Windows",
-    );
+    const verification = readFileSync("docs/learn-verification.md", "utf8");
+    expect(verification).toContain("Linux");
+    expect(verification).toContain("macOS");
+    expect(verification).toContain("Windows");
+    expect(verification).toContain("bun run explore:learn:pr");
+    expect(verification).toContain("bun run explore:learn:full");
+  });
+
+  test("Claude compatibility automation has an exact pin and release gate", () => {
+    const pin = readFileSync(".github/claude-code-version", "utf8").trim();
+    const nightly = readFileSync(".github/workflows/learn-compatibility.yml", "utf8");
+    const drift = readFileSync(".github/workflows/claude-version-drift.yml", "utf8");
+    const release = readFileSync(".github/workflows/release.yml", "utf8");
+    expect(pin).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(nightly).toContain("@anthropic-ai/claude-code@$VERSION");
+    expect(nightly).toContain("bun run explore:learn:full");
+    expect(drift).toContain("npm view @anthropic-ai/claude-code version");
+    expect(drift).toContain("git push origin HEAD:main");
+    expect(drift).toContain("claude-compat");
+    expect(release).toContain("uses: ./.github/workflows/learn-compatibility.yml");
   });
 
   test("X11 is confined to the non-root manual launcher", () => {

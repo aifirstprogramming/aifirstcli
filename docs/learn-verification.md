@@ -3,6 +3,35 @@
 This document is the release gate for `aifirst learn`. The automated fake-client
 suite is necessary but does not replace native Claude Code checks.
 
+## Automated Gates
+
+Normal pull requests run the deterministic suite on Linux, macOS, and Windows.
+Real-client tests are opt-in so a locally installed Claude binary cannot make an
+ordinary `bun test` run slower or less reproducible.
+
+```sh
+bun run check
+bun run explore:learn:pr
+```
+
+The PR exploration profile runs 1,000 seeded responder sequences plus 100 HTTP
+ordering, cancellation, and abort cases. The complete compatibility profile is:
+
+```sh
+AIFIRST_CLAUDE_LIVE=1 AIFIRST_ASSET_RUNTIME=1 bun run explore:learn:full
+```
+
+The full profile runs 5,000 responder sequences, 203 HTTP cases, the live stream
+suite twice, every real TUI scenario three times, and the lifecycle/profile
+isolation checks. Reports are written beneath
+`test-results/learn-exploration/` and must contain zero findings.
+
+The exact supported client version is stored in
+`.github/claude-code-version`. The nightly compatibility workflow installs that
+version and runs the full profile. A separate weekly workflow tests npm's latest
+Claude Code version; it updates the exact pin only after a completely clean run
+and opens a version-specific compatibility issue on failure.
+
 ## Boundary
 
 Run each platform check with a fresh test account and a sentinel normal Claude

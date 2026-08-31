@@ -94,33 +94,58 @@ describe("reading what the reader typed", () => {
     expect(readerText(messages)).toBe("");
     expect(carriesToolResult(messages)).toBe(true);
   });
+
+  it("removes a client interruption marker without dropping the prompt", () => {
+    expect(readerText([{ role: "user", content: "[Request interrupted by user for tool use]" }])).toBe("");
+    expect(readerText([{
+      role: "user",
+      content: "[Request interrupted by user for tool use]\n\nduckling",
+    }])).toBe("duckling");
+    expect(readerText([{
+      role: "user",
+      content: [
+        { type: "text", text: "[Request interrupted by user for tool use]" },
+        { type: "text", text: "duckling" },
+      ],
+    }])).toBe("duckling");
+  });
+
+  it("preserves ordinary prose that merely mentions the interruption marker", () => {
+    const text = "Explain why [Request interrupted by user for tool use] appeared in this log.";
+    expect(readerText([{ role: "user", content: text }])).toBe(text);
+  });
 });
 
 describe("answering a book prompt", () => {
   it("uses Claude's native choice box when the client advertises it", () => {
+    const confirmation: { stepId?: string; confirmationToolId?: string } = {};
     const reply = respond(
       { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
       content,
       log,
+      { confirmation },
     );
 
     expect(reply.stopReason).toBe("tool_use");
     expect(reply.exerciseId).toBe("py-1-01");
     expect(reply.toolUse?.name).toBe("AskUserQuestion");
-    expect(reply.toolUse?.id).toBe("aifirst_confirm_py-1-01");
+    expect(reply.toolUse?.id).toStartWith("aifirst_confirm_");
+    expect(confirmation.confirmationToolId).toBe(reply.toolUse?.id);
     expect(JSON.stringify(reply.toolUse?.input)).toContain("Run this replay");
   });
 
   it("re-presents a pending confirmation when Claude resumes with no content", () => {
-    const confirmation: { stepId?: string; stepIds?: string[] } = {};
+    const confirmation: { stepId?: string; stepIds?: string[]; confirmationToolId?: string } = {};
     const first = respond(
       { messages: [{ role: "user", content: "fox" }], tools: NATIVE_TOOLS_WITH_QUESTION },
       content,
       log,
       { confirmation },
     );
-    expect(first.toolUse?.id).toBe("aifirst_confirm_py-9-02");
+    const firstId = first.toolUse?.id;
+    expect(firstId).toStartWith("aifirst_confirm_");
     expect(confirmation.stepId).toBe("py-9-02");
+    expect(confirmation.confirmationToolId).toBe(firstId);
 
     const resumed = respond(
       { messages: [{ role: "user", content: "(no content)" }], tools: NATIVE_TOOLS_WITH_QUESTION },
@@ -130,55 +155,151 @@ describe("answering a book prompt", () => {
     );
     expect(resumed.exerciseId).toBe("py-9-02");
     expect(resumed.stopReason).toBe("tool_use");
-    expect(resumed.toolUse?.id).toBe("aifirst_confirm_py-9-02");
+    expect(resumed.toolUse?.id).toBe(firstId);
     expect(resumed.toolUse?.name).toBe("AskUserQuestion");
     expect(resumed.text).not.toContain("isn't a prompt from the book");
     expect(resumed.toolUse?.name).not.toBe("Write");
   });
 
   it("runs only the replay encoded in the accepted native choice", () => {
+    const confirmation: { stepId?: string; confirmationToolId?: string } = {};
+    const question = respond(
+      { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation },
+    );
     const reply = respond({
-      messages: [
-        { role: "user", content: "write hello world" },
-        {
-          role: "assistant",
-          content: [{ type: "tool_use", id: "aifirst_confirm_py-1-01", name: "AskUserQuestion", input: {} }],
-        },
-        {
-          role: "user",
-          content: [{
-            type: "tool_result",
-            tool_use_id: "aifirst_confirm_py-1-01",
-            content: '{"answers":{"AI First":"Run this replay"}}',
-          }],
-        },
-      ],
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: question.toolUse?.id,
+        content: '{"answers":{"AI First":"Run this replay"}}',
+      }] }],
       tools: NATIVE_TOOLS_WITH_QUESTION,
-    }, content, log);
+    }, content, log, { confirmation });
 
     expect(reply.exerciseId).toBe("py-1-01");
     expect(reply.stopReason).toBe("tool_use");
     expect(reply.toolUse?.id).toBe("aifirst_replay_py-1-01_0");
     expect(reply.toolUse?.name).toBe("Write");
+    expect(confirmation.confirmationToolId).toBeUndefined();
+  });
+
+  it("keeps stateless confirmation working without encoding the exercise in the tool id", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "aifirst-stateless-confirmation-"));
+    const originalCwd = process.cwd();
+    process.chdir(workspace);
+    try {
+      const question = respond(
+        { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+        content,
+        log,
+      );
+      expect(question.toolUse?.id).toStartWith("aifirst_confirm_");
+      expect(question.toolUse?.id).not.toContain("py-1-01");
+
+      const accepted = respond({
+        messages: [{ role: "user", content: [{
+          type: "tool_result",
+          tool_use_id: question.toolUse?.id,
+          content: '{"answers":{"AI First":"Run this replay"}}',
+        }] }],
+        tools: NATIVE_TOOLS_WITH_QUESTION,
+      }, content, log);
+      expect(accepted.exerciseId).toBe("py-1-01");
+      expect(accepted.toolUse?.id).toBe("aifirst_replay_py-1-01_0");
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it("does not run a replay when the native choice is cancelled", () => {
+    const confirmation: { stepId?: string; confirmationToolId?: string } = {};
+    const question = respond(
+      { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation },
+    );
     const reply = respond({
       messages: [{
         role: "user",
         content: [{
           type: "tool_result",
-          tool_use_id: "aifirst_confirm_py-1-01",
+          tool_use_id: question.toolUse?.id,
           content: '{"answers":{"AI First":"Cancel"}}',
         }],
       }],
       tools: NATIVE_TOOLS_WITH_QUESTION,
-    }, content, log);
+    }, content, log, { confirmation });
 
     expect(reply.exerciseId).toBe("py-1-01");
     expect(reply.stopReason).toBe("end_turn");
     expect(reply.toolUse).toBeUndefined();
     expect(reply.text).toBe("Replay cancelled.");
+    expect(confirmation.confirmationToolId).toBeUndefined();
+  });
+
+  it("ignores a stale cancellation when a newer fuzzy confirmation is active", () => {
+    const confirmation: { stepId?: string; confirmationToolId?: string } = {};
+    const first = respond(
+      { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation },
+    );
+    const firstId = first.toolUse?.id;
+    const cancelled = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: firstId,
+        content: '{"answers":{"AI First":"Cancel"}}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { confirmation });
+    expect(cancelled.text).toBe("Replay cancelled.");
+
+    const second = respond(
+      { messages: [{ role: "user", content: "write hello world" }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { confirmation },
+    );
+    const secondId = second.toolUse?.id;
+    expect(secondId).toStartWith("aifirst_confirm_");
+    expect(secondId).not.toBe(firstId);
+
+    const stateBeforeStaleResult = structuredClone(confirmation);
+    const repeated = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: firstId,
+        content: '{"answers":{"AI First":"Cancel"}}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { confirmation });
+    expect(repeated.toolUse?.id).toBe(secondId);
+    expect(confirmation).toEqual(stateBeforeStaleResult);
+
+    const accepted = respond({
+      messages: [{ role: "user", content: [
+        {
+          type: "tool_result",
+          tool_use_id: firstId,
+          content: '{"answers":{"AI First":"Cancel"}}',
+        },
+        {
+          type: "tool_result",
+          tool_use_id: secondId,
+          content: '{"answers":{"AI First":"Run this replay"}}',
+        },
+      ] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { confirmation });
+    expect(accepted.exerciseId).toBe("py-1-01");
+    expect(accepted.toolUse?.id).toBe("aifirst_replay_py-1-01_0");
+    expect(confirmation.confirmationToolId).toBeUndefined();
   });
 
   it("keeps typed confirmation in server-owned transaction state", () => {

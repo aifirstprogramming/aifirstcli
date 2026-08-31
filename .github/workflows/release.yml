@@ -13,8 +13,14 @@ permissions:
   contents: write
 
 jobs:
+  learn-compatibility:
+    uses: ./.github/workflows/learn-compatibility.yml
+    permissions:
+      contents: read
+
   # Linux and Windows cross-compile cleanly from one Linux runner.
   build-linux-windows:
+    needs: learn-compatibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +64,7 @@ jobs:
   # macOS must build on macOS: Apple Silicon refuses to execute an unsigned
   # arm64 binary, so a Linux-cross-compiled darwin artifact dies on launch.
   build-darwin:
+    needs: learn-compatibility
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -124,7 +131,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [build-linux-windows, build-darwin]
+    needs: [learn-compatibility, build-linux-windows, build-darwin]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

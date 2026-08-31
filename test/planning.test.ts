@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   beginPlanning,
   continuePlanning,
   finishPlanningInterlude,
   planningToolCancelled,
   planningToolResult,
+  repeatPlanning,
   type PlanningSession,
 } from "../src/bookmode/planning";
 import { respond } from "../src/bookmode/responder";
@@ -82,16 +86,24 @@ describe("model-free planning workflow", () => {
 
   test("can restart or exit without producing replay operations", () => {
     const planning = state();
-    beginPlanning(duckling, planning, TOOLS);
-    continuePlanning(duckling, planning, TOOLS, "Multi-level progression");
+    const first = reply(beginPlanning(duckling, planning, TOOLS));
+    const firstId = first.toolUse?.id;
+    const repeated = reply(repeatPlanning(duckling, planning, TOOLS));
+    expect(repeated.toolUse?.id).toBe(firstId);
+
+    const fallback = reply(continuePlanning(duckling, planning, TOOLS, "Multi-level progression"));
+    expect(fallback.toolUse?.id).not.toBe(firstId);
     const restarted = reply(continuePlanning(duckling, planning, TOOLS, "Restart planning"));
     expect(planning.answers).toEqual({});
     expect(JSON.stringify(restarted.toolUse?.input)).toContain("What style of gameplay");
+    expect(restarted.toolUse?.id).not.toBe(firstId);
+    expect(restarted.toolUse?.id).not.toBe(fallback.toolUse?.id);
 
     continuePlanning(duckling, planning, TOOLS, "Side-scrolling platformer");
     const exited = reply(continuePlanning(duckling, planning, TOOLS, "Exit local learning"));
     expect(exited.text).toContain("normal Claude Code");
     expect(planning.stepId).toBeUndefined();
+    expect("expectedToolId" in planning).toBe(false);
   });
 
   test("selects an explicitly authored deterministic variant", () => {
@@ -208,22 +220,82 @@ describe("responder planning integration", () => {
 
   test("a partial duckling prompt confirms before planning", () => {
     const planning = state();
-    const confirmation: { stepId?: string } = {};
+    const confirmation: { stepId?: string; confirmationToolId?: string } = {};
     const first = respond({ messages: [{ role: "user", content: "baby duckling who is trying to find its mother" }], tools: TOOLS }, content, emptyLog(), { planning, confirmation });
     expect(first.toolUse?.name).toBe("AskUserQuestion");
-    expect(first.toolUse?.id).toBe("aifirst_confirm_py-9-01");
+    expect(first.toolUse?.id).toStartWith("aifirst_confirm_");
+    expect(confirmation.confirmationToolId).toBe(first.toolUse?.id);
     expect(planning.stepId).toBeUndefined();
 
     const second = respond({
       messages: [{ role: "user", content: [{
         type: "tool_result",
-        tool_use_id: "aifirst_confirm_py-9-01",
+        tool_use_id: first.toolUse?.id,
         content: '{"answers":{"AI First":"Run this replay"}}',
       }] }],
       tools: TOOLS,
     }, content, emptyLog(), { planning, confirmation });
     expect(second.toolUse?.id).toBe("aifirst_preplan_py-9-01_0");
     expect(planning.stepId).toBeUndefined();
+  });
+
+  test("re-presents the active planning question for a stale-only result", () => {
+    const planning = state();
+    const questions = reply(beginPlanning(editor, planning, TOOLS));
+    const stateBeforeStaleResult = structuredClone(planning);
+    const repeated = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: "aifirst_plan_py-10-01_question_stale",
+        content: "(no content)",
+      }] }],
+      tools: TOOLS,
+    }, content, emptyLog(), { planning });
+
+    expect(repeated.toolUse?.id).toBe(questions.toolUse?.id);
+    expect(planning).toEqual(stateBeforeStaleResult);
+  });
+
+  test("uses the active approval when an older planning result is also present", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "aifirst-planning-transaction-"));
+    const originalCwd = process.cwd();
+    process.chdir(workspace);
+    try {
+      const planning: PlanningSession = { answers: {}, replayMode: "standalone" };
+      const questions = reply(beginPlanning(editor, planning, TOOLS));
+      const afterQuestions = continuePlanning(editor, planning, TOOLS, JSON.stringify({ answers: {
+        level_format: "JSON files (Book Recommended)",
+        editor_ui: "Standalone script (Book Recommended)",
+        feature_scope: "Core grid placement (Book Recommended)",
+      } }));
+      expect(afterQuestions.kind).toBe("interlude");
+      if (afterQuestions.kind !== "interlude") throw new Error("expected planning interlude");
+      const approval = reply(finishPlanningInterlude(editor, planning, TOOLS, afterQuestions.questionId));
+
+      const build = respond({
+        messages: [{ role: "user", content: [
+          {
+            type: "tool_result",
+            tool_use_id: questions.toolUse?.id,
+            content: JSON.stringify({ answers: { level_format: "JSON files (Book Recommended)" } }),
+          },
+          {
+            type: "tool_result",
+            tool_use_id: approval.toolUse?.id,
+            content: '{"answers":{"Plan":"Approve and build"}}',
+          },
+        ] }],
+        tools: TOOLS,
+      }, content, emptyLog(), { planning });
+
+      expect(build.toolUse?.name).toBe("Write");
+      expect(build.toolUse?.id).toBe("aifirst_replay_standalone_py-10-01_0");
+      expect(build.text).not.toContain("Approve this plan?");
+      expect("expectedToolId" in planning).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   test("routes a new exercise prompt after the planning question is rejected", () => {

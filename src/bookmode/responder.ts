@@ -27,11 +27,13 @@ import type { ReplayEvent, ReplayOperation, ReplayStep } from "../content/types"
 import { clearPendingReplay, confirmationAnswer, readPendingReplay, replaySelection, savePendingReplay } from "../replay/pending";
 import {
   beginPlanning,
+  carriesPlanningToolResult,
   clearActivePlanning,
   continuePlanning,
   finishPlanningInterlude,
   planningToolCancelled,
   planningToolResult,
+  repeatPlanning,
   type ActivePlanPath,
   type PlanningSession,
 } from "./planning";
@@ -104,16 +106,22 @@ function questionTool(tools: ToolDefinition[] | undefined): string | undefined {
   return (tools ?? []).find((tool) => tool.name?.toLowerCase() === "askuserquestion")?.name;
 }
 
-function confirmationToolId(stepId: string): string {
-  return `aifirst_confirm_${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
+const CONFIRMATION_TOOL_PREFIX = "aifirst_confirm_";
+
+function newConfirmationToolId(): string {
+  return `${CONFIRMATION_TOOL_PREFIX}${crypto.randomUUID()}`;
 }
 
-function confirmationQuestion(step: ReplayStep, tools: ToolDefinition[] | undefined): Reply["toolUse"] | undefined {
+function confirmationQuestion(
+  step: ReplayStep,
+  tools: ToolDefinition[] | undefined,
+  toolUseId = newConfirmationToolId(),
+): Reply["toolUse"] | undefined {
   const name = questionTool(tools);
   if (!name) return undefined;
   const prompt = step.replay?.prompt ?? step.prompt;
   return {
-    id: confirmationToolId(step.id),
+    id: toolUseId,
     name,
     input: {
       questions: [{
@@ -132,6 +140,7 @@ function confirmationQuestion(step: ReplayStep, tools: ToolDefinition[] | undefi
 interface ConfirmationState {
   stepId?: string;
   stepIds?: string[];
+  confirmationToolId?: string;
   ambiguityToolId?: string;
 }
 
@@ -162,8 +171,10 @@ function setConfirmation(state: ConfirmationState | undefined, stepIds: string[]
   delete state.stepIds;
   if (stepIds.length === 1) {
     delete state.ambiguityToolId;
+    if (!sameCandidates || !state.confirmationToolId) state.confirmationToolId = newConfirmationToolId();
     state.stepId = stepIds[0];
   } else {
+    delete state.confirmationToolId;
     if (!sameCandidates || !state.ambiguityToolId) state.ambiguityToolId = newAmbiguityToolId();
     state.stepIds = stepIds.slice(0, 3);
   }
@@ -173,6 +184,7 @@ function clearConfirmation(state: ConfirmationState | undefined): void {
   if (state) {
     delete state.stepId;
     delete state.stepIds;
+    delete state.confirmationToolId;
     delete state.ambiguityToolId;
   }
   clearPendingReplay();
@@ -481,18 +493,27 @@ function interludeToolResult(messages: RequestMessage[] | undefined): { stepId: 
   };
 }
 
-function confirmationToolResult(messages: RequestMessage[] | undefined): { stepId: string; accepted: boolean; failed: boolean } | undefined {
+function interactiveToolResults(messages: RequestMessage[] | undefined, prefix: string): ContentBlock[] {
   const message = [...(messages ?? [])].reverse().find((candidate) => candidate.role !== "system");
-  const result = message?.role === "user" && Array.isArray(message.content)
-    ? message.content.find((block) => block?.type === "tool_result" && typeof block.tool_use_id === "string" && block.tool_use_id.startsWith("aifirst_confirm_"))
-    : undefined;
-  if (!result || typeof result.tool_use_id !== "string") return undefined;
-  const match = result.tool_use_id.match(/^aifirst_confirm_(.+)$/);
-  if (!match) return undefined;
+  return message?.role === "user" && Array.isArray(message.content)
+    ? message.content.filter((block) =>
+        block?.type === "tool_result" &&
+        typeof block.tool_use_id === "string" &&
+        block.tool_use_id.startsWith(prefix))
+    : [];
+}
+
+function confirmationToolResult(
+  messages: RequestMessage[] | undefined,
+  expectedToolId?: string,
+): { accepted: boolean; failed: boolean } | undefined {
+  const results = interactiveToolResults(messages, CONFIRMATION_TOOL_PREFIX)
+    .filter((block) => expectedToolId === undefined || block.tool_use_id === expectedToolId);
+  const result = results.at(-1);
+  if (!result) return undefined;
   const detail = typeof result.content === "string" ? result.content : JSON.stringify(result.content ?? "");
   const normalized = detail.toLowerCase();
   return {
-    stepId: match[1],
     accepted: normalized.includes("run this replay"),
     failed: result.is_error === true,
   };
@@ -786,6 +807,14 @@ function replayCompletion(
 /** Blocks a client injects around what the reader typed. */
 const INJECTED = /<system-reminder>[\s\S]*?<\/system-reminder>/gi;
 const SESSION = /<session>([\s\S]*?)<\/session>/i;
+const INTERRUPTED_TOOL_USE = "[Request interrupted by user for tool use]";
+
+function readerBlockText(value: string): string {
+  return value
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== INTERRUPTED_TOOL_USE)
+    .join("\n");
+}
 
 function isSessionTitleRequest(messages: RequestMessage[] | undefined): boolean {
   const last = [...(messages ?? [])].reverse().find((message) => message.role === "user");
@@ -809,10 +838,10 @@ export function readerText(messages: RequestMessage[] | undefined): string {
 
   const raw =
     typeof last.content === "string"
-      ? last.content
+      ? readerBlockText(last.content)
       : (last.content ?? [])
           .filter((b) => b?.type === "text" && typeof b.text === "string")
-          .map((b) => b.text as string)
+          .map((b) => readerBlockText(b.text as string))
           .join("\n");
 
   const session = raw.match(SESSION);
@@ -1156,8 +1185,10 @@ export function respond(
     return prePlanReply(step, content, request.tools, options.planning, prePlanResult.operationIndex + 1);
   }
 
+  const hasPlanningToolResult = carriesPlanningToolResult(request.messages);
   let cancelledPlanningTool = false;
-  if (options.planning?.stepId && planningToolCancelled(request.messages)) {
+  let ignoredStalePlanning = false;
+  if (options.planning?.stepId && planningToolCancelled(request.messages, options.planning.expectedToolId)) {
     clearActivePlanning(options.planning);
     cancelledPlanningTool = true;
     if (isEmptyContinuation(readerText(request.messages))) {
@@ -1168,7 +1199,9 @@ export function respond(
     }
   }
 
-  const planAnswer = cancelledPlanningTool ? undefined : planningToolResult(request.messages);
+  const planAnswer = cancelledPlanningTool
+    ? undefined
+    : planningToolResult(request.messages, options.planning?.expectedToolId);
   if (planAnswer !== undefined && options.planning?.stepId) {
     const step = planningStep(
       content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
@@ -1177,6 +1210,19 @@ export function respond(
     if (step?.replay?.workflow) {
       const outcome = continuePlanning(step, options.planning, request.tools, planAnswer);
       return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
+    }
+  }
+  if (!cancelledPlanningTool && planAnswer === undefined && hasPlanningToolResult && options.planning?.stepId) {
+    ignoredStalePlanning = true;
+    if (isEmptyContinuation(readerText(request.messages))) {
+      const step = planningStep(
+        content.steps.find((candidate) => candidate.id === options.planning!.stepId) as ReplayStep | undefined,
+        options.planning,
+      );
+      if (step?.replay?.workflow) {
+        const outcome = repeatPlanning(step, options.planning, request.tools);
+        return planningOutcomeReply(step, content, request.tools, options.planning, outcome);
+      }
     }
   }
 
@@ -1190,10 +1236,16 @@ export function respond(
     return selectedReplayReply(step, content, request.tools, options.planning);
   }
 
-  const confirmationResult = confirmationToolResult(request.messages);
+  let ignoredStaleConfirmation = false;
+  const pendingConfirmation = pendingConfirmationIds(options.confirmation);
+  const confirmationResults = interactiveToolResults(request.messages, CONFIRMATION_TOOL_PREFIX);
+  const confirmationResult = confirmationToolResult(request.messages, options.confirmation?.confirmationToolId);
   if (confirmationResult) {
+    const stepId = pendingConfirmation[0];
+    const step = stepId
+      ? content.steps.find((candidate) => candidate.id === stepId) as ReplayStep | undefined
+      : undefined;
     clearConfirmation(options.confirmation);
-    const step = content.steps.find((candidate) => candidate.id === confirmationResult.stepId) as ReplayStep | undefined;
     if (confirmationResult.failed) {
       return { text: "Replay confirmation was cancelled.", stopReason: "end_turn", exerciseId: step?.id };
     }
@@ -1201,6 +1253,25 @@ export function respond(
       return { text: "Replay cancelled.", stopReason: "end_turn", exerciseId: step?.id };
     }
     return selectedReplayReply(step, content, request.tools, options.planning);
+  }
+  if (confirmationResults.length > 0 && pendingConfirmation.length === 1) {
+    ignoredStaleConfirmation = true;
+    if (isEmptyContinuation(readerText(request.messages))) {
+      const step = content.steps.find((candidate) => candidate.id === pendingConfirmation[0]) as ReplayStep | undefined;
+      if (!step?.replay) {
+        clearConfirmation(options.confirmation);
+        return { text: "That replay confirmation is no longer available. Please repeat the exercise prompt.", stopReason: "end_turn" };
+      }
+      const question = confirmationQuestion(step, request.tools, options.confirmation?.confirmationToolId);
+      return {
+        text: question
+          ? `I still need your choice for ${step.id}.`
+          : `A replay may match this prompt: ${step.replay.prompt ?? step.prompt}\n\nReply "yes" to run it, or "no" to do nothing.`,
+        ...(question ? { toolUse: question } : {}),
+        stopReason: question ? "tool_use" : "end_turn",
+        exerciseId: step.id,
+      };
+    }
   }
 
   const replayResult = replayToolResult(request.messages);
@@ -1234,7 +1305,7 @@ export function respond(
   }
 
   const result = toolResult(request.messages);
-  if (result && !cancelledPlanningTool) {
+  if (result && !cancelledPlanningTool && !ignoredStalePlanning && !ignoredStaleConfirmation) {
     return { text: closing(log, content, result), stopReason: "end_turn" };
   }
 
@@ -1279,7 +1350,7 @@ export function respond(
       clearConfirmation(options.confirmation);
       return { text: "That replay confirmation is no longer available. Please repeat the exercise prompt.", stopReason: "end_turn" };
     }
-    const question = confirmationQuestion(step, request.tools);
+    const question = confirmationQuestion(step, request.tools, options.confirmation?.confirmationToolId);
     return {
       text: question
         ? `I still need your choice for ${step.id}.`
@@ -1324,18 +1395,15 @@ export function respond(
       ? content.steps.find((candidate) => candidate.id === existingId) as ReplayStep | undefined
       : undefined;
     const candidate = pendingStep?.replay ? pendingStep : replay.step;
-    const question = confirmationQuestion(candidate, request.tools);
+    setConfirmation(options.confirmation, [candidate.id]);
+    const question = confirmationQuestion(candidate, request.tools, options.confirmation?.confirmationToolId);
     if (question) {
-      setConfirmation(options.confirmation, [candidate.id]);
       return {
         text: `I found a likely replay for ${candidate.id}.`,
         toolUse: question,
         stopReason: "tool_use",
         exerciseId: candidate.id,
       };
-    }
-    if (!existingId || !pendingStep) {
-      setConfirmation(options.confirmation, [replay.step.id]);
     }
     return {
       text: `A replay may match this prompt: ${candidate.replay?.prompt ?? candidate.prompt}\n\nReply "yes" to run it, or continue with a different prompt.`,

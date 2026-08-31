@@ -19,4 +19,5 @@ Thumbs.db
 
 # Exercise runtime output
 /assets/
-/__pycache__/
+__pycache__/
+/test-results/learn-exploration/

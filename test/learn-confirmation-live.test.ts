@@ -16,15 +16,16 @@ import { SERVER_TOOLS } from "../src/learn/session";
 import { seedScaffold } from "./helpers/scaffold";
 
 const claude = Bun.which("claude");
-const describeLive = claude ? describe : describe.skip;
+const liveEnabled = process.env.AIFIRST_CLAUDE_LIVE === "1";
+const describeLive = liveEnabled && claude ? describe : describe.skip;
 const pythonReady = Bun.spawnSync({
   cmd: ["python3", "-c", "import PIL, pygame"],
   env: { ...process.env, PYGAME_HIDE_SUPPORT_PROMPT: "1" },
 }).exitCode === 0;
-const testGameLive = claude && pythonReady ? test : test.skip;
+const testGameLive = liveEnabled && claude && pythonReady ? test : test.skip;
 
-if (!claude) {
-  console.warn("learn-confirmation-live: no `claude` binary on PATH; skipping real-client confirmation test.");
+if (!liveEnabled || !claude) {
+  console.warn("learn-confirmation-live: set AIFIRST_CLAUDE_LIVE=1 with `claude` on PATH to run real-client confirmation tests.");
 }
 
 describeLive("live fuzzy confirmation (real Claude Code client)", () => {

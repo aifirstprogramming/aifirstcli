@@ -42,6 +42,28 @@ jobs:
           EXPECTED=$(node -p "let t=0;const fs=require('fs');for(const f of fs.readdirSync('books').filter(x=>x.endsWith('.json'))){const d=JSON.parse(fs.readFileSync('books/'+f));for(const s of d.sections||[])for(const c of s.chapters||[])for(const e of c.examples||[])if(e.status!=='retired')t++;}t")
           "$BIN" progress --format json | grep -q "\"total\": $EXPECTED"
 
+  learn-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Explore deterministic learn contracts
+        run: bun run explore:learn:pr
+
+      - name: Upload exploration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: learn-contract-report
+          path: test-results/learn-exploration/
+          if-no-files-found: error
+          retention-days: 14
+
   shellcheck:
     runs-on: ubuntu-latest
     steps:

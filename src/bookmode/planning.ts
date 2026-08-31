@@ -28,6 +28,7 @@ export interface ActivePlanPath {
 export interface PlanningSession {
   stepId?: string;
   replayMode?: "captured" | "standalone";
+  expectedToolId?: string;
   answers: Record<string, string>;
   awaiting?:
     | { kind: "question"; questionIds: string[] }
@@ -55,8 +56,10 @@ function questionTool(tools: ToolDefinition[] | undefined): string | undefined {
   return (tools ?? []).find((tool) => tool.name?.toLowerCase() === "askuserquestion")?.name;
 }
 
-function toolId(stepId: string, kind: "question" | "fallback" | "approval", id: string): string {
-  return `aifirst_plan_${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}_${kind}_${id}`;
+const PLANNING_TOOL_PREFIX = "aifirst_plan_";
+
+function newToolId(stepId: string, kind: "question" | "fallback" | "approval", id: string): string {
+  return `${PLANNING_TOOL_PREFIX}${stepId.replace(/[^a-zA-Z0-9_.-]/g, "_")}_${kind}_${id}_${crypto.randomUUID()}`;
 }
 
 function normalized(value: string): string {
@@ -81,17 +84,27 @@ function resultText(block: ContentBlock): string {
   return "";
 }
 
-function planningResultBlock(messages: RequestMessage[] | undefined): ContentBlock | undefined {
+function planningResultBlocks(messages: RequestMessage[] | undefined): ContentBlock[] {
   const message = [...(messages ?? [])].reverse().find((candidate) => candidate.role !== "system");
-  if (!message || message.role !== "user" || !Array.isArray(message.content)) return undefined;
-  return message.content.find((block) =>
+  if (!message || message.role !== "user" || !Array.isArray(message.content)) return [];
+  return message.content.filter((block) =>
     block?.type === "tool_result" &&
     typeof block.tool_use_id === "string" &&
-    block.tool_use_id.startsWith("aifirst_plan_"));
+    block.tool_use_id.startsWith(PLANNING_TOOL_PREFIX));
 }
 
-export function planningToolCancelled(messages: RequestMessage[] | undefined): boolean {
-  const result = planningResultBlock(messages);
+function planningResultBlock(messages: RequestMessage[] | undefined, expectedToolId?: string): ContentBlock | undefined {
+  return planningResultBlocks(messages)
+    .filter((block) => expectedToolId === undefined || block.tool_use_id === expectedToolId)
+    .at(-1);
+}
+
+export function carriesPlanningToolResult(messages: RequestMessage[] | undefined): boolean {
+  return planningResultBlocks(messages).length > 0;
+}
+
+export function planningToolCancelled(messages: RequestMessage[] | undefined, expectedToolId?: string): boolean {
+  const result = planningResultBlock(messages, expectedToolId);
   if (!result) return false;
   if (result.is_error === true) return true;
   const text = resultText(result).trim();
@@ -110,8 +123,8 @@ export function planningToolCancelled(messages: RequestMessage[] | undefined): b
   return false;
 }
 
-export function planningToolResult(messages: RequestMessage[] | undefined): string | Record<string, string> | undefined {
-  const result = planningResultBlock(messages);
+export function planningToolResult(messages: RequestMessage[] | undefined, expectedToolId?: string): string | Record<string, string> | undefined {
+  const result = planningResultBlock(messages, expectedToolId);
   if (!result) return undefined;
   if (typeof result.content === "string") {
     try {
@@ -204,7 +217,13 @@ function optionLabel(step: ReplayStep, question: PlanQuestion, optionId: string)
   return `${option?.label ?? optionId}${recommended ? BOOK_SUFFIX : ""}`;
 }
 
-function askQuestions(step: ReplayStep, state: PlanningSession, tools: ToolDefinition[] | undefined, questions: PlanQuestion[]): PlanningOutcome {
+function askQuestions(
+  step: ReplayStep,
+  state: PlanningSession,
+  tools: ToolDefinition[] | undefined,
+  questions: PlanQuestion[],
+  reuseToolId?: string,
+): PlanningOutcome {
   state.awaiting = { kind: "question", questionIds: questions.map((question) => question.id) };
   const tool = questionTool(tools);
   const nativeQuestions = questions.map((question) => ({
@@ -218,6 +237,7 @@ function askQuestions(step: ReplayStep, state: PlanningSession, tools: ToolDefin
   }));
   const text = "";
   if (!tool) {
+    delete state.expectedToolId;
     return {
       kind: "reply",
       reply: {
@@ -230,12 +250,13 @@ function askQuestions(step: ReplayStep, state: PlanningSession, tools: ToolDefin
       },
     };
   }
+  state.expectedToolId = reuseToolId ?? newToolId(step.id, "question", questions.map((question) => question.id).join("+"));
   return {
     kind: "reply",
     reply: {
       text,
       toolUse: {
-        id: toolId(step.id, "question", questions.map((question) => question.id).join("+")),
+        id: state.expectedToolId,
         name: tool,
         input: {
           questions: nativeQuestions,
@@ -253,6 +274,7 @@ function askFallback(
   tools: ToolDefinition[] | undefined,
   question: PlanQuestion,
   choice: string,
+  reuseToolId?: string,
 ): PlanningOutcome {
   state.awaiting = { kind: "fallback", questionId: question.id, choice };
   const canonical = step.replay!.workflow!.canonicalAnswers[question.id];
@@ -269,17 +291,19 @@ function askFallback(
     { label: "Exit local learning", description: "Leave this session and use normal Claude Code with the AI First skill." },
   ];
   if (!tool) {
+    delete state.expectedToolId;
     return {
       kind: "reply",
       reply: { text: `${text}\n\n${options.map((option) => `- ${option.label}: ${option.description}`).join("\n")}`, stopReason: "end_turn", exerciseId: step.id },
     };
   }
+  state.expectedToolId = reuseToolId ?? newToolId(step.id, "fallback", question.id);
   return {
     kind: "reply",
     reply: {
       text,
       toolUse: {
-        id: toolId(step.id, "fallback", question.id),
+        id: state.expectedToolId,
         name: tool,
         input: {
           questions: [{ question: "How would you like to continue?", header: "Next step", options, multiSelect: false }],
@@ -291,7 +315,13 @@ function askFallback(
   };
 }
 
-function askApproval(step: ReplayStep, state: PlanningSession, tools: ToolDefinition[] | undefined, active: ActivePlanPath): PlanningOutcome {
+function askApproval(
+  step: ReplayStep,
+  state: PlanningSession,
+  tools: ToolDefinition[] | undefined,
+  active: ActivePlanPath,
+  reuseToolId?: string,
+): PlanningOutcome {
   state.awaiting = { kind: "approval" };
   const workflow = step.replay!.workflow!;
   const variant = active.kind === "authored" ? workflow.variants?.find((candidate) => candidate.id === active.variantId) : undefined;
@@ -318,14 +348,16 @@ function askApproval(step: ReplayStep, state: PlanningSession, tools: ToolDefini
     { label: "Cancel", description: "Stop without changing files or progress." },
   ];
   if (!tool) {
+    delete state.expectedToolId;
     return { kind: "reply", reply: { text: `${text}\n\n${options.map((option) => `- ${option.label}`).join("\n")}`, stopReason: "end_turn", exerciseId: step.id } };
   }
+  state.expectedToolId = reuseToolId ?? newToolId(step.id, "approval", "plan");
   return {
     kind: "reply",
     reply: {
       text,
       toolUse: {
-        id: toolId(step.id, "approval", "plan"),
+        id: state.expectedToolId,
         name: tool,
         input: {
           questions: [{ question: "Approve this plan?", header: "Plan", options, multiSelect: false }],
@@ -358,6 +390,7 @@ function advance(step: ReplayStep, state: PlanningSession, tools: ToolDefinition
 
 export function beginPlanning(step: ReplayStep, state: PlanningSession, tools: ToolDefinition[] | undefined): PlanningOutcome {
   state.stepId = step.id;
+  delete state.expectedToolId;
   state.answers = {};
   state.awaiting = undefined;
   state.active = undefined;
@@ -373,6 +406,7 @@ export function continuePlanning(
   const awaiting = state.awaiting;
   const workflow = step.replay?.workflow;
   if (!awaiting || !workflow) return beginPlanning(step, state, tools);
+  delete state.expectedToolId;
 
   if (awaiting.kind === "question") {
     const questions = awaiting.questionIds.map((id) => workflow.questions.find((candidate) => candidate.id === id)!);
@@ -463,9 +497,34 @@ export function finishPlanningInterlude(
   return advance(step, state, tools);
 }
 
+export function repeatPlanning(
+  step: ReplayStep,
+  state: PlanningSession,
+  tools: ToolDefinition[] | undefined,
+): PlanningOutcome {
+  const awaiting = state.awaiting;
+  const toolUseId = state.expectedToolId;
+  const workflow = step.replay?.workflow;
+  if (!awaiting || !workflow) return beginPlanning(step, state, tools);
+  if (awaiting.kind === "question") {
+    const questions = awaiting.questionIds.map((id) => workflow.questions.find((question) => question.id === id)!);
+    return askQuestions(step, state, tools, questions, toolUseId);
+  }
+  if (awaiting.kind === "fallback") {
+    const question = workflow.questions.find((candidate) => candidate.id === awaiting.questionId)!;
+    return askFallback(step, state, tools, question, awaiting.choice, toolUseId);
+  }
+  if (awaiting.kind === "approval") {
+    const active = exactPath(step, state.answers);
+    return active ? askApproval(step, state, tools, active, toolUseId) : beginPlanning(step, state, tools);
+  }
+  return { kind: "interlude", questionId: awaiting.questionId, events: workflow.interludes?.find((candidate) => candidate.afterQuestion === awaiting.questionId)?.events ?? [] };
+}
+
 export function clearActivePlanning(state: PlanningSession): void {
   state.stepId = undefined;
   state.replayMode = undefined;
+  delete state.expectedToolId;
   state.answers = {};
   state.awaiting = undefined;
   state.active = undefined;

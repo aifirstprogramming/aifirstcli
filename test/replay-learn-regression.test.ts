@@ -5,12 +5,13 @@ import { join } from "node:path";
 import { startBookServer, type BookServer } from "../src/commands/serve";
 
 const claude = Bun.which("claude");
-const describeLive = claude ? describe : describe.skip;
+const liveEnabled = process.env.AIFIRST_CLAUDE_LIVE === "1";
+const describeLive = liveEnabled && claude ? describe : describe.skip;
 
-if (!claude) {
+if (!liveEnabled || !claude) {
   console.warn(
-    "replay-learn-regression: no `claude` binary on PATH -- skipping the live replay " +
-      "harness. This environment cannot verify bare-mode replay against a real client.",
+    "replay-learn-regression: set AIFIRST_CLAUDE_LIVE=1 with `claude` on PATH to " +
+      "verify bare-mode replay against a real client.",
   );
 }
 

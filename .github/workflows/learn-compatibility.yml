@@ -1,0 +1,92 @@
+name: Learn compatibility
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: learn-compatibility-pinned
+  cancel-in-progress: false
+
+jobs:
+  pinned-claude:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install pinned Claude Code
+        id: claude
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(tr -d '[:space:]' < .github/claude-code-version)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          PREFIX="$RUNNER_TEMP/claude-code"
+          npm install --prefix "$PREFIX" "@anthropic-ai/claude-code@$VERSION"
+          echo "$PREFIX/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Verify Claude Code pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL=$(claude --version | awk '{print $1}')
+          test "$ACTUAL" = "${{ steps.claude.outputs.version }}"
+
+      - name: Install game test dependencies
+        run: python3 -m pip install pygame Pillow
+
+      - name: Run pinned compatibility gate
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          AIFIRST_ASSET_RUNTIME=1 bun run check
+          AIFIRST_CLAUDE_LIVE=1 AIFIRST_ASSET_RUNTIME=1 bun run explore:learn:full
+
+      - name: Upload compatibility reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: learn-compatibility-${{ steps.claude.outputs.version }}
+          path: test-results/learn-exploration/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Update pinned compatibility issue
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.claude.outputs.version }}
+          OUTCOME: ${{ steps.gate.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="Pinned Claude compatibility regression"
+          gh label create claude-compat --color B60205 --description "Claude Code compatibility" --force
+          NUMBER=$(gh issue list --state open --search "$TITLE in:title" --json number,title --jq ".[] | select(.title == \"$TITLE\") | .number" | head -n1)
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -n "$NUMBER" ]; then
+              gh issue close "$NUMBER" --comment "Pinned Claude Code $VERSION is clean again. $RUN_URL"
+            fi
+          elif [ -n "$NUMBER" ]; then
+            gh issue comment "$NUMBER" --body "Pinned Claude Code $VERSION failed its nightly compatibility gate. $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --label claude-compat --body "Pinned Claude Code $VERSION failed its nightly compatibility gate. $RUN_URL"
+          fi

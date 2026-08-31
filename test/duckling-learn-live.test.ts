@@ -20,11 +20,12 @@ const pythonReady = Bun.spawnSync({
   cmd: ["python3", "-c", "import PIL, pygame"],
   env: { ...process.env, PYGAME_HIDE_SUPPORT_PROMPT: "1" },
 }).exitCode === 0;
-const describeLive = claude && pythonReady ? describe : describe.skip;
+const liveEnabled = process.env.AIFIRST_CLAUDE_LIVE === "1";
+const describeLive = liveEnabled && claude && pythonReady ? describe : describe.skip;
 const content = resolveContent().content;
 
-if (!claude || !pythonReady) {
-  const missing = [!claude && "Claude Code", !pythonReady && "pygame/Pillow"].filter(Boolean).join(" and ");
+if (!liveEnabled || !claude || !pythonReady) {
+  const missing = [!liveEnabled && "AIFIRST_CLAUDE_LIVE=1", !claude && "Claude Code", !pythonReady && "pygame/Pillow"].filter(Boolean).join(" and ");
   console.warn(`duckling-learn-live: ${missing} unavailable; skipping the real aifirst learn replay.`);
 }
 

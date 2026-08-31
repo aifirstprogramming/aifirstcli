@@ -21,7 +21,8 @@ const pythonReady =
     cmd: ["python3", "-c", "import PIL, pygame"],
     env: { ...process.env, PYGAME_HIDE_SUPPORT_PROMPT: "1" },
   }).exitCode === 0;
-const describeLive = claude && pythonReady ? describe : describe.skip;
+const liveEnabled = process.env.AIFIRST_CLAUDE_LIVE === "1";
+const describeLive = liveEnabled && claude && pythonReady ? describe : describe.skip;
 const content = resolveContent().content;
 
 interface StreamBlock {

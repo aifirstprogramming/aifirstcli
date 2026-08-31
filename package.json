@@ -18,6 +18,10 @@
     "build": "bun scripts/build.ts",
     "build:local": "bun scripts/build.ts --local",
     "capture:claude-e2e": "bun scripts/capture-claude-showtail-e2e.ts",
+    "explore:learn": "bun scripts/explore-learn.ts",
+    "explore:learn:pr": "bun scripts/explore-learn.ts --profile pr",
+    "explore:learn:full": "bun scripts/explore-learn.ts --profile full",
+    "test:learn:live": "bun test test/duckling-learn-live.test.ts test/chapter10-learn-live.test.ts test/learn-confirmation-live.test.ts test/learn-interactive-regression.test.ts test/replay-learn-regression.test.ts",
     "check": "bun scripts/sync-content.ts --check && tsc -p tsconfig.json && bun test"
   },
   "//dependencies": [
