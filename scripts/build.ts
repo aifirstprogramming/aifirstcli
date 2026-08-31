@@ -7,9 +7,8 @@
  * it, run it, and every exercise is there with no network.
  *
  * Usage:
- *   bun scripts/build.ts            all targets for this OS family
+ *   bun scripts/build.ts            all targets for the host OS
  *   bun scripts/build.ts --local    just this machine's target, into ./bin
- *   bun scripts/build.ts --all      every target (darwin builds will be unsigned)
  *   bun scripts/build.ts --target bun-linux-x64
  *
  * macOS caveat: Apple Silicon refuses to execute an unsigned arm64 binary, so
@@ -20,56 +19,25 @@
 
 import { mkdirSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
+import pkg from "../package.json";
 import { TARGETS } from "../src/targets";
 import type { BuildTarget } from "../src/targets";
+import { buildArgs, selectBuildTargets } from "./build-config";
 
 const ROOT = join(import.meta.dir, "..");
 const ENTRY = join(ROOT, "src", "index.ts");
 const OUT_DIR = join(ROOT, "bin");
 
-function localTarget(): BuildTarget {
-  const arch = process.arch === "arm64" ? "arm64" : "x64";
-  const os = process.platform === "darwin" ? "darwin" : process.platform === "win32" ? "windows" : "linux";
-  const found = TARGETS.find((t) => t.bunTarget === `bun-${os}-${arch}`);
-  if (!found) throw new Error(`No build target for ${process.platform}/${process.arch}`);
-  return found;
-}
-
 function selectTargets(): BuildTarget[] {
-  const argv = process.argv.slice(2);
-  if (argv.includes("--local")) return [localTarget()];
-
-  const explicit = argv.indexOf("--target");
-  if (explicit >= 0) {
-    const wanted = argv[explicit + 1];
-    const found = TARGETS.find((t) => t.bunTarget === wanted || t.asset === wanted);
-    if (!found) {
-      throw new Error(`Unknown target "${wanted}". Known: ${TARGETS.map((t) => t.bunTarget).join(", ")}`);
-    }
-    return [found];
+  if (process.platform !== "linux" && process.platform !== "darwin" && process.platform !== "win32") {
+    throw new Error(`Unsupported build host: ${process.platform}`);
   }
-
-  if (argv.includes("--all")) return TARGETS;
-
-  // Default: everything except darwin, which needs a macOS runner to be signed
-  // and therefore runnable on Apple Silicon.
-  return TARGETS.filter((t) => !t.bunTarget.includes("darwin"));
+  return selectBuildTargets(process.argv.slice(2), process.platform, process.arch, TARGETS);
 }
 
 async function build(target: BuildTarget): Promise<void> {
   const outfile = join(OUT_DIR, target.asset);
-  const args = [
-    "build",
-    "--compile",
-    "--minify",
-    // Moves JS parsing to build time; meaningfully faster startup for a CLI a
-    // learner runs dozens of times an hour.
-    "--bytecode",
-    `--target=${target.bunTarget}`,
-    ENTRY,
-    "--outfile",
-    outfile,
-  ];
+  const args = buildArgs(target, process.platform as "linux" | "darwin" | "win32", pkg.version, ENTRY, outfile);
 
   // Use the Bun that's running this script rather than whatever "bun" resolves
   // to on PATH — CI images and local shells don't always agree.

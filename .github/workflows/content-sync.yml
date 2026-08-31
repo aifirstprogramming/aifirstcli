@@ -37,7 +37,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       # Count non-retired examples in the pack currently on main, so the commit
       # message can quote both the pre-sync and post-sync totals.

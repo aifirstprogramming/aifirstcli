@@ -40,6 +40,11 @@ describe("asset naming", () => {
     const names = TARGETS.map((t) => t.asset);
     expect(new Set(names).size).toBe(names.length);
   });
+
+  it("does not embed host-specific bytecode in cross-compiled executables", () => {
+    const script = readFileSync(join(import.meta.dir, "..", "scripts", "build.ts"), "utf8");
+    expect(script).not.toContain('"--bytecode"');
+  });
 });
 
 describe("currentTarget", () => {

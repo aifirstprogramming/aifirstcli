@@ -152,8 +152,8 @@ function distance(a: string, b: string): number {
 
 // Only run when executed directly, so tests can import main() without dispatching.
 //
-// Deliberately not top-level await: `bun build --bytecode` emits CommonJS, which
-// cannot represent it, and bytecode is what keeps CLI startup fast.
+// Deliberately not top-level await so the entry point stays compatible with
+// Bun's compiled CommonJS output.
 if (import.meta.main) {
   void main(process.argv.slice(2)).then(
     (code) => {

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="aifirst-windows-x64.exe"
+             product-name="AI First CLI"
+             product-version="${version}"
+             file-version="${version}"
+             company-name="AI First Programming"
+             copyright="Copyright (c) 2026 Stephen Chin, Cassandra Chin, and Jennifer Reif">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="aifirst-windows-x64-baseline.exe"
+             product-name="AI First CLI"
+             product-version="${version}"
+             file-version="${version}"
+             company-name="AI First Programming"
+             copyright="Copyright (c) 2026 Stephen Chin, Cassandra Chin, and Jennifer Reif">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="aifirst-windows-arm64.exe"
+             product-name="AI First CLI"
+             product-version="${version}"
+             file-version="${version}"
+             company-name="AI First Programming"
+             copyright="Copyright (c) 2026 Stephen Chin, Cassandra Chin, and Jennifer Reif">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

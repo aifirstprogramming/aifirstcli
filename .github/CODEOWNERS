@@ -1,0 +1,5 @@
+/.github/workflows/release.yml @steveonjava
+/scripts/build.ts @steveonjava
+/scripts/build-config.ts @steveonjava
+/.signpath/ @steveonjava
+/CODE_SIGNING_POLICY.md @steveonjava

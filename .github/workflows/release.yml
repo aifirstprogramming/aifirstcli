@@ -3,11 +3,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Manual runs build and verify artifacts but never publish a GitHub release.
   workflow_dispatch:
-    inputs:
-      tag:
-        description: "Tag to build (for a dry run)"
-        required: false
 
 permissions:
   contents: write
@@ -20,22 +17,21 @@ jobs:
       contents: read
       issues: write
 
-  # Linux and Windows cross-compile cleanly from one Linux runner.
-  build-linux-windows:
+  build-linux:
     needs: learn-compatibility
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - run: bun install --frozen-lockfile
 
       # The binary reports package.json's version, while `aifirst update`
-      # compares against the release tag. If they disagree, every install thinks
-      # an upgrade is permanently available.
+      # compares against the release tag. A manual run is a build-only dry run.
       - name: Tag matches package.json version
+        if: github.event_name == 'push'
         run: |
           PKG=$(jq -r .version package.json)
           TAG="${GITHUB_REF_NAME#v}"
@@ -44,22 +40,83 @@ jobs:
             exit 1
           fi
 
-      # The committed books must match the content package the lockfile pins,
-      # or we would ship a binary with stale examples.
       - name: Verify content is in sync
         run: bun scripts/sync-content.ts --check
 
       - run: bunx tsc -p tsconfig.json
       - run: bun test
 
-      # The default target set is everything except darwin, which the macOS job
-      # builds and signs.
-      - name: Build
+      - name: Build Linux targets
         run: bun scripts/build.ts
 
       - uses: actions/upload-artifact@v4
         with:
-          name: binaries-linux-windows
+          name: binaries-linux
+          path: bin/*
+          if-no-files-found: error
+
+  # Bun can only write Windows version resources on a Windows build host. These
+  # are the unsigned inputs that will be submitted to SignPath after approval.
+  build-windows:
+    needs: learn-compatibility
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify content is in sync
+        run: bun scripts/sync-content.ts --check
+
+      - name: Build Windows targets with release metadata
+        run: bun scripts/build.ts
+
+      - name: Verify PE metadata
+        shell: pwsh
+        run: |
+          $packageVersion = (Get-Content package.json | ConvertFrom-Json).version
+          $numericVersion = ($packageVersion -split '[-+]')[0]
+          $expectedVersion = "$numericVersion.0"
+
+          foreach ($file in Get-ChildItem bin/aifirst-windows-*.exe) {
+            $info = $file.VersionInfo
+            if ($info.ProductName -ne 'AI First CLI') {
+              throw "$($file.Name): unexpected product name '$($info.ProductName)'"
+            }
+            if ($info.CompanyName -ne 'AI First Programming') {
+              throw "$($file.Name): unexpected company name '$($info.CompanyName)'"
+            }
+            if ($info.ProductVersion -ne $expectedVersion) {
+              throw "$($file.Name): unexpected product version '$($info.ProductVersion)'"
+            }
+            if ($info.FileVersion -ne $expectedVersion) {
+              throw "$($file.Name): unexpected file version '$($info.FileVersion)'"
+            }
+            if ($info.FileDescription -ne 'Companion CLI for the AI First Programming book series') {
+              throw "$($file.Name): unexpected description '$($info.FileDescription)'"
+            }
+            if ($info.LegalCopyright -ne 'Copyright (c) 2026 Stephen Chin, Cassandra Chin, and Jennifer Reif') {
+              throw "$($file.Name): unexpected copyright '$($info.LegalCopyright)'"
+            }
+          }
+
+      - name: Smoke test Windows release binaries
+        shell: pwsh
+        run: |
+          & bin/aifirst-windows-x64.exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $output = & bin/aifirst-windows-x64.exe show py-1-01 --format json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (($output -join "`n") -notmatch 'Hello, World!') { throw 'compiled content smoke test failed' }
+          & bin/aifirst-windows-x64-baseline.exe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-windows-unsigned
           path: bin/*
           if-no-files-found: error
 
@@ -72,24 +129,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
 
       - run: bun install --frozen-lockfile
       - run: bun scripts/sync-content.ts --check
 
       - name: Build darwin targets
-        run: |
-          bun scripts/build.ts --target bun-darwin-x64
-          mv bin/aifirst-darwin-x64 /tmp/aifirst-darwin-x64
-          bun scripts/build.ts --target bun-darwin-arm64
-          mv /tmp/aifirst-darwin-x64 bin/aifirst-darwin-x64
+        run: bun scripts/build.ts
 
       # Ad-hoc signing (-s -) is the minimum that lets the binary run on Apple
-      # Silicon at all. Set MACOS_CERTIFICATE + MACOS_SIGN_IDENTITY to sign with a
-      # Developer ID instead, which additionally avoids Gatekeeper warnings for
-      # users who download via a browser. (A `curl | bash` install does not set
-      # the quarantine attribute, so ad-hoc is sufficient for the documented
-      # install path.)
+      # Silicon. Real Developer ID signing and notarization are separate work.
       - name: Codesign
         env:
           MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
@@ -118,7 +167,6 @@ jobs:
             codesign --verify --verbose "$f"
           done
 
-      # Catch a signing mistake here rather than in a reader's terminal.
       - name: Smoke test the native binary
         run: |
           ARCH=$(uname -m)
@@ -133,7 +181,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: [learn-compatibility, build-linux-windows, build-darwin]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [learn-compatibility, build-linux, build-windows, build-darwin]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -143,6 +192,9 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      # This remains after every platform-specific operation. Once SignPath is
+      # connected, the signed Windows artifact will replace the unsigned input
+      # before this step runs.
       - name: Checksums
         working-directory: artifacts
         run: |
@@ -152,7 +204,7 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           draft: false
           generate_release_notes: true
           files: |
