@@ -315,7 +315,7 @@ async function runLifecycleCampaign(): Promise<CampaignResult> {
   writeFileSync(join(bin, "claude"), `#!/bin/sh\necho $$ > '${childPid}'\nexec sleep 30\n`);
   chmodSync(join(bin, "claude"), 0o755);
   const beforeHash = treeHash(claudeProfile);
-  const proc = Bun.spawn([process.execPath, "run", join(root, "src", "index.ts"), "learn"], {
+  const proc = Bun.spawn([process.execPath, "run", join(root, "src", "index.ts"), "learn", "--claude"], {
     cwd: temp,
     env: {
       ...process.env,
@@ -335,7 +335,7 @@ async function runLifecycleCampaign(): Promise<CampaignResult> {
     findings.push(finding("lifecycle", "P1", "Learn wrapper did not create its session lock", lock));
   } else {
     cases++;
-    const second = await commandResult([process.execPath, "run", join(root, "src", "index.ts"), "learn"], {
+    const second = await commandResult([process.execPath, "run", join(root, "src", "index.ts"), "learn", "--claude"], {
       cwd: temp,
       timeoutMs: 10_000,
       env: { PATH: `${bin}:${process.env.PATH ?? ""}`, HOME: sentinel, BUN_INSTALL_CACHE_DIR: join(temp, "bun-cache"), npm_config_cache: join(temp, "npm-cache"), AIFIRST_STATE_DIR: state, AIFIRST_HOME_OVERRIDE: sentinel },

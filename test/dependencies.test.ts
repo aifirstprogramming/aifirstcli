@@ -3,6 +3,7 @@ import {
   checkDependencies,
   pipInstallCommand,
   pythonCandidates,
+  pythonRuntimeInstallPlan,
   withPythonRuntime,
   type PythonRuntime,
 } from "../src/dependencies";
@@ -10,6 +11,13 @@ import {
 const PYTHON: PythonRuntime = { command: ["python3"], display: "python3" };
 
 describe("Python dependency runtime", () => {
+  it("builds explicit first-time Python installation plans", () => {
+    expect(pythonRuntimeInstallPlan("win32", (name) => name === "winget" ? "winget.exe" : undefined)?.commands[0])
+      .toContain("Python.Python.3.13");
+    expect(pythonRuntimeInstallPlan("darwin", (name) => name === "brew" ? "/opt/homebrew/bin/brew" : undefined))
+      .toEqual({ label: "Homebrew", commands: [["brew", "install", "python"]] });
+  });
+
   it("prefers the native launcher order on each platform", () => {
     expect(pythonCandidates("linux", undefined)).toEqual([["python3"], ["python"]]);
     expect(pythonCandidates("darwin", undefined)).toEqual([["python3"], ["python"]]);

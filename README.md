@@ -21,14 +21,12 @@ curl -fsSL https://aifirstprogramming.com/install.sh | bash
 irm https://aifirstprogramming.com/install.ps1 | iex
 ```
 
-Then:
+The installer immediately opens guided setup, asks which book you are reading,
+creates a learning workspace, and offers to start the built-in learner. No second
+command and no AI tool are required.
 
-```sh
-aifirst init      # sets up the AI tools it finds, and asks which book you're reading
-aifirst next      # your next exercise
-aifirst run <id>  # write the book's code, run it, record it
-aifirst learn     # open a temporary local Claude Code session for the book
-```
+Run `aifirst` later to reopen AI First Home, or `aifirst learn` to go directly to
+guided offline learning.
 
 Nothing else is required — no Node, no Python, no JVM. The binary is self-contained and ships with all
 the book content inside it, so it works offline on first run.
@@ -51,7 +49,9 @@ integrity details.
 | Antigravity CLI (`agy`) | plugin bundle | `~/.gemini/antigravity-cli/plugins/aifirst/` |
 | VS Code | the AI First extension | Marketplace |
 
-`init` detects what you have, shows you, asks once, and installs into all of it.
+AI tool integrations are optional. Setup detects what you have, shows you, asks
+once, and installs into all of it. With none installed, the built-in learner still
+provides the complete deterministic book workflow.
 
 Skill files are additive and confined to an `aifirst`-named directory per tool. `init` **also**
 pre-approves the everyday `aifirst` commands, which is the one thing written outside those
@@ -77,6 +77,7 @@ a healthy one.
 ## Commands
 
 ```
+aifirst home                         readiness checklist and guided menu
 aifirst init [--yes] [--no-permissions] [--claude|--codex|--antigravity|--vscode]
 aifirst book [py|java|all]          which book you're reading
 aifirst next                        your next unfinished exercise, in your book
@@ -94,7 +95,9 @@ aifirst diff <id> [file]            does your file match the book?
 aifirst serve [--port N]            book mode: serve the book with no model
 aifirst book-mode on|off|status     point Claude Code at it, or put it back
 aifirst claude [-- <claude args...>]  launch Claude Code with native replay tools
-aifirst learn [--recover] [-- <claude args...>]
+aifirst learn                       built-in guided learner; no AI tool required
+aifirst learn --claude [-- <claude args...>]
+aifirst learn --recover             recover a stale Claude-backed session
 aifirst reset <id>|--all
 aifirst progress [--format text|json|md]
 aifirst doctor
@@ -184,7 +187,25 @@ speaking the public Messages API to a client that is free to change; if a Claude
 update breaks it, `aifirst book-mode off` puts everything back and the rest of the
 CLI is unaffected.
 
-### Local learning session
+### Built-in learning
+
+`aifirst learn` is a first-party terminal walkthrough. It opens the next exercise,
+presents authored choices and plans, writes and runs trusted book examples, shows
+their real output and explanation, and records progress. It uses no model, account,
+API key, editor extension, or external AI application.
+
+The learner reuses the same dependency checks as `run`: missing packages are
+shown before any exercise files change, require approval, and are verified before
+the exercise resumes. Ordinary lessons are offline; installing a missing runtime
+or package may use the network after approval.
+
+Lesson text is rendered as terminal Markdown, with syntax-highlighted Python and
+Java code panels. It streams at a fast readable pace; press **Space** or **Enter**
+to reveal the rest of the current paragraph, list, or code block. Use
+`aifirst learn --no-animation`, or set `AIFIRST_LEARN_CHARS_PER_SECOND=0`, for
+immediate output. A different positive value changes the animation rate.
+
+### Claude-backed local learning
 
 `aifirst claude` starts the local book responder and opens Claude Code against it
 with native `Write`/`Edit`/`Bash` replay tool calls. Use it as the normal AI First
@@ -194,11 +215,11 @@ Claude launcher:
 aifirst claude
 ```
 
-`aifirst learn` starts the local book responder and opens Claude Code against it
-for the current terminal session:
+`aifirst learn --claude` starts the local book responder and opens Claude Code
+against it with a temporary profile for the current terminal session:
 
 ```sh
-aifirst learn
+aifirst learn --claude
 ```
 
 It starts Claude Code with a temporary home and settings file. The session
@@ -212,12 +233,11 @@ until the displayed plan is approved. Choices that require new model-generated
 code offer the book path, a restart, or instructions for continuing in normal
 Claude Code with the AI First skill.
 
-Because cached responses would otherwise appear all at once, `aifirst learn`
-streams text at a readable 360 characters per second before releasing each tool
-call. Set `AIFIRST_LEARN_CHARS_PER_SECOND` to another positive rate, or `0` to
-disable pacing. Other launch and serving modes remain unthrottled.
+Both learning interfaces default to 360 characters per second before releasing
+an associated tool call. `AIFIRST_LEARN_CHARS_PER_SECOND` controls both; other
+launch and serving modes remain unthrottled.
 
-In the session, use complete commands such as `aifirst next` and
+In the Claude-backed session, use complete commands such as `aifirst next` and
 `aifirst show py-1-01`, typed with **no leading slash**. Claude Code's own
 slash-command layer intercepts anything starting with `/` before it can reach
 the local responder, so `/aifirst next` never gets there. Type the command
@@ -228,7 +248,7 @@ in the terminal instead of running through the local chat.
 When Claude Code exits, the temporary responder, settings directory, and
 session record are removed. If the terminal or process is interrupted, run
 `aifirst learn --recover` after confirming no local learning session is still
-active. `aifirst doctor` reports active, stale, and malformed session state.
+active. `aifirst doctor` reports active, stale, and malformed Claude-backed session state.
 
 ## What "done" means
 
@@ -315,7 +335,7 @@ session with the confirmation, and verifies that the displayed exercise is the o
 unit responder and launch-configuration tests run alongside it.
 
 The rocket Showtail regression is generated from a real Claude plan-mode session and then runs
-offline through `aifirst learn`. Regenerate its untouched Claude transcript, Showtail v2 report,
+offline through `aifirst learn --claude`. Regenerate its untouched Claude transcript, Showtail v2 report,
 and source bundle with sibling `Showtail` and `aifirstcontent` checkouts:
 
 ```sh
@@ -329,13 +349,13 @@ conversation equality and byte-identical source files. Override sibling location
 `SHOWTAIL_REPO` and `AIFIRST_CONTENT_REPO`.
 
 Published exercises may also carry a Claude Code replay. Entering the exercise's exact book prompt
-starts the replay automatically when the AI First skill or `aifirst learn` is active. Replays apply
+starts the replay automatically when the AI First skill or either learning interface is active. Replays apply
 their trusted content operations to the workspace and run the recorded command through the normal
 CLI pipeline. Close matches ask for confirmation; reply `yes` to run the pending replay or `no` to
 cancel it. The explicit `aifirst replay` subcommands remain available for Showtail import and
 compatibility testing, but learners do not need a separate replay mode.
 
-`aifirst learn` uses the Claude Code binary bundled into the image. The container does not copy host
+`aifirst learn --claude` uses the Claude Code binary bundled into the image. The container does not copy host
 credentials or normal Claude configuration; the command starts with its temporary isolated profile and
 the local book responder. To test a different standalone Claude executable, override the bundled
 one with `AIFIRST_DOCKER_CLAUDE_BIN`:

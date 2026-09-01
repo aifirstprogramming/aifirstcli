@@ -16,13 +16,17 @@ import { boolFlag, formatFlag } from "../cli";
 import { AGENTS, detectAll, keysFromFlags, selectAgents } from "../agents";
 import type { Agent, PermissionResult } from "../agents";
 import { bookChoices, resolveScope } from "../books";
-import { ALL_BOOKS, setBook, setPermissionsOptOut } from "../config";
+import { ALL_BOOKS, setBook, setPermissionsOptOut, setWorkspace } from "../config";
 import { resolveContent } from "../content";
 import { recordPack } from "../log/progress";
 import { WITHHELD_COMMANDS } from "../permissions";
-import { bold, cyan, dim, glyph, green, json, out, red, yellow } from "../output";
+import { bold, dim, glyph, green, json, out, red, yellow } from "../output";
 import { choose, confirm, isInteractive } from "../prompt";
 import { INSTALL_HOST } from "../version";
+import { home as homeDir } from "../paths";
+import { join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { home as homeCommand } from "./home";
 
 export async function init(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -71,25 +75,22 @@ export async function init(args: Args): Promise<void> {
   out();
 
   if (targets.length === 0) {
-    out(`  ${yellow("No supported AI tools found.")}`);
+    out(`  ${green(glyph.done)} ${bold("Built-in learning is ready.")}`);
     out();
-    out(dim("  Install one of these, then run aifirst init again:"));
-    out(dim("    Claude Code   https://claude.com/claude-code"));
-    out(dim("    Codex         https://developers.openai.com/codex/cli"));
-    out(dim("    Antigravity   https://antigravity.google"));
-    out(dim("    VS Code       https://code.visualstudio.com"));
+    out(dim("  No AI tool is required. You can connect Claude Code, Codex,"));
+    out(dim("  Antigravity, or VS Code later from AI First Home."));
     out();
-    out(dim(`  Or install for a specific tool anyway: aifirst init --claude`));
-    out();
-    process.exitCode = 1;
-    return;
   }
 
   // --- What we are about to change ----------------------------------------
 
   out(dim(`  This will:`));
-  out(dim(`    install book skills into`));
-  for (const agent of targets) out(dim(`      ${agent.target}`));
+  if (targets.length > 0) {
+    out(dim(`    install book skills into`));
+    for (const agent of targets) out(dim(`      ${agent.target}`));
+  } else {
+    out(dim(`    prepare the built-in learner`));
+  }
 
   const permissionTargets = skipPermissions
     ? []
@@ -115,7 +116,9 @@ export async function init(args: Args): Promise<void> {
       return;
     }
     const ok = await confirm(
-      `Set up ${targets.length} tool${targets.length === 1 ? "" : "s"}?`,
+      targets.length > 0
+        ? `Set up ${targets.length} tool${targets.length === 1 ? "" : "s"}?`
+        : "Finish AI First setup?",
       "Re-run as: aifirst init --yes",
     );
     if (!ok) {
@@ -163,8 +166,13 @@ export async function init(args: Args): Promise<void> {
     if (picked) {
       const book = choices.find((c) => c.tag === picked);
       setBook(picked === ALL_BOOKS ? ALL_BOOKS : book!.id);
+      const workspaceKey = picked === ALL_BOOKS ? ALL_BOOKS : book!.tag;
+      const workspace = join(homeDir(), "aifirst", workspaceKey);
+      mkdirSync(workspace, { recursive: true });
+      setWorkspace(workspaceKey, workspace);
       out();
       out(`  ${green(glyph.done)} ${picked === ALL_BOOKS ? "showing all books" : `reading ${bold(book!.title)}`}`);
+      out(dim(`      workspace: ${shorten(workspace)}`));
     } else {
       out();
       out(dim(`  No book chosen — set it any time with: aifirst book <tag>`));
@@ -174,11 +182,14 @@ export async function init(args: Args): Promise<void> {
   out();
   out(`  ${bold("Ready.")}`);
   out();
-  out(`  ${cyan(glyph.arrow)} ${bold("aifirst next")}      ${dim("your next exercise")}`);
-  out(`  ${cyan(glyph.arrow)} ${bold("aifirst doctor")}    ${dim("check the setup")}`);
+  out(`  ${green(glyph.done)} ${dim("Built-in learning works without an AI tool or account.")}`);
   out();
-  out(dim(`  Docs: ${INSTALL_HOST}`));
-  out();
+
+  if (isInteractive()) await homeCommand({ command: "home", positionals: [], flags: new Map() });
+  else {
+    out(dim(`  Docs: ${INSTALL_HOST}`));
+    out();
+  }
 }
 
 interface InstallReport {

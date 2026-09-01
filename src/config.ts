@@ -24,6 +24,8 @@ export interface Config {
    * "pre-approval silently never happened" — and stop nagging about the former.
    */
   permissionsOptOut?: boolean;
+  /** Per-book folders used by Home and the built-in learner. */
+  workspaces?: Record<string, string>;
 }
 
 export function configFile(): string {
@@ -38,11 +40,21 @@ export function read(path = configFile()): Config {
       version: 1,
       ...(typeof parsed.book === "string" ? { book: parsed.book } : {}),
       ...(parsed.permissionsOptOut === true ? { permissionsOptOut: true } : {}),
+      ...(validWorkspaces(parsed.workspaces) ? { workspaces: parsed.workspaces } : {}),
     };
   } catch {
     // Absent or unreadable is simply "not chosen yet"; never fatal.
     return { version: 1 };
   }
+}
+
+function validWorkspaces(value: unknown): value is Record<string, string> {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string" && entry.length > 0),
+  );
 }
 
 export function write(config: Config, path = configFile()): void {
@@ -79,4 +91,16 @@ export function setPermissionsOptOut(optOut: boolean, path?: string): void {
   if (optOut) current.permissionsOptOut = true;
   else delete current.permissionsOptOut;
   write(current, path);
+}
+
+export function workspaceFor(book: string, path?: string): string | undefined {
+  return read(path).workspaces?.[book];
+}
+
+export function setWorkspace(book: string, workspace: string, path?: string): void {
+  const current = read(path);
+  write({
+    ...current,
+    workspaces: { ...current.workspaces, [book]: workspace },
+  }, path);
 }

@@ -396,12 +396,13 @@ describe("list", () => {
 });
 
 describe("init and doctor", () => {
-  it("doctor exits non-zero before anything is set up", async () => {
+  it("doctor reports the built-in learner healthy without an AI integration", async () => {
     // PATH is cleared so an agent or editor installed on this machine cannot make
     // the sandbox look configured.
     const r = await aifirst(["doctor", "--format", "json"], { path: "/nonexistent" });
-    expect(r.code).toBe(1);
-    expect(JSON.parse(r.stdout).ok).toBe(false);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.stdout).ok).toBe(true);
+    expect(JSON.parse(r.stdout).coreOk).toBe(true);
   });
 
   it("init refuses to write without confirmation when non-interactive", async () => {
@@ -416,10 +417,10 @@ describe("init and doctor", () => {
     expect(existsSync(join(sandbox, "home", ".claude", "skills", "aifirst"))).toBe(false);
   });
 
-  it("init explains what to install when no AI tool is present", async () => {
+  it("init explains that built-in learning works when no AI tool is present", async () => {
     const r = await aifirst(["init"], { path: "/nonexistent" });
     expect(r.code).toBe(1);
-    expect(r.stdout).toContain("No supported AI tools found");
+    expect(r.stdout).toContain("Built-in learning is ready");
     expect(existsSync(join(sandbox, "home", ".claude", "skills", "aifirst"))).toBe(false);
   });
 

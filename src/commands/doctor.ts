@@ -15,7 +15,7 @@ import { findLatestPack, resolveContent } from "../content";
 import { report } from "../exercises";
 import { read } from "../log/progress";
 import { progressFile, stateDir } from "../paths";
-import { bold, dim, glyph, green, json, out, red, table, yellow } from "../output";
+import { bold, dim, glyph, green, json, out, table, yellow } from "../output";
 import { VERSION } from "../version";
 import { bookModeBaseUrl } from "../bookmode/port";
 import { learningSessionStatus } from "../learn/session";
@@ -62,9 +62,11 @@ export async function doctor(args: Args): Promise<void> {
       agents: skills,
       permissionsOptOut: optedOut,
       learningSession: learningSessionStatus(),
-      ok: configured.length > 0 && drifted.length === 0 && unapproved.length === 0,
+      coreOk: true,
+      integrationsOk: drifted.length === 0 && unapproved.length === 0,
+      ok: drifted.length === 0 && unapproved.length === 0,
     });
-    if (configured.length === 0 || drifted.length > 0 || unapproved.length > 0) process.exitCode = 1;
+    if (drifted.length > 0 || unapproved.length > 0) process.exitCode = 1;
     return;
   }
 
@@ -147,11 +149,8 @@ export async function doctor(args: Args): Promise<void> {
   out();
 
   if (configured.length === 0) {
-    out(`  ${red("No tool has the AI First skill installed.")}`);
-    out(dim(`  ${glyph.arrow} aifirst init`));
+    out(`  ${green(glyph.done)} Built-in learning is ready; no AI integration is required.`);
     out();
-    process.exitCode = 1;
-    return;
   }
 
   if (drifted.length > 0) {
@@ -183,6 +182,6 @@ export async function doctor(args: Args): Promise<void> {
     out();
   }
 
-  out(`  ${green("All good.")} ${dim(`${glyph.arrow} aifirst next`)}`);
+  out(`  ${green("All good.")} ${dim("Run aifirst to open AI First Home.")}`);
   out();
 }

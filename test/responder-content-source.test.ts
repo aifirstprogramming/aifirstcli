@@ -39,6 +39,7 @@ describe("respond with a ContentSource", () => {
     expect(reply.toolUse).toEqual({
       name: "Bash",
       input: { command: "aifirst run py-1-01", description: "Run py-1-01 and record it" },
+      nativeAction: { kind: "run-exercise", stepId: "py-1-01" },
     });
     expect(reply.stopReason).toBe("tool_use");
   });

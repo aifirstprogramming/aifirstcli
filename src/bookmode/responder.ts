@@ -15,7 +15,7 @@ import { findMatchingStep } from "@aifirst/content";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { chatCommandError, isLocalCommand, localHelp, parseChatCommand } from "./commands";
-import type { ContentSource, SourceState } from "./contentSource";
+import type { ContentSource, SourceReply, SourceState } from "./contentSource";
 import { renderBookEnvelope, renderStep } from "./render";
 import type { Content } from "../content/types";
 import { writeScaffold } from "../content/scaffold";
@@ -40,6 +40,7 @@ import {
 import type { Replay } from "../content/types";
 import type { DependencyReport } from "../dependencies";
 import { checkDependencies, dependencyNames, resolvePythonRuntime, withPythonRuntime } from "../dependencies";
+import type { NativeLearnAction } from "../learn/actions";
 
 /** The subset of an Anthropic request this needs. Everything else is ignored. */
 export interface MessagesRequest {
@@ -68,7 +69,7 @@ export interface ToolDefinition {
 export interface Reply {
   text: string;
   /** Present when the reply asks the client to run the exercise. */
-  toolUse?: { id?: string; name: string; input: Record<string, unknown> };
+  toolUse?: { id?: string; name: string; input: Record<string, unknown>; nativeAction?: NativeLearnAction };
   stopReason: "end_turn" | "tool_use";
   /** Which exercise this answered, when it answered one. Used only for logging. */
   exerciseId?: string;
@@ -130,7 +131,7 @@ function confirmationQuestion(
         question: `Did you mean this AI First exercise?\n\n${prompt}`,
         header: "AI First",
         options: [
-          { label: "Run this replay", description: `Run ${step.id} using its captured Claude Code replay.` },
+          { label: "Run this replay", description: `Run ${step.id} using its captured AI First replay.` },
           { label: "Cancel", description: "Do not run an exercise." },
         ],
         multiSelect: false,
@@ -407,6 +408,7 @@ function operationToolUse(
         id,
         name,
         input: { file_path: path, content: operation.content },
+        nativeAction: { kind: "replay-operation", operation },
       };
     }
     const shell = shellTool(tools);
@@ -418,6 +420,7 @@ function operationToolUse(
         command: `mkdir -p ${shellQuote(dirname(path))} && printf %s ${shellQuote(operation.content)} > ${shellQuote(path)}`,
         description: `Write ${operation.path}`,
       },
+      nativeAction: { kind: "replay-operation", operation },
     };
   }
   if (operation.type === "edit") {
@@ -432,6 +435,7 @@ function operationToolUse(
         new_string: operation.newText,
         ...(operation.replaceAll === undefined ? {} : { replace_all: operation.replaceAll }),
       },
+      nativeAction: { kind: "replay-operation", operation },
     };
   }
   if (operation.type === "read") {
@@ -441,6 +445,7 @@ function operationToolUse(
       id,
       name,
       input: { file_path: resolve(process.cwd(), operation.path) },
+      nativeAction: { kind: "replay-operation", operation },
     };
   }
   const name = shellTool(tools);
@@ -457,6 +462,7 @@ function operationToolUse(
       command: `${cwd}${environment ? `${environment} ` : ""}${command}`,
       ...(operation.stdin === undefined ? {} : { stdin: operation.stdin }),
     },
+    nativeAction: { kind: "replay-operation", operation },
   };
 }
 
@@ -666,7 +672,7 @@ function operationResultMatches(operation: ReplayOperation, result: { failed: bo
 
 function replayPrelude(step: ReplayStep, content: Content): string {
   const example = content.examples.find((candidate) => candidate.id === step.exampleId);
-  return example ? `${renderBookEnvelope(example, step, "start")}\n\n---\n\n## Claude Code Replay` : "## Claude Code Replay";
+  return example ? `${renderBookEnvelope(example, step, "start")}\n\n---\n\n## AI First Replay` : "## AI First Replay";
 }
 
 function replayTurn(step: ReplayStep, operationIndex: number, replay: Replay | undefined = step.replay): string {
@@ -688,7 +694,7 @@ function nativeReplayReply(
   const toolUse = replayToolUse(step, operationIndex, tools, replay, "replay", standalone);
   if (!toolUse) {
     return {
-      text: `${replayPrelude(step, content)}\n\nReplay cannot continue because Claude Code did not expose the required native tool.`,
+      text: `${replayPrelude(step, content)}\n\nReplay cannot continue because the client did not expose the required tool.`,
       stopReason: "end_turn",
       exerciseId: step.id,
     };
@@ -696,7 +702,7 @@ function nativeReplayReply(
   if (replay?.events) {
     return { text: replayTurn(step, operationIndex, replay), toolUse, stopReason: "tool_use", exerciseId: step.id };
   }
-  const header = operationIndex === 0 ? replayPrelude(step, content) : "## Claude Code Replay (continued)";
+  const header = operationIndex === 0 ? replayPrelude(step, content) : "## AI First Replay (continued)";
   return { text: `${header}\n\n${replayTurn(step, operationIndex, replay)}`, toolUse, stopReason: "tool_use", exerciseId: step.id };
 }
 
@@ -719,7 +725,7 @@ function prePlanReply(
   const toolUse = replayToolUse(step, operationIndex, tools, step.replay, "preplan");
   if (!toolUse) {
     return {
-      text: `${segment.text}\n\nReplay cannot continue because Claude Code did not expose the required native tool.`.trim(),
+      text: `${segment.text}\n\nReplay cannot continue because the client did not expose the required tool.`.trim(),
       stopReason: "end_turn",
       exerciseId: step.id,
     };
@@ -766,7 +772,7 @@ function planningInterludeReply(
   const toolUse = operationToolUse(interludeToolId(step.id, questionId, operationIndex), segment.operation, tools);
   if (!toolUse) {
     return {
-      text: `${segment.text}\n\nReplay cannot continue because Claude Code did not expose the required native tool.`.trim(),
+      text: `${segment.text}\n\nReplay cannot continue because the client did not expose the required tool.`.trim(),
       stopReason: "end_turn",
       exerciseId: step.id,
     };
@@ -1127,6 +1133,7 @@ function chatReply(
             toolUse: {
               name: tool,
               input: { command: commandText, description: `Run ${step.id} and record it` },
+              nativeAction: { kind: "run-exercise", stepId: step.id },
             },
           }
         : {}),
@@ -1167,7 +1174,7 @@ export class BookContentSource implements ContentSource {
     private readonly language: string | undefined,
   ) {}
 
-  next(typed: string) {
+  next(typed: string): SourceReply | undefined {
     const stored = readPendingReplay();
     if (stored && stored.stepIds.length > 1) {
       const selection = replaySelection(typed, stored.stepIds);
@@ -1245,7 +1252,11 @@ export class BookContentSource implements ContentSource {
 
     return {
       text: renderStep(example, step),
-      toolUse: { name: tool, input: { command, description: `Run ${step.id} and record it` } },
+      toolUse: {
+        name: tool,
+        input: { command, description: `Run ${step.id} and record it` },
+        nativeAction: { kind: "run-exercise", stepId: step.id },
+      },
       stopReason: "tool_use" as const,
       exerciseId: step.id,
     };
@@ -1349,6 +1360,7 @@ export function respond(
           command: `aifirst dependencies install ${step.id} --yes --format json`,
           description: `Install dependencies for ${step.id}`,
         },
+        nativeAction: { kind: "install-dependencies", stepId: step.id },
       },
       stopReason: "tool_use",
       exerciseId: step.id,
@@ -1378,7 +1390,7 @@ export function respond(
     const segment = eventSegments(step ? workflowInterludeEvents(step, interludeResult.questionId) : [])[interludeResult.operationIndex];
     if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, interludeResult)) {
       return {
-        text: `Claude Code replay stopped: the planning result for turn ${interludeResult.operationIndex + 1} did not match the captured result.`,
+        text: `AI First replay stopped: the planning result for turn ${interludeResult.operationIndex + 1} did not match the captured result.`,
         stopReason: "end_turn",
         exerciseId: step?.id,
       };
@@ -1392,7 +1404,7 @@ export function respond(
     const segment = prePlanSegments(step?.replay)[prePlanResult.operationIndex];
     if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, prePlanResult)) {
       return {
-        text: `Claude Code replay stopped: the pre-plan result for turn ${prePlanResult.operationIndex + 1} did not match the captured result.`,
+        text: `AI First replay stopped: the pre-plan result for turn ${prePlanResult.operationIndex + 1} did not match the captured result.`,
         stopReason: "end_turn",
         exerciseId: step?.id,
       };
@@ -1505,7 +1517,7 @@ export function respond(
     if (!step?.replay || !replayResultMatches(step, replayResult.operationIndex, replayResult, replay)) {
       if (options.planning) clearActivePlanning(options.planning);
       return {
-        text: `Claude Code replay stopped: the result for turn ${replayResult.operationIndex + 1} did not match the captured result.`,
+        text: `AI First replay stopped: the result for turn ${replayResult.operationIndex + 1} did not match the captured result.`,
         stopReason: "end_turn",
         exerciseId: step?.id,
       };

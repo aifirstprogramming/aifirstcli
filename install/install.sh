@@ -273,40 +273,53 @@ say ""
 # --- PATH ------------------------------------------------------------------
 
 case ":${PATH}:" in
-  *":$INSTALL_DIR:"*)
-    say "  Next:"
-    say "    ${BOLD}aifirst init${RESET}    ${DIM}set up your AI tools${RESET}"
-    say "    ${BOLD}aifirst next${RESET}    ${DIM}your first exercise${RESET}"
-    ;;
+  *":$INSTALL_DIR:"*) ;;
   *)
-    # Name the shell's own rc file rather than a generic instruction; a reader on
-    # chapter 1 should not have to work out which file applies to them.
     shell_name=$(basename "${SHELL:-sh}")
-
-    # The tildes below are literal text printed for the reader to copy, not paths
-    # this script opens, so they must not expand.
-    # shellcheck disable=SC2088
+    rc_path=""
+    path_line=""
     case "$shell_name" in
-      zsh)  rc="~/.zshrc" ;;
+      zsh)
+        rc_path="$HOME/.zshrc"
+        path_line="export PATH=\"$INSTALL_DIR:\$PATH\""
+        ;;
       bash)
-        if [ "$OS" = "darwin" ]; then rc="~/.bash_profile"; else rc="~/.bashrc"; fi ;;
-      fish) rc="~/.config/fish/config.fish" ;;
-      *)    rc="your shell profile" ;;
+        if [ "$OS" = "darwin" ]; then rc_path="$HOME/.bash_profile"; else rc_path="$HOME/.bashrc"; fi
+        path_line="export PATH=\"$INSTALL_DIR:\$PATH\""
+        ;;
+      fish)
+        rc_path="$HOME/.config/fish/config.fish"
+        path_line="fish_add_path \"$INSTALL_DIR\""
+        ;;
     esac
 
-    say "  ${BOLD}$INSTALL_DIR is not on your PATH.${RESET}"
-    say ""
-    if [ "$shell_name" = "fish" ]; then
-      say "    Add this line to $rc:"
-      say "      ${DIM}fish_add_path $INSTALL_DIR${RESET}"
+    if [ -n "$rc_path" ]; then
+      mkdir -p "$(dirname "$rc_path")"
+      if ! grep -Fq "$path_line" "$rc_path" 2>/dev/null; then
+        {
+          printf '\n# Added by aifirst\n'
+          printf '%s\n' "$path_line"
+        } >> "$rc_path"
+        info "Added $INSTALL_DIR to PATH in $rc_path."
+      fi
     else
-      say "    Add this line to $rc:"
-      say "      ${DIM}export PATH=\"$INSTALL_DIR:\$PATH\"${RESET}"
+      info "Could not identify your shell profile; add $INSTALL_DIR to PATH later."
     fi
-    say ""
-    say "    Then open a new terminal and run: ${BOLD}aifirst init${RESET}"
+    PATH="$INSTALL_DIR:$PATH"
+    export PATH
     ;;
 esac
+
+# --- first setup -----------------------------------------------------------
+
+if [ "${AIFIRST_SKIP_SETUP:-}" != "1" ]; then
+  if ( : </dev/tty ) 2>/dev/null; then
+    say ""
+    "$INSTALL_DIR/aifirst" init </dev/tty || info "Setup was not completed; run aifirst later to resume."
+  else
+    info "Interactive setup skipped because no terminal is attached."
+  fi
+fi
 
 say ""
 say "  ${DIM}Docs: $DOCS${RESET}"

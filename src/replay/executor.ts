@@ -19,6 +19,13 @@ export interface ReplayExecution {
   text: string;
 }
 
+export interface ReplayOperationExecution {
+  files: string[];
+  command?: ReplayCommandResult;
+  ok: boolean;
+  text: string;
+}
+
 function applyEdit(operation: Extract<ReplayOperation, { type: "edit" }>, root: string): void {
   const path = inside(root, operation.path);
   const current = readFileSync(path, "utf8");
@@ -78,29 +85,49 @@ export function executeReplay(replay: Replay, root = process.cwd()): ReplayExecu
   const commands: ReplayCommandResult[] = [];
   let ok = true;
   for (const operation of replay.operations) {
-    if (operation.type === "write") {
-      const path = inside(root, operation.path);
-      mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, operation.content);
-      files.push(path);
-      continue;
-    }
-    if (operation.type === "edit") {
-      applyEdit(operation, root);
-      files.push(inside(root, operation.path));
-      continue;
-    }
-    if (operation.type === "read") {
-      readFileSync(inside(root, operation.path));
-      continue;
-    }
-    const result = runCommand(operation, root);
-    commands.push(result);
-    if (result.exitCode !== (operation.expectedExitCode ?? 0) || !result.matchesExpected) ok = false;
+    const result = executeReplayOperation(operation, root);
+    files.push(...result.files);
+    if (result.command) commands.push(result.command);
+    if (!result.ok) ok = false;
   }
   const parts = [
     ...(replay.commentary ?? []),
     ...commands.map(operationText),
   ].filter(Boolean);
   return { files, commands, ok, text: parts.join("\n\n") };
+}
+
+/** Execute one trusted replay operation for the built-in learner. */
+export function executeReplayOperation(
+  operation: ReplayOperation,
+  root = process.cwd(),
+): ReplayOperationExecution {
+  if (operation.type === "write") {
+    const path = inside(root, operation.path);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, operation.content);
+    return { files: [path], ok: true, text: `Wrote ${operation.path}` };
+  }
+  if (operation.type === "edit") {
+    applyEdit(operation, root);
+    return { files: [inside(root, operation.path)], ok: true, text: `Updated ${operation.path}` };
+  }
+  if (operation.type === "read") {
+    const text = readFileSync(inside(root, operation.path), "utf8");
+    return { files: [], ok: true, text };
+  }
+
+  const command = runCommand(operation, root);
+  const output = [command.stdout, command.stderr].filter(Boolean).join("\n").trim();
+  const text = [
+    `$ ${command.command.join(" ")}`,
+    output,
+    `exit code ${command.exitCode}`,
+  ].filter(Boolean).join("\n");
+  return {
+    files: [],
+    command,
+    ok: command.exitCode === (operation.expectedExitCode ?? 0) && command.matchesExpected,
+    text,
+  };
 }

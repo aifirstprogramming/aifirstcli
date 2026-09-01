@@ -257,10 +257,17 @@ try {
     Write-Host ''
   }
 
-  Write-Host "  Next:"
-  Write-Host "    aifirst init    set up your AI tools"
-  Write-Host "    aifirst next    your first exercise"
-  Write-Host ''
+  if ($env:AIFIRST_SKIP_SETUP -ne '1') {
+    if ($IsInteractiveHost) {
+      & $target init
+      if ($LASTEXITCODE -ne 0) {
+        Write-Info "Setup was not completed; run aifirst later to resume."
+      }
+    } else {
+      Write-Info "Interactive setup skipped because no terminal is attached."
+    }
+    Write-Host ''
+  }
   Write-Host "  Docs: $Docs"
   Write-Host ''
 }

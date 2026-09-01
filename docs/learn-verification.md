@@ -1,6 +1,6 @@
 # Local Learning Verification
 
-This document is the release gate for `aifirst learn`. The automated fake-client
+This document is the release gate for `aifirst learn --claude`. The automated fake-client
 suite is necessary but does not replace native Claude Code checks.
 
 ## Automated Gates
@@ -48,7 +48,7 @@ synthetic child-only `ANTHROPIC_AUTH_TOKEN`, `IS_DEMO=1`, and an ephemeral
 ### Linux
 
 1. Install the supported Claude Code binary and record `claude --version`.
-2. Run `aifirst init`, then `aifirst learn -- --print` with the sentinel profile.
+2. Run `aifirst init`, then `aifirst learn --claude -- --print` with the sentinel profile.
 3. Verify `aifirst next` (no leading slash) and `aifirst show py-1-01` produce Code before Explanation.
    `/aifirst next` is intercepted by Claude Code's own slash-command layer before it reaches book mode;
    it is not a supported chat form.

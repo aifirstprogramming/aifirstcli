@@ -39,6 +39,11 @@ export interface PythonInstallLocation {
   userSite: string;
 }
 
+export interface RuntimeInstallPlan {
+  label: string;
+  commands: string[][];
+}
+
 function decode(value: Uint8Array | undefined): string {
   return value ? new TextDecoder().decode(value) : "";
 }
@@ -58,7 +63,7 @@ function spawnSync(argv: string[], env: Record<string, string | undefined> = pro
 
 async function spawn(argv: string[]): Promise<{ ok: boolean; output: string }> {
   try {
-    const proc = Bun.spawn(argv, { stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn(argv, { stdin: "inherit", stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
       new Response(proc.stderr).text(),
@@ -87,6 +92,65 @@ export function resolvePythonRuntime(): PythonRuntime | undefined {
     }
   }
   return undefined;
+}
+
+/** A conservative OS package-manager plan for first-time Python installation. */
+export function pythonRuntimeInstallPlan(
+  platform = process.platform,
+  which: (name: string) => string | undefined = (name) => Bun.which(name) ?? undefined,
+): RuntimeInstallPlan | undefined {
+  if (platform === "win32" && which("winget")) {
+    return {
+      label: "Windows Package Manager (winget)",
+      commands: [["winget", "install", "--exact", "--id", "Python.Python.3.13", "--accept-package-agreements", "--accept-source-agreements"]],
+    };
+  }
+  if (platform === "darwin" && which("brew")) {
+    return { label: "Homebrew", commands: [["brew", "install", "python"]] };
+  }
+  if (platform === "linux" && which("apt-get")) {
+    const prefix = elevatedPrefix(which, "sudo");
+    if (!prefix) return undefined;
+    return {
+      label: "APT",
+      commands: [
+        [...prefix, "apt-get", "update"],
+        [...prefix, "apt-get", "install", "-y", "python3", "python3-pip", "python3-venv"],
+      ],
+    };
+  }
+  if (platform === "linux" && which("dnf")) {
+    const prefix = elevatedPrefix(which, "sudo");
+    if (!prefix) return undefined;
+    return { label: "DNF", commands: [[...prefix, "dnf", "install", "-y", "python3", "python3-pip"]] };
+  }
+  if (platform === "linux" && which("apk")) {
+    const prefix = elevatedPrefix(which, "doas");
+    if (!prefix) return undefined;
+    return { label: "Alpine apk", commands: [[...prefix, "apk", "add", "python3", "py3-pip"]] };
+  }
+  return undefined;
+}
+
+function elevatedPrefix(
+  which: (name: string) => string | undefined,
+  helper: "sudo" | "doas",
+): string[] | undefined {
+  if (typeof process.getuid !== "function" || process.getuid() === 0) return [];
+  return which(helper) ? [helper] : undefined;
+}
+
+export async function installPythonRuntime(
+  plan: RuntimeInstallPlan,
+): Promise<{ ok: boolean; output: string; runtime?: PythonRuntime }> {
+  const output: string[] = [];
+  for (const command of plan.commands) {
+    const result = await spawn(command);
+    if (result.output) output.push(result.output);
+    if (!result.ok) return { ok: false, output: output.join("\n") };
+  }
+  const runtime = resolvePythonRuntime();
+  return { ok: Boolean(runtime), output: output.join("\n"), ...(runtime ? { runtime } : {}) };
 }
 
 export function pythonArgv(runtime: PythonRuntime, ...args: string[]): string[] {

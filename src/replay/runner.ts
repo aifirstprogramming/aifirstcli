@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 import type { Args } from "../cli";
-import { learn } from "../commands/learn";
+import { learnWithClaude } from "../commands/learn";
 import { startBookServer } from "../commands/serve";
 import { CliError } from "../output";
 import { loadReplayPack } from "./store";
@@ -18,7 +18,11 @@ function executable(name: string): string | undefined {
 export async function runReplay(name: string, mode: string, passthrough: string[]): Promise<void> {
   loadReplayPack(name);
   if (mode === "learn") {
-    await learn({ command: "learn", positionals: passthrough, flags: new Map([["replay", name]]) });
+    await learnWithClaude({
+      command: "learn",
+      positionals: passthrough,
+      flags: new Map<string, string | boolean>([["replay", name], ["claude", true]]),
+    });
     return;
   }
   if (mode !== "skill") {

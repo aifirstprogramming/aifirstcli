@@ -148,6 +148,7 @@ describe("answering a book prompt", () => {
     }, content, log, { dependencies: dependencyState, dependencyCheck });
     expect(install.toolUse?.name).toBe("Bash");
     expect(install.toolUse?.input.command).toBe("aifirst dependencies install py-9-01 --yes --format json");
+    expect(install.toolUse?.nativeAction).toEqual({ kind: "install-dependencies", stepId: "py-9-01" });
 
     installed = true;
     const replay = respond({
@@ -725,6 +726,7 @@ describe("chat next", () => {
     expect(reply.text).toContain(step.prompt);
     expect(reply.text).toContain(`\`\`\`${content.examples[0].language}`);
     expect(reply.toolUse?.input.command).toBe(`aifirst run ${step.id}`);
+    expect(reply.toolUse?.nativeAction).toEqual({ kind: "run-exercise", stepId: step.id });
   });
 
   it("returns a complete manual action without a shell tool", () => {

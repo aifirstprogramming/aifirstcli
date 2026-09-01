@@ -67,7 +67,7 @@ exit ${status}
       // may throw if file exists
     }
   }
-  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--", ...passthrough], {
+  const proc = Bun.spawn([process.execPath, "run", ENTRY, "learn", "--claude", "--", ...passthrough], {
     cwd: root,
     env: {
       PATH: `${bin}${isWin ? ";" : ":"}${process.env.PATH}`,

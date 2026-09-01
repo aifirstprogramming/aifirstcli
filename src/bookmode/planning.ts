@@ -283,12 +283,12 @@ function askFallback(
     "## This choice needs an LLM",
     "",
     `You selected **${choice}**. That changes the design beyond the deterministic paths stored in local learning.`,
-    "`aifirst learn` cannot invent and verify new code because no model is running.",
+    "The built-in learner cannot invent and verify new code because no model is running.",
   ].join("\n");
   const options = [
     { label: "Use book-recommended answer", description: `Continue with ${optionLabel(step, question, canonical)}.` },
     { label: "Restart planning", description: "Clear all answers and start the questionnaire again." },
-    { label: "Exit local learning", description: "Leave this session and use normal Claude Code with the AI First skill." },
+    { label: "Use an AI assistant", description: "Leave built-in learning and connect a supported AI tool from AI First Home." },
   ];
   if (!tool) {
     delete state.expectedToolId;
@@ -446,7 +446,7 @@ export function continuePlanning(
       return advance(step, state, tools);
     }
     if (["restart", normalized("Restart planning")].includes(answer)) return beginPlanning(step, state, tools);
-    if (!["exit", "cancel", normalized("Exit local learning")].includes(answer)) {
+    if (!["exit", "cancel", normalized("Exit local learning"), normalized("Use an AI assistant")].includes(answer)) {
       const question = workflow.questions.find((candidate) => candidate.id === awaiting.questionId)!;
       return askFallback(step, state, tools, question, awaiting.choice);
     }
@@ -457,7 +457,7 @@ export function continuePlanning(
     return {
       kind: "reply",
       reply: {
-        text: "Local planning ended without changing files. Exit this session, start normal Claude Code with the AI First skill installed, and repeat the exercise prompt to build an adaptive version.",
+        text: "Planning ended without changing files. Open AI First Home to connect an AI assistant, then repeat the exercise prompt to build an adaptive version.",
         stopReason: "end_turn",
         exerciseId: step.id,
       },

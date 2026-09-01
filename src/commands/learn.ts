@@ -6,16 +6,10 @@ import { boolFlag, flag, stringFlag } from "../cli";
 import { CliError, out } from "../output";
 import { startBookServer } from "./serve";
 import { claudeLaunch, cleanupSession, createSession, recoverStaleSession, updateSession } from "../learn/session";
+import { nativeLearn } from "../learn/native";
+import { learnTextRate } from "../learn/pacing";
 
-export const DEFAULT_LEARN_CHARS_PER_SECOND = 360;
-
-export function learnTextRate(): number | undefined {
-  const configured = process.env.AIFIRST_LEARN_CHARS_PER_SECOND;
-  if (configured === undefined) return DEFAULT_LEARN_CHARS_PER_SECOND;
-  const parsed = Number(configured);
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-  return Math.min(100_000, Math.max(30, parsed));
-}
+export { DEFAULT_LEARN_CHARS_PER_SECOND, learnTextRate } from "../learn/pacing";
 
 function executable(name: string): string | undefined {
   const suffixes = process.platform === "win32" ? [".exe", ".ps1", ".cmd", ".bat", ""] : [""];
@@ -70,8 +64,18 @@ export async function learn(args: Args): Promise<void> {
     return;
   }
 
+  if (!boolFlag(args, "claude")) {
+    await nativeLearn(args);
+    return;
+  }
+
+  await learnWithClaude(args);
+}
+
+export async function learnWithClaude(args: Args): Promise<void> {
+
   const foundClaude = executable("claude");
-  if (!foundClaude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn` again.");
+  if (!foundClaude) throw new CliError("Claude Code is not installed or not on PATH.", "missing_claude", "Install Claude Code, then run `aifirst learn --claude` again.");
   const claude = foundClaude;
 
   const session = createSession();

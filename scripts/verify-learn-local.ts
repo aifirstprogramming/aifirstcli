@@ -13,7 +13,7 @@ writeFileSync(join(bin, "claude"), `#!/bin/sh\nprintf '%s\\n' "$@" > '${capture}
 chmodSync(join(bin, "claude"), 0o755);
 
 try {
-  const proc = Bun.spawn([process.execPath, "run", "src/index.ts", "learn", "--", "--help"], {
+  const proc = Bun.spawn([process.execPath, "run", "src/index.ts", "learn", "--claude", "--", "--help"], {
     env: {
       PATH: `${bin}:${process.env.PATH ?? ""}`,
       AIFIRST_STATE_DIR: state,

@@ -101,7 +101,7 @@ describe("model-free planning workflow", () => {
 
     continuePlanning(duckling, planning, TOOLS, "Side-scrolling platformer");
     const exited = reply(continuePlanning(duckling, planning, TOOLS, "Exit local learning"));
-    expect(exited.text).toContain("normal Claude Code");
+    expect(exited.text).toContain("AI First Home");
     expect(planning.stepId).toBeUndefined();
     expect("expectedToolId" in planning).toBe(false);
   });

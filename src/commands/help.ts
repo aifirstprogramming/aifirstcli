@@ -13,9 +13,10 @@ export function help(): void {
   out(`  ${bold("aifirst")} ${dim(VERSION)} — companion for the AI First book series`);
   out();
   out(`  ${bold("Getting started")}`);
-    out(`    ${cyan("aifirst init")}              set up your AI tools with the book skills`);
-  out(`    ${cyan("aifirst claude")}           launch Claude Code with native replay tools`);
-    out(`    ${cyan("aifirst learn")}             open a temporary local Claude Code session`);
+  out(`    ${cyan("aifirst")}                   open AI First Home`);
+  out(`    ${cyan("aifirst learn")}             guided offline learning, no AI tool required`);
+  out(`    ${cyan("aifirst learn --claude")}    use Claude Code as the local-learning interface`);
+  out(`    ${cyan("aifirst init")}              refresh optional AI tool integrations`);
   out(`    ${cyan("aifirst book")} ${dim("[py|java]")}      which book you're reading`);
   out(`    ${cyan("aifirst next")}              show your next exercise`);
   out(`    ${cyan("aifirst progress")}          how far you've got`);
@@ -35,6 +36,7 @@ export function help(): void {
   out(`    ${cyan("aifirst reset")} ${dim("<id>|--all")}   forget progress`);
   out();
   out(`  ${bold("Setup")}`);
+  out(`    ${cyan("aifirst home")}              readiness checklist and next-step menu`);
   out(`    ${cyan("aifirst doctor")}            check everything is wired up`);
   out(`    ${cyan("aifirst skill")} ${dim("install|check|remove")}`);
   out(`    ${cyan("aifirst update")} ${dim("[--content] [--check]")}`);
@@ -43,6 +45,7 @@ export function help(): void {
   out(`  ${bold("Options")}`);
   out(`    ${dim("--format text|json|md")}     json is the machine-readable contract`);
   out(`    ${dim("--yes")}                     approve setup or dependency installation`);
+  out(`    ${dim("--no-animation")}            show built-in lessons immediately`);
   out(`    ${dim("--claude --codex --antigravity --antigravity-cli --vscode")}`);
   out(`    ${dim("                          target specific tools")}`);
   out();

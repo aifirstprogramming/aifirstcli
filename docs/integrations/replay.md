@@ -8,7 +8,7 @@ Install the Claude Code skill or start local learning:
 
 ```text
 aifirst skill install --claude
-aifirst learn
+aifirst learn --claude
 ```
 
 For a disposable local session that wires Claude Code directly to the native
@@ -30,7 +30,7 @@ Entering an exercise's exact first prompt starts its replay automatically. The r
 
 A close but non-exact match never runs immediately. Claude asks for confirmation; replying `yes` runs that one pending replay and replying `no` cancels it. Pending confirmation is scoped to the workspace and expires after 30 minutes.
 
-The Claude Code `UserPromptSubmit` hook performs replay in normal skill mode. In `aifirst learn`, the hook only supplies context and the local responder performs the same operations, preventing duplicate execution.
+The Claude Code `UserPromptSubmit` hook performs replay in normal skill mode. In `aifirst learn --claude`, the hook only supplies context and the local responder performs the same operations, preventing duplicate execution.
 
 The installed Claude integration calls a launcher inside
 `~/.claude/skills/aifirst/` rather than relying on `aifirst` being present in
@@ -71,7 +71,7 @@ non-book answer. In normal skill mode the book choice is first and receives
 Claude's single normal **Recommended** label. Local learning labels the same
 choice **Book Recommended** because no model is choosing the recommendation.
 
-`aifirst learn` follows the same questionnaire without a model. Canonical and
+Both `aifirst learn` and `aifirst learn --claude` follow the same questionnaire without a model. Canonical and
 fully authored variant paths can continue to plan approval. An unsupported
 choice explains that an LLM is required and offers to use the book answer,
 restart planning, or leave local learning. It never silently substitutes the

@@ -14,6 +14,7 @@ import { diff } from "./commands/diff";
 import { dependencies } from "./commands/dependencies";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
+import { home } from "./commands/home";
 import { init } from "./commands/init";
 import { list } from "./commands/list";
 import { learn } from "./commands/learn";
@@ -29,6 +30,7 @@ import { skill } from "./commands/skill";
 import { update } from "./commands/update";
 import { CliError, out, reportError } from "./output";
 import { VERSION } from "./version";
+import { isInteractive } from "./prompt";
 
 type Handler = (args: Args) => void | Promise<void>;
 
@@ -65,6 +67,8 @@ const COMMANDS: Record<string, Handler> = {
   skill,
   skills: skill,
   update,
+  home,
+  start: home,
   help: () => help(),
 };
 
@@ -83,7 +87,8 @@ export async function main(argv: string[]): Promise<number> {
   }
 
   if (!args.command || boolFlag(args, "help")) {
-    help();
+    if (!args.command && isInteractive()) await home(args);
+    else help();
     return args.command ? 0 : 0;
   }
 
