@@ -79,7 +79,7 @@ def main() -> int:
 
     proc = subprocess.Popen(
         [
-            bun, "run", entry, "learn", "--",
+            bun, "run", entry, "learn", "--claude", "--",
             "--input-format", "stream-json",
             "--output-format", "stream-json",
             "--verbose", "-p",

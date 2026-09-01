@@ -86,6 +86,17 @@ exit ${status}
 }
 
 describe("learn", () => {
+  it("keeps real-Claude fixtures on the explicit Claude-backed mode", () => {
+    for (const filename of [
+      "duckling-stream-driver.py",
+      "chapter10-stream-driver.py",
+      "duckling-plan-driver.py",
+    ]) {
+      const source = readFileSync(join(import.meta.dir, "fixtures", filename), "utf8");
+      expect(source, filename).toContain('"learn", "--claude"');
+    }
+  });
+
   it.skipIf(process.platform === "win32")("launches an isolated normal client with a narrow environment and cleans up", async () => {
     const root = sandbox();
     const result = await runLearn(root);

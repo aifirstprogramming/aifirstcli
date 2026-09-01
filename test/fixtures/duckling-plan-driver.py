@@ -27,7 +27,7 @@ def main() -> int:
     pid, fd = pty.fork()
     if pid == 0:
         os.chdir(workspace)
-        os.execve(bun, [bun, "run", entry, "learn"], os.environ.copy())
+        os.execve(bun, [bun, "run", entry, "learn", "--claude"], os.environ.copy())
 
     output = bytearray()
     sent_prompt = False
