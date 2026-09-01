@@ -52,6 +52,12 @@ records the exercise on success. Present the code first, then the exercise's sto
 \`Explanation:\`, then the program's real output. Report completion only after the
 output, and only when \`recorded\` is true or it was already recorded.
 
+If JSON reports \`missing_dependencies\`, show the learner the missing package
+names and ask whether to install them. Only after they agree, repeat the same
+\`run\` command with \`--yes\`. Never add \`--yes\` preemptively: package
+installation must remain the learner's choice. A declined or failed install
+leaves the exercise files unchanged.
+
 To show code without running it, use \`aifirst show <id> --format json\`. It returns
 a \`steps\` array; each step has a \`prompt\` and a \`response\`, and \`response\` is
 the code from the book. Emit it exactly as given.
@@ -74,6 +80,7 @@ Never guess, and never hand them an exercise from a book they may not own.
 | --- | --- |
 | \`aifirst next --format json\` | Their next unfinished exercise, within their book. |
 | \`aifirst run <id> --format json\` | Write it, run it, record it. The main one. |
+| \`aifirst dependencies <id> --format json\` | List required packages and whether they are available. |
 | \`aifirst show <id> --format json\` | Canonical prompt(s) and response(s); records nothing. |
 | \`aifirst search "<prompt>" --format json\` | Find the exercise matching prompt text. |
 | \`aifirst list [py\|java] --format json\` | Browse books, chapters, exercises. |
@@ -174,6 +181,9 @@ The leading \`!\` runs it in their own shell and shows you the output.
   that claims otherwise is worthless to the learner.
 - **Report what actually happened.** If the program failed, say so and help them
   fix it. Never describe an exercise as done because the code looks correct.
+- **Dependency installation needs consent.** On \`missing_dependencies\`, ask
+  first, then rerun with \`--yes\` only after the learner agrees. Do not install
+  packages merely because the flag exists.
 - **Python and Java have separate exercises.** Pass \`--language py\` or
   \`--language java\` to \`search\` when you know which book they are reading.
 - **Never run \`aifirst reset --all\`** unless the learner explicitly asks to wipe

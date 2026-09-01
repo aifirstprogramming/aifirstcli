@@ -38,6 +38,8 @@ import {
   type PlanningSession,
 } from "./planning";
 import type { Replay } from "../content/types";
+import type { DependencyReport } from "../dependencies";
+import { checkDependencies, dependencyNames, resolvePythonRuntime, withPythonRuntime } from "../dependencies";
 
 /** The subset of an Anthropic request this needs. Everything else is ignored. */
 export interface MessagesRequest {
@@ -142,6 +144,24 @@ interface ConfirmationState {
   stepIds?: string[];
   confirmationToolId?: string;
   ambiguityToolId?: string;
+}
+
+export interface DependencySession {
+  stepId?: string;
+  confirmationToolId?: string;
+  installToolId?: string;
+}
+
+export type DependencyCheck = (step: ReplayStep) => DependencyReport;
+
+const DEPENDENCY_CONFIRM_PREFIX = "aifirst_dependency_confirm_";
+const DEPENDENCY_INSTALL_PREFIX = "aifirst_dependency_install_";
+
+function clearDependencySession(state: DependencySession | undefined): void {
+  if (!state) return;
+  delete state.stepId;
+  delete state.confirmationToolId;
+  delete state.installToolId;
 }
 
 const AMBIGUITY_TOOL_PREFIX = "aifirst_choose_replay";
@@ -425,7 +445,9 @@ function operationToolUse(
   }
   const name = shellTool(tools);
   if (!name) return undefined;
-  const command = operation.command.map(shellQuote).join(" ");
+  const runtime = resolvePythonRuntime();
+  const operationCommand = runtime ? withPythonRuntime(operation.command, runtime) : operation.command;
+  const command = operationCommand.map(shellQuote).join(" ");
   const cwd = operation.cwd && operation.cwd !== "." ? `cd -- ${shellQuote(operation.cwd)} && ` : "";
   const environment = Object.entries(operation.env ?? {}).map(([key, value]) => `${key}=${shellQuote(value)}`).join(" ");
   return {
@@ -528,6 +550,77 @@ function toolAnswer(block: ContentBlock): string {
   } catch {
     return block.content;
   }
+}
+
+function dependencyQuestion(
+  step: ReplayStep,
+  report: DependencyReport,
+  tools: ToolDefinition[] | undefined,
+  state: DependencySession,
+): Reply {
+  const name = questionTool(tools);
+  const packages = dependencyNames(report.missing);
+  if (!name) {
+    return {
+      text: `${step.id} needs ${packages}. Install them with \`aifirst dependencies install ${step.id}\`, then repeat the exercise prompt. No files were changed.`,
+      stopReason: "end_turn",
+      exerciseId: step.id,
+    };
+  }
+
+  if (state.stepId && state.stepId !== step.id) clearDependencySession(state);
+  state.stepId = step.id;
+  state.confirmationToolId ??= `${DEPENDENCY_CONFIRM_PREFIX}${crypto.randomUUID()}`;
+  return {
+    text: `${step.id} needs ${packages} before the exercise can start.`,
+    toolUse: {
+      id: state.confirmationToolId,
+      name,
+      input: {
+        questions: [{
+          question: `Install ${packages} now?${report.installTarget ? `\n\nInstall target: ${report.installTarget}` : ""}`,
+          header: "Dependencies",
+          options: [
+            { label: "Install dependencies", description: "Install the missing packages and continue this exercise." },
+            { label: "Cancel exercise", description: "Make no changes and stop this exercise." },
+          ],
+          multiSelect: false,
+        }],
+      },
+    },
+    stopReason: "tool_use",
+    exerciseId: step.id,
+  };
+}
+
+function dependencyConfirmationResult(
+  messages: RequestMessage[] | undefined,
+  expectedToolId: string | undefined,
+): { accepted: boolean; failed: boolean } | undefined {
+  if (!expectedToolId) return undefined;
+  const result = interactiveToolResults(messages, DEPENDENCY_CONFIRM_PREFIX)
+    .filter((block) => block.tool_use_id === expectedToolId)
+    .at(-1);
+  if (!result) return undefined;
+  return {
+    accepted: toolAnswer(result).toLowerCase().includes("install dependencies"),
+    failed: result.is_error === true,
+  };
+}
+
+function dependencyInstallResult(
+  messages: RequestMessage[] | undefined,
+  expectedToolId: string | undefined,
+): { failed: boolean; detail: string } | undefined {
+  const result = latestToolResult(messages);
+  if (!result || !expectedToolId || result.tool_use_id !== expectedToolId) return undefined;
+  const raw = result.content;
+  const detail = typeof raw === "string"
+    ? raw
+    : Array.isArray(raw)
+      ? (raw as ContentBlock[]).map((block) => block.text ?? "").join("\n")
+      : "";
+  return { failed: result.is_error === true, detail: detail.trim() };
 }
 
 function ambiguityToolResult(
@@ -729,7 +822,7 @@ function planningStep(step: ReplayStep | undefined, planning: PlanningSession | 
   return replayStepForMode(step, planning?.replayMode ?? "captured");
 }
 
-function selectedReplayReply(
+function beginSelectedReplay(
   step: ReplayStep | undefined,
   content: Content,
   tools: ToolDefinition[] | undefined,
@@ -769,6 +862,35 @@ function selectedReplayReply(
     ),
     notice,
   );
+}
+
+function selectedReplayReply(
+  step: ReplayStep | undefined,
+  content: Content,
+  tools: ToolDefinition[] | undefined,
+  planning: PlanningSession | undefined,
+  dependencies: DependencySession | undefined,
+  dependencyCheck: DependencyCheck | undefined,
+): Reply {
+  if (!step?.replay) return beginSelectedReplay(step, content, tools, planning);
+  if (!dependencies || !step.dependencies?.length) {
+    return beginSelectedReplay(step, content, tools, planning);
+  }
+
+  const report = (dependencyCheck ?? ((candidate) => checkDependencies(candidate.dependencies)))(step);
+  if (report.missing.length === 0) {
+    clearDependencySession(dependencies);
+    return beginSelectedReplay(step, content, tools, planning);
+  }
+  if (!report.runtime) {
+    clearDependencySession(dependencies);
+    return {
+      text: `${step.id} needs Python 3 before its dependencies can be installed. Install Python 3, then repeat the exercise prompt. No files were changed.`,
+      stopReason: "end_turn",
+      exerciseId: step.id,
+    };
+  }
+  return dependencyQuestion(step, report, tools, dependencies);
 }
 
 function noExerciseReply(): Reply {
@@ -1026,6 +1148,10 @@ export interface RespondOptions {
   confirmation?: ConfirmationState;
   /** Interactive, model-free planning state owned by one local server. */
   planning?: PlanningSession;
+  /** Missing-package confirmation/install state owned by one local server. */
+  dependencies?: DependencySession;
+  /** Test seam for deterministic dependency availability. */
+  dependencyCheck?: DependencyCheck;
 }
 
 /**
@@ -1154,6 +1280,95 @@ export function respond(
     return { text: example?.title ?? "AI First learning", stopReason: "end_turn", exerciseId: step?.id };
   }
 
+  const dependencyInstall = dependencyInstallResult(request.messages, options.dependencies?.installToolId);
+  if (dependencyInstall && options.dependencies?.stepId) {
+    const step = content.steps.find((candidate) => candidate.id === options.dependencies!.stepId) as ReplayStep | undefined;
+    if (!step?.replay) {
+      clearDependencySession(options.dependencies);
+      return { text: "That dependency installation is no longer attached to an exercise.", stopReason: "end_turn" };
+    }
+    if (dependencyInstall.failed) {
+      clearDependencySession(options.dependencies);
+      return {
+        text: `Dependency installation failed. No exercise files were changed.${dependencyInstall.detail ? `\n\n${dependencyInstall.detail}` : ""}`,
+        stopReason: "end_turn",
+        exerciseId: step.id,
+      };
+    }
+    const report = (options.dependencyCheck ?? ((candidate) => checkDependencies(candidate.dependencies)))(step);
+    if (report.missing.length > 0) {
+      clearDependencySession(options.dependencies);
+      return {
+        text: `Dependency installation finished, but ${dependencyNames(report.missing)} still cannot be imported. No exercise files were changed.`,
+        stopReason: "end_turn",
+        exerciseId: step.id,
+      };
+    }
+    clearDependencySession(options.dependencies);
+    return selectedReplayReply(
+      step,
+      content,
+      request.tools,
+      options.planning,
+      options.dependencies,
+      options.dependencyCheck,
+    );
+  }
+
+  const dependencyConfirmation = dependencyConfirmationResult(
+    request.messages,
+    options.dependencies?.confirmationToolId,
+  );
+  if (dependencyConfirmation && options.dependencies?.stepId) {
+    const step = content.steps.find((candidate) => candidate.id === options.dependencies!.stepId) as ReplayStep | undefined;
+    if (!step?.replay || dependencyConfirmation.failed || !dependencyConfirmation.accepted) {
+      clearDependencySession(options.dependencies);
+      return {
+        text: dependencyConfirmation.failed ? "Dependency installation was cancelled." : "Exercise cancelled. No files were changed.",
+        stopReason: "end_turn",
+        exerciseId: step?.id,
+      };
+    }
+    const shell = shellTool(request.tools);
+    if (!shell) {
+      clearDependencySession(options.dependencies);
+      return {
+        text: `Install the dependencies with \`aifirst dependencies install ${step.id}\`, then repeat the exercise prompt. No files were changed.`,
+        stopReason: "end_turn",
+        exerciseId: step.id,
+      };
+    }
+    delete options.dependencies.confirmationToolId;
+    options.dependencies.installToolId = `${DEPENDENCY_INSTALL_PREFIX}${step.id.replace(/[^a-zA-Z0-9_.-]/g, "_")}`;
+    return {
+      text: `Installing ${dependencyNames(step.dependencies)} before starting ${step.id}.`,
+      toolUse: {
+        id: options.dependencies.installToolId,
+        name: shell,
+        input: {
+          command: `aifirst dependencies install ${step.id} --yes --format json`,
+          description: `Install dependencies for ${step.id}`,
+        },
+      },
+      stopReason: "tool_use",
+      exerciseId: step.id,
+    };
+  }
+
+  const dependencyConfirmationResults = interactiveToolResults(request.messages, DEPENDENCY_CONFIRM_PREFIX);
+  if (
+    dependencyConfirmationResults.length > 0 &&
+    options.dependencies?.stepId &&
+    options.dependencies.confirmationToolId &&
+    isEmptyContinuation(readerText(request.messages))
+  ) {
+    const step = content.steps.find((candidate) => candidate.id === options.dependencies!.stepId) as ReplayStep | undefined;
+    if (step?.replay) {
+      const report = (options.dependencyCheck ?? ((candidate) => checkDependencies(candidate.dependencies)))(step);
+      if (report.missing.length > 0) return dependencyQuestion(step, report, request.tools, options.dependencies);
+    }
+  }
+
   const interludeResult = interludeToolResult(request.messages);
   if (interludeResult && options.planning) {
     const step = planningStep(
@@ -1233,7 +1448,7 @@ export function respond(
     clearConfirmation(options.confirmation);
     if (!selection || selection === "cancel") return noExerciseReply();
     const step = content.steps.find((candidate) => candidate.id === selection) as ReplayStep | undefined;
-    return selectedReplayReply(step, content, request.tools, options.planning);
+    return selectedReplayReply(step, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
   }
 
   let ignoredStaleConfirmation = false;
@@ -1252,7 +1467,7 @@ export function respond(
     if (!confirmationResult.accepted) {
       return { text: "Replay cancelled.", stopReason: "end_turn", exerciseId: step?.id };
     }
-    return selectedReplayReply(step, content, request.tools, options.planning);
+    return selectedReplayReply(step, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
   }
   if (confirmationResults.length > 0 && pendingConfirmation.length === 1) {
     ignoredStaleConfirmation = true;
@@ -1336,7 +1551,7 @@ export function respond(
     if (selection) {
       clearConfirmation(options.confirmation);
       const step = content.steps.find((candidate) => candidate.id === selection) as ReplayStep | undefined;
-      return selectedReplayReply(step, content, request.tools, options.planning);
+      return selectedReplayReply(step, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
     }
     const candidates = pendingIds.flatMap((id) => {
       const step = content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
@@ -1383,7 +1598,7 @@ export function respond(
   }
   if (answer === "yes" && confirmedStep) {
     clearConfirmation(options.confirmation);
-    return selectedReplayReply(confirmedStep, content, request.tools, options.planning);
+    return selectedReplayReply(confirmedStep, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
   }
 
   const replay = resolveReplay(typed, content, options.language);
@@ -1423,13 +1638,14 @@ export function respond(
     return ambiguityReply(content, candidates, request.tools, options.confirmation?.ambiguityToolId);
   }
   if (replay.kind === "exact" && replay.step.replay?.workflow && options.planning) {
-    return selectedReplayReply(replay.step, content, request.tools, options.planning);
+    return selectedReplayReply(replay.step, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
   }
   if (replay.kind === "exact" && replay.step.replay) {
     const mode = workspaceMatchesInitialState(replay.step, content) ? "captured" : "standalone";
     const selected = replayStepForMode(replay.step, mode);
-    if (replayToolUse(selected, 0, request.tools, selected.replay, "replay", mode === "standalone")) {
-      return selectedReplayReply(replay.step, content, request.tools, options.planning);
+    const needsDependencyGate = Boolean(options.dependencies && replay.step.dependencies?.length);
+    if (needsDependencyGate || replayToolUse(selected, 0, request.tools, selected.replay, "replay", mode === "standalone")) {
+      return selectedReplayReply(replay.step, content, request.tools, options.planning, options.dependencies, options.dependencyCheck);
     }
   }
 

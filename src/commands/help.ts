@@ -22,6 +22,7 @@ export function help(): void {
   out();
   out(`  ${bold("Exercises")}`);
   out(`    ${cyan("aifirst run")} ${dim("<id>")}           write it, run it, record it`);
+  out(`    ${cyan("aifirst dependencies")} ${dim("<id>")}  check required packages`);
   out(`    ${cyan("aifirst show")} ${dim("<id>")}          the book's prompt and exact code`);
   out(`    ${cyan("aifirst list")} ${dim("[py|java]")}      browse books and chapters`);
   out(`    ${cyan("aifirst prompt")} ${dim("<id>")}        just the prompt, to paste into a chat`);
@@ -41,7 +42,7 @@ export function help(): void {
   out();
   out(`  ${bold("Options")}`);
   out(`    ${dim("--format text|json|md")}     json is the machine-readable contract`);
-  out(`    ${dim("--yes")}                     skip confirmation in init`);
+  out(`    ${dim("--yes")}                     approve setup or dependency installation`);
   out(`    ${dim("--claude --codex --antigravity --antigravity-cli --vscode")}`);
   out(`    ${dim("                          target specific tools")}`);
   out();

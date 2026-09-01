@@ -117,7 +117,18 @@ function withReplays(content: Content, entries: RawEntry[]): Content {
       for (const chapter of section.chapters ?? []) {
         for (const example of chapter.examples ?? []) {
           if (example.status) continue;
-          const replayExample = example as typeof example & { replay?: Replay; prompts?: Array<{ id: string; replay?: Replay }> };
+          const replayExample = example as typeof example & {
+            replay?: Replay;
+            dependencies?: import("./types").Dependency[];
+            prompts?: Array<{ id: string; replay?: Replay }>;
+          };
+          const normalizedExample = content.examples.find((candidate) => candidate.id === example.id);
+          if (replayExample.dependencies) {
+            if (normalizedExample) normalizedExample.dependencies = replayExample.dependencies;
+            for (const normalizedStep of normalizedExample?.steps ?? []) {
+              normalizedStep.dependencies = replayExample.dependencies;
+            }
+          }
           if (replayExample.prompts) {
             for (const rawStep of replayExample.prompts) {
               const step = steps.get(rawStep.id);

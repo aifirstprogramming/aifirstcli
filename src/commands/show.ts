@@ -46,6 +46,10 @@ export function show(args: Args): void {
     out();
     out(`  ${ex.description}`);
   }
+  if (ex.dependencies?.length) {
+    out();
+    out(`  ${cyan("Dependencies")}  ${ex.dependencies.map((dependency) => dependency.package).join(", ")}`);
+  }
 
   for (const step of steps) {
     out();

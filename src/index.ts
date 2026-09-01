@@ -11,6 +11,7 @@ import { book } from "./commands/book";
 import { bookMode } from "./commands/bookmode";
 import { claude } from "./commands/claude";
 import { diff } from "./commands/diff";
+import { dependencies } from "./commands/dependencies";
 import { doctor } from "./commands/doctor";
 import { help } from "./commands/help";
 import { init } from "./commands/init";
@@ -45,6 +46,8 @@ const COMMANDS: Record<string, Handler> = {
   where: at,
   diff,
   compare: diff,
+  dependencies,
+  deps: dependencies,
   run,
   book,
   books: book,

@@ -26,6 +26,8 @@ import { finalResponse, report, resume } from "../exercises";
 import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
 import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
+import { withPythonRuntime } from "../dependencies";
+import { preflightDependencies } from "./dependencies";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -98,8 +100,19 @@ export async function next(args: Args): Promise<void> {
   // ── BARE-MODE CYCLE: write → run → record → advance ──
 
   const step = finalResponse(ex);
+  const into = stringFlag(args, "into");
+  const retryCommand = [
+    "aifirst next",
+    ...(args.positionals[0] ? [JSON.stringify(args.positionals[0])] : []),
+    "--yes",
+    ...(into ? ["--into", JSON.stringify(into)] : []),
+    ...(boolFlag(args, "force") ? ["--force"] : []),
+    ...(boolFlag(args, "earliest") ? ["--earliest"] : []),
+    ...(format === "json" ? ["--format json"] : []),
+  ].join(" ");
+  const dependencyReport = await preflightDependencies(args, ex, step, format, retryCommand);
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(stringFlag(args, "into") ?? exercisePath(ex, step));
+  const path = resolvePath(into ?? exercisePath(ex, step));
   const force = boolFlag(args, "force");
 
   // Write it, but never over something different that the learner wrote.
@@ -160,6 +173,7 @@ export async function next(args: Args): Promise<void> {
   } else {
     runCmd = runCommand(ex.language, fileName) ?? ["python3", fileName];
   }
+  if (dependencyReport.runtime) runCmd = withPythonRuntime(runCmd, dependencyReport.runtime);
 
   if (!which(runCmd[0])) {
     const message = `${runCmd[0]} is not installed`;
@@ -215,6 +229,7 @@ export async function next(args: Args): Promise<void> {
         ? { ok: true, exitCode: 0, timedOut: false, stdout, stderr }
         : { ok: false, exitCode, timedOut, stdout, stderr },
       recorded: recorded !== null,
+      dependencies: dependencyReport.dependencies,
       next: nextJson,
       counts,
       ...(picked.from ? { resumedFrom: picked.from } : {}),

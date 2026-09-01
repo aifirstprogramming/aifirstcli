@@ -25,6 +25,9 @@ import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
 import { writeScaffold } from "../content/scaffold";
 import type { Example, Step } from "../content/types";
+import { preflightDependencies } from "./dependencies";
+import type { PythonRuntime } from "../dependencies";
+import { withPythonRuntime } from "../dependencies";
 import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
@@ -70,7 +73,7 @@ export const JUNIT_URL =
  * single-file launcher only pulls in siblings on JDK 22 and later, and a learner on
  * an LTS release would otherwise see "cannot find symbol" for code that is right.
  */
-function commandsFor(example: Example, step: Step, file: string): string[][] {
+function commandsFor(example: Example, step: Step, file: string, python?: PythonRuntime): string[][] {
   const entry = step.scaffold?.entrypoint;
   if (example.language === "java") {
     if (example.kind === "test") {
@@ -91,8 +94,8 @@ function commandsFor(example: Example, step: Step, file: string): string[][] {
     }
     return [runCommand("java", runFile) ?? ["java", runFile]];
   }
-  if (entry) return [["python3", entry]];
-  return [runCommand(example.language, file) ?? ["python3", file]];
+  const command = entry ? ["python3", entry] : (runCommand(example.language, file) ?? ["python3", file]);
+  return [python ? withPythonRuntime(command, python) : command];
 }
 
 /** Pick the step to run, honouring --step and a step-level id. */
@@ -125,8 +128,19 @@ export async function run(args: Args): Promise<void> {
   const example = hit.example;
   const step = pickStep(args, example, hit.kind === "step" ? hit.step : undefined);
 
+  const into = stringFlag(args, "into");
+  const retryCommand = [
+    "aifirst run",
+    step.id,
+    "--yes",
+    ...(into ? ["--into", JSON.stringify(into)] : []),
+    ...(boolFlag(args, "force") ? ["--force"] : []),
+    ...(format === "json" ? ["--format json"] : []),
+  ].join(" ");
+  const dependencyReport = await preflightDependencies(args, example, step, format, retryCommand);
+
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(stringFlag(args, "into") ?? exercisePath(example, step));
+  const path = resolvePath(into ?? exercisePath(example, step));
   const force = boolFlag(args, "force");
 
   // Write it, but never over something different that the learner wrote.
@@ -165,7 +179,7 @@ export async function run(args: Args): Promise<void> {
   // Anything the exercise needs around it, written next to it.
   const scaffoldFiles = writeScaffold(dirname(path), step, content);
 
-  const commands = commandsFor(example, step, basename(path));
+  const commands = commandsFor(example, step, basename(path), dependencyReport.runtime);
   // Whatever happened above, the file about to run must hold this exercise's code.
   //
   // Recording a pass for a stale file is the one failure this command must not
@@ -281,6 +295,7 @@ export async function run(args: Args): Promise<void> {
       ...(replaced ? { replaced } : {}),
       ...(step.stdin === undefined ? {} : { stdin: step.stdin }),
       recorded: recorded !== null,
+      dependencies: dependencyReport.dependencies,
     });
     if (!ok) process.exitCode = 1;
     return;

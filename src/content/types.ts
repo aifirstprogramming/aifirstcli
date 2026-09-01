@@ -16,6 +16,29 @@ export type {
   Step,
 } from "@aifirst/content";
 
+/** Kept at the CLI seam so older installed content loaders can read newer packs. */
+export interface PythonPackageDependency {
+  kind: "python-package";
+  package: string;
+  module: string;
+}
+
+export type Dependency = PythonPackageDependency;
+
+declare module "@aifirst/content" {
+  interface RawExample {
+    dependencies?: Dependency[];
+  }
+
+  interface Example {
+    dependencies?: Dependency[];
+  }
+
+  interface Step {
+    dependencies?: Dependency[];
+  }
+}
+
 export type ReplayOperation =
   | { type: "write"; path: string; content: string }
   | { type: "edit"; path: string; oldText: string; newText: string; replaceAll?: boolean }

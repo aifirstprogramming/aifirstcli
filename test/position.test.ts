@@ -24,7 +24,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
 
-async function aifirst(args: string[]): Promise<{ stdout: string; code: number }> {
+async function aifirst(args: string[]): Promise<{ stdout: string; stderr: string; code: number }> {
   const proc = Bun.spawn([process.execPath, "run", ENTRY, ...args], {
     cwd: sandbox,
     env: {
@@ -36,9 +36,12 @@ async function aifirst(args: string[]): Promise<{ stdout: string; code: number }
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
   await proc.exited;
-  return { stdout, code: proc.exitCode ?? 0 };
+  return { stdout, stderr, code: proc.exitCode ?? 0 };
 }
 
 /**
@@ -110,9 +113,17 @@ describe("the bookmark", () => {
       .books[0].chapters.flatMap((c: { exercises: { id: string }[] }) => c.exercises)
       .pop().id;
     await aifirst(["at", last]);
-    const out = JSON.parse((await aifirst(["next", "--format", "json"])).stdout);
-    // next auto-runs the last exercise, so it should advance to the previous one
-    expect(out.next).not.toBeNull();
+    const result = await aifirst(["next", "--format", "json"]);
+    if (result.code === 0) {
+      const out = JSON.parse(result.stdout);
+      // next auto-runs the last exercise, so it should advance to the previous one
+      expect(out.next).not.toBeNull();
+    } else {
+      // A clean machine pauses at that same final exercise for dependency approval.
+      const error = JSON.parse(result.stderr).error;
+      expect(error.code).toBe("missing_dependencies");
+      expect(error.details.exerciseId).toBe(last);
+    }
   });
 
   it("is not a completion — it records nothing", async () => {

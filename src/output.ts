@@ -62,6 +62,7 @@ export class CliError extends Error {
     message: string,
     readonly code = "error",
     readonly hint?: string,
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "CliError";
@@ -72,9 +73,10 @@ export function reportError(e: unknown, format: Format): void {
   const message = e instanceof Error ? e.message : String(e);
   const code = e instanceof CliError ? e.code : "error";
   const hint = e instanceof CliError ? e.hint : undefined;
+  const details = e instanceof CliError ? e.details : undefined;
 
   if (format === "json") {
-    process.stderr.write(JSON.stringify({ error: { code, message, hint } }, null, 2) + "\n");
+    process.stderr.write(JSON.stringify({ error: { code, message, hint, ...(details === undefined ? {} : { details }) } }, null, 2) + "\n");
     return;
   }
   errLine(`${red("error")} ${message}`);

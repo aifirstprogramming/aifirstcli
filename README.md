@@ -81,6 +81,8 @@ aifirst init [--yes] [--no-permissions] [--claude|--codex|--antigravity|--vscode
 aifirst book [py|java|all]          which book you're reading
 aifirst next                        your next unfinished exercise, in your book
 aifirst run <id> [--into <file>]    write the code, run it, record it
+aifirst dependencies <id>           list and check required packages
+aifirst dependencies install <id>   install them after confirmation
 aifirst show <id>                   the book's prompt and exact code
 aifirst list [py|java] [--chapter N]
 aifirst prompt <id>                 just the prompt, to paste into a chat
@@ -101,6 +103,14 @@ aifirst update [--content] [--check]
 ```
 
 Most commands take `--book <tag>` or `--all` to override the book you picked.
+
+Exercises can declare Python packages separately from their source code. Before `run`, bare-mode
+`next`, or a local `learn` replay changes files, aifirst imports those modules with the same Python
+interpreter that will run the exercise. Missing packages are listed and require confirmation before
+installation. In an active virtual environment they install there; otherwise they install into that
+interpreter's user package site, so a later command such as `python3 level_editor.py` works without
+administrator access. Non-interactive callers receive a `missing_dependencies` JSON error and must
+retry with `--yes` only after the learner approves.
 
 Exercise ids look like `py-2-06` or `java-3-05`. `py-2-06.2` addresses step 2 of a multi-step exercise.
 Unambiguous prefixes work: `aifirst show py-1`.

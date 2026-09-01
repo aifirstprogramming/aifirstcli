@@ -29,7 +29,15 @@ async function withServer(run: (post: (content: unknown) => Promise<MessageBody>
   mkdirSync(workspace);
   process.chdir(workspace);
   process.env.AIFIRST_STATE_DIR = join(root, "state");
-  const server = startBookServer({ port: 0, quiet: true });
+  const server = startBookServer({
+    port: 0,
+    quiet: true,
+    dependencyCheck: (step) => ({
+      dependencies: (step.dependencies ?? []).map((dependency) => ({ dependency, available: true })),
+      missing: [],
+      runtime: { command: ["python3"], display: "python3" },
+    }),
+  });
   const post = async (content: unknown) => {
     const response = await fetch(`${server.baseUrl}/v1/messages`, {
       method: "POST",

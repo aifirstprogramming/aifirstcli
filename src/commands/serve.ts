@@ -17,7 +17,7 @@
  */
 
 import { DEFAULT_PORT } from "../bookmode/port";
-import type { MessagesRequest } from "../bookmode/responder";
+import type { DependencyCheck, DependencySession, MessagesRequest } from "../bookmode/responder";
 import { respond } from "../bookmode/responder";
 import { ReplayContentSource } from "../replay/contentSource";
 import { loadReplayPack } from "../replay/store";
@@ -46,12 +46,14 @@ export interface BookServer {
   stop(): void;
 }
 
-export function startBookServer({ port = 0, quiet = false, replay, textPacing, onRequest, onReply }: {
+export function startBookServer({ port = 0, quiet = false, replay, textPacing, dependencyCheck, onRequest, onReply }: {
   port?: number;
   quiet?: boolean;
   replay?: string;
   /** Optional cached-text pacing. Used by `aifirst learn`, not normal serving. */
   textPacing?: TextPacing;
+  /** Deterministic test seam; production checks the selected Python interpreter. */
+  dependencyCheck?: DependencyCheck;
   /** Test/verification observer; callers must not persist prompt bodies. */
   onRequest?: (request: MessagesRequest) => void;
   /** Test/verification observer for non-sensitive routing state. */
@@ -60,6 +62,7 @@ export function startBookServer({ port = 0, quiet = false, replay, textPacing, o
   const replaySource = replay ? new ReplayContentSource(loadReplayPack(replay)) : undefined;
   const confirmation: { stepId?: string; stepIds?: string[]; confirmationToolId?: string; ambiguityToolId?: string } = {};
   const planning: PlanningSession = { answers: {} };
+  const dependencies: DependencySession = {};
   let messagesTail = Promise.resolve();
   const inMessageOrder = async <T>(operation: () => Promise<T>): Promise<T> => {
     const previous = messagesTail;
@@ -111,7 +114,13 @@ export function startBookServer({ port = 0, quiet = false, replay, textPacing, o
         // Read fresh each time: the reader may finish exercises while this runs, and
         // the closing message should tell them the truth about where they are.
         const { content } = resolveContent();
-        const reply = respond(request, content, readLog(), { language: readerLanguage(), confirmation, planning }, replaySource);
+        const reply = respond(
+          request,
+          content,
+          readLog(),
+          { language: readerLanguage(), confirmation, planning, dependencies, dependencyCheck },
+          replaySource,
+        );
         onReply?.(reply, confirmation.stepId ?? confirmation.stepIds?.[0]);
 
         const ids = {

@@ -64,6 +64,7 @@ export function list(args: Args): void {
                 id: e.id,
                 title: e.title,
                 steps: e.steps.length,
+                dependencies: e.dependencies ?? [],
                 status: log.exercises[e.id]?.status ?? null,
               })),
             })),
@@ -91,7 +92,10 @@ export function list(args: Args): void {
     out(`  ${cyan(view.title)}`);
     for (const ex of view.examples) {
       const steps = ex.steps.length > 1 ? dim(` (${ex.steps.length} steps)`) : "";
-      out(`    ${statusGlyph(ex.id, log)} ${dim(ex.id.padEnd(11))} ${ex.title}${steps}`);
+      const dependencies = ex.dependencies?.length
+        ? dim(` (requires ${ex.dependencies.map((dependency) => dependency.package).join(", ")})`)
+        : "";
+      out(`    ${statusGlyph(ex.id, log)} ${dim(ex.id.padEnd(11))} ${ex.title}${steps}${dependencies}`);
     }
     out();
   }

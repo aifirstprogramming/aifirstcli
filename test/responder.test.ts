@@ -117,6 +117,117 @@ describe("reading what the reader typed", () => {
 });
 
 describe("answering a book prompt", () => {
+  it("installs missing exercise dependencies before any replay operation", () => {
+    const dependencyState: { stepId?: string; confirmationToolId?: string; installToolId?: string } = {};
+    const step = content.steps.find((candidate) => candidate.id === "py-9-01") as ReplayStep;
+    let installed = false;
+    const dependencyCheck = () => ({
+      dependencies: step.dependencies!.map((dependency) => ({ dependency, available: installed })),
+      missing: installed ? [] : step.dependencies!,
+      runtime: { command: ["python3"], display: "python3" },
+      installTarget: "/home/student/.local/lib/python/site-packages",
+    });
+
+    const question = respond(
+      { messages: [{ role: "user", content: step.prompt }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { dependencies: dependencyState, dependencyCheck },
+    );
+    expect(question.toolUse?.name).toBe("AskUserQuestion");
+    expect(question.toolUse?.id).toStartWith("aifirst_dependency_confirm_");
+    expect(question.text).toContain("pygame, Pillow");
+
+    const install = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: question.toolUse?.id,
+        content: '{"answers":{"Dependencies":"Install dependencies"}}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { dependencies: dependencyState, dependencyCheck });
+    expect(install.toolUse?.name).toBe("Bash");
+    expect(install.toolUse?.input.command).toBe("aifirst dependencies install py-9-01 --yes --format json");
+
+    installed = true;
+    const replay = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: install.toolUse?.id,
+        content: '{"ok":true}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { dependencies: dependencyState, dependencyCheck });
+    expect(replay.toolUse?.id).toBe("aifirst_replay_py-9-01_0");
+    expect(dependencyState).toEqual({});
+  });
+
+  it("cancels a dependency prompt without starting the replay", () => {
+    const dependencies: { stepId?: string; confirmationToolId?: string; installToolId?: string } = {};
+    const step = content.steps.find((candidate) => candidate.id === "py-9-01") as ReplayStep;
+    const dependencyCheck = () => ({
+      dependencies: step.dependencies!.map((dependency) => ({ dependency, available: false })),
+      missing: step.dependencies!,
+      runtime: { command: ["python3"], display: "python3" },
+      installTarget: "/tmp/user-site",
+    });
+    const question = respond(
+      { messages: [{ role: "user", content: step.prompt }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { dependencies, dependencyCheck },
+    );
+    const cancelled = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: question.toolUse?.id,
+        content: '{"answers":{"Dependencies":"Cancel exercise"}}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { dependencies, dependencyCheck });
+    expect(cancelled.stopReason).toBe("end_turn");
+    expect(cancelled.toolUse).toBeUndefined();
+    expect(cancelled.text).toContain("No files were changed");
+    expect(dependencies).toEqual({});
+  });
+
+  it("ignores a stale dependency answer after a newer exercise replaces it", () => {
+    const dependencies: { stepId?: string; confirmationToolId?: string; installToolId?: string } = {};
+    const dependencyCheck = (step: ReplayStep) => ({
+      dependencies: step.dependencies!.map((dependency) => ({ dependency, available: false })),
+      missing: step.dependencies!,
+      runtime: { command: ["python3"], display: "python3" },
+      installTarget: "/tmp/user-site",
+    });
+    const duckling = content.steps.find((candidate) => candidate.id === "py-9-01") as ReplayStep;
+    const editor = content.steps.find((candidate) => candidate.id === "py-10-01") as ReplayStep;
+    const first = respond(
+      { messages: [{ role: "user", content: duckling.prompt }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { dependencies, dependencyCheck },
+    );
+    const second = respond(
+      { messages: [{ role: "user", content: editor.prompt }], tools: NATIVE_TOOLS_WITH_QUESTION },
+      content,
+      log,
+      { dependencies, dependencyCheck },
+    );
+    expect(second.toolUse?.id).toStartWith("aifirst_dependency_confirm_");
+    expect(second.toolUse?.id).not.toBe(first.toolUse?.id);
+
+    const repeated = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: first.toolUse?.id,
+        content: '{"answers":{"Dependencies":"Cancel exercise"}}',
+      }] }],
+      tools: NATIVE_TOOLS_WITH_QUESTION,
+    }, content, log, { dependencies, dependencyCheck });
+    expect(repeated.toolUse?.id).toBe(second.toolUse?.id);
+    expect(repeated.exerciseId).toBe("py-10-01");
+  });
+
   it("uses Claude's native choice box when the client advertises it", () => {
     const confirmation: { stepId?: string; confirmationToolId?: string } = {};
     const reply = respond(

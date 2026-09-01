@@ -53,14 +53,17 @@ synthetic child-only `ANTHROPIC_AUTH_TOKEN`, `IS_DEMO=1`, and an ephemeral
    `/aifirst next` is intercepted by Claude Code's own slash-command layer before it reaches book mode;
    it is not a supported chat form.
 4. Verify `aifirst run <id>` records completion only after a successful Bash tool result.
-5. Start `py-9-01`, answer each planning question with the **Book Recommended** option, and confirm no
+5. With pygame/Pillow absent from the selected Python user site, start `py-9-01`. Confirm the native
+   dependency question appears before any replay operation, accept it, and verify
+   `python3 -c "import pygame, PIL"` succeeds afterward. Repeat once and confirm there is no second prompt.
+6. Start `py-9-01`, answer each planning question with the **Book Recommended** option, and confirm no
    Write or Bash action occurs before approving the displayed plan. Confirm cached plan and replay text
    renders progressively rather than appearing all at once, and each tool call waits for its text.
-6. Repeat `py-9-01` with a non-book gameplay choice. Confirm local learning explains that an LLM is
+7. Repeat `py-9-01` with a non-book gameplay choice. Confirm local learning explains that an LLM is
    required and that selecting the book fallback resumes the remaining questions and completes normally.
-7. Send an off-book prompt and confirm local refusal with no external request.
-8. Exit normally, repeat with a client launch failure, and run `aifirst learn --recover` after a stale lock.
-9. Run plain `claude` and verify the sentinel hashes and normal behavior are unchanged.
+8. Send an off-book prompt and confirm local refusal with no external request.
+9. Exit normally, repeat with a client launch failure, and run `aifirst learn --recover` after a stale lock.
+10. Run plain `claude` and verify the sentinel hashes and normal behavior are unchanged.
 
 ### macOS
 

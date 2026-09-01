@@ -41,6 +41,8 @@ export const WITHHELD_COMMANDS: Record<string, string> = {
   skill: "rewrites agent configuration",
   update: "replaces the binary",
   init: "writes to agent configuration",
+  dependencies: "can install third-party packages",
+  deps: "can install third-party packages",
 };
 
 /** Claude Code permission entries, e.g. `Bash(aifirst show:*)`. */

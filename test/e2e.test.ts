@@ -110,6 +110,17 @@ describe("show", () => {
     expect(r.stdout).not.toContain("[");
   });
 
+  it("lists authored dependencies without checking or installing them", async () => {
+    const shown = JSON.parse((await aifirst(["show", "py-10-01", "--format", "json"])).stdout);
+    expect(shown.dependencies).toEqual([
+      { kind: "python-package", package: "pygame", module: "pygame" },
+      { kind: "python-package", package: "Pillow", module: "PIL" },
+    ]);
+
+    const listed = JSON.parse((await aifirst(["list", "py", "--chapter", "10", "--format", "json"])).stdout);
+    expect(listed.books[0].chapters[0].exercises[0].dependencies).toEqual(shown.dependencies);
+  });
+
   it("shows every step of a multi-step exercise", async () => {
     const r = await aifirst(["show", "py-3-01", "--format", "json"]);
     const parsed = JSON.parse(r.stdout);
@@ -143,6 +154,19 @@ describe("show", () => {
   it("accepts an unambiguous prefix", async () => {
     const r = await aifirst(["show", "py-1-0", "--format", "json"]);
     expect(JSON.parse(r.stdout).id).toBe("py-1-01");
+  });
+});
+
+describe("dependencies", () => {
+  it("checks an exercise without changing the workspace", async () => {
+    const before = existsSync(join(sandbox, "level_editor.py"));
+    const r = await aifirst(["dependencies", "py-10-01", "--format", "json"]);
+    const result = JSON.parse(r.stdout);
+    expect([0, 1]).toContain(r.code);
+    expect(result.exerciseId).toBe("py-10-01");
+    expect(result.dependencies.map((status: { dependency: { package: string } }) => status.dependency.package))
+      .toEqual(["pygame", "Pillow"]);
+    expect(existsSync(join(sandbox, "level_editor.py"))).toBe(before);
   });
 });
 

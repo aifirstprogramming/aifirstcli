@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import type { Replay, ReplayOperation } from "../content/types";
+import { resolvePythonRuntime, withPythonRuntime } from "../dependencies";
 
 export interface ReplayCommandResult {
   command: string[];
@@ -42,10 +43,10 @@ function inside(root: string, path: string): string {
 
 function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, root: string): ReplayCommandResult {
   try {
-    const executable = process.platform === "win32" && operation.command[0] === "python3"
-      ? "python"
-      : operation.command[0] ?? "";
-    const result = spawnSync(executable, operation.command.slice(1), {
+    const runtime = resolvePythonRuntime();
+    const command = runtime ? withPythonRuntime(operation.command, runtime) : operation.command;
+    const executable = command[0] ?? "";
+    const result = spawnSync(executable, command.slice(1), {
       cwd: inside(root, operation.cwd ?? "."),
       env: { ...process.env, ...operation.env },
       input: operation.stdin,
@@ -61,7 +62,7 @@ function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, ro
       (operation.expectedExitCode === undefined || operation.expectedExitCode === exitCode) &&
       (operation.expectedStdout === undefined || operation.expectedStdout === comparableStdout) &&
       (operation.expectedStderr === undefined || operation.expectedStderr === comparableStderr);
-    return { command: operation.command, exitCode, stdout, stderr, matchesExpected };
+    return { command, exitCode, stdout, stderr, matchesExpected };
   } catch (error) {
     return { command: operation.command, exitCode: 127, stdout: "", stderr: (error as Error).message, matchesExpected: false };
   }

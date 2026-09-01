@@ -60,6 +60,48 @@ const done = async (): Promise<number> =>
   JSON.parse((await aifirst(["progress", "--all", "--format", "json"])).stdout).overall.done;
 
 describe("run", () => {
+  it("reports missing dependencies before writing or recording anything", async () => {
+    const dir = join(sandbox, "dependency-pack", "books");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "ai-first-python-programming.json"),
+      JSON.stringify({
+        title: "Dependency Python",
+        tag: "py",
+        language: "python",
+        sections: [{
+          title: "S",
+          chapters: [{
+            title: "Chapter 1: C",
+            examples: [{
+              id: "py-1-01",
+              title: "Missing Dependency",
+              prompt: "p",
+              response: "print('should not run')",
+              dependencies: [{
+                kind: "python-package",
+                package: "DefinitelyMissing",
+                module: "aifirst_module_that_does_not_exist",
+              }],
+            }],
+          }],
+        }],
+      }),
+    );
+
+    const r = await aifirst(["run", "py-1-01", "--format", "json"], {
+      AIFIRST_CONTENT_DIR: join(sandbox, "dependency-pack"),
+    });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toBe("");
+    const error = JSON.parse(r.stderr).error;
+    expect(error.code).toBe("missing_dependencies");
+    expect(error.details.missing[0].package).toBe("DefinitelyMissing");
+    expect(error.details.installCommand).toContain("--yes");
+    expect(existsSync(join(sandbox, "missing_dependency.py"))).toBe(false);
+    expect(await done()).toBe(0);
+  });
+
   it("writes the file, runs it, and records it", async () => {
     const r = await aifirst(["run", "py-1-01", "--format", "json"]);
     expect(r.code).toBe(0);

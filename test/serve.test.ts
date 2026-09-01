@@ -162,7 +162,15 @@ describe("the server", () => {
       fetchCalls++;
       return realFetch(...args);
     }) as typeof realFetch;
-    server = startBookServer({ port: 0, quiet: true });
+    server = startBookServer({
+      port: 0,
+      quiet: true,
+      dependencyCheck: (step) => ({
+        dependencies: (step.dependencies ?? []).map((dependency) => ({ dependency, available: true })),
+        missing: [],
+        runtime: { command: ["python3"], display: "python3" },
+      }),
+    });
     base = server.baseUrl;
   });
 

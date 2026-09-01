@@ -11,7 +11,7 @@
 import { compareIds } from "@aifirst/content";
 import { inScope } from "./books";
 import type { Scope } from "./books";
-import type { Content, Example, Explanation, Step } from "./content/types";
+import type { Content, Dependency, Example, Explanation, Step } from "./content/types";
 import type { Entry, ProgressLog } from "./log/progress";
 
 /** All examples in stable id order. */
@@ -224,6 +224,7 @@ export interface ExampleJson {
   section: string;
   chapter: { number: number; title: string };
   multiStep: boolean;
+  dependencies?: Dependency[];
   /** The prompt/response pairs, in order. Reproduce `response` verbatim. */
   steps: StepJson[];
   progress: Entry | null;
@@ -250,6 +251,7 @@ export function exampleJson(example: Example, log: ProgressLog, steps = example.
     section: example.sectionTitle,
     chapter: { number: example.chapterNumber, title: example.chapterTitle },
     multiStep: example.multiStep,
+    ...(example.dependencies ? { dependencies: example.dependencies } : {}),
     steps: steps.map(stepJson),
     progress: log.exercises[example.id] ?? null,
   };
