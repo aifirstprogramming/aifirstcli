@@ -16,6 +16,7 @@ Thumbs.db
 # Agent scratch
 .claude/settings.local.json
 .claude/worktrees/
+.showtail/
 
 # Exercise runtime output
 /assets/
