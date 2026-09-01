@@ -22,6 +22,7 @@ import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
 import { resolveContent } from "../content";
+import { writeScaffold } from "../content/scaffold";
 import { finalResponse, report, resume } from "../exercises";
 import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
@@ -149,6 +150,11 @@ export async function next(args: Args): Promise<void> {
     writeFileSync(path, body);
     wrote = true;
   }
+
+  // Project exercises may run a scaffold entrypoint rather than the default
+  // response filename. Match `run` by materializing those owned support files
+  // before resolving and launching the command.
+  writeScaffold(dirname(path), step, content);
 
   // Run the exercise.
   const TIMEOUT_MS = 30_000;

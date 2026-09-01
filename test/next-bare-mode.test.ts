@@ -270,3 +270,41 @@ describe("next bare-mode: already-written file", () => {
     expect(r.stdout).toContain("already exists with different contents");
   });
 });
+
+describe("next bare-mode: scaffold entrypoints", () => {
+  it("writes the scaffold before running its declared entrypoint", async () => {
+    const dir = join(sandbox, "scaffold-pack", "books");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "ai-first-python-programming.json"),
+      JSON.stringify({
+        title: "Scaffold Python",
+        tag: "py",
+        language: "python",
+        sections: [{
+          title: "S",
+          chapters: [{
+            title: "Chapter 1: C",
+            examples: [{
+              id: "py-1-01",
+              title: "Scaffold Entry",
+              prompt: "p",
+              response: "print('canonical')",
+              scaffold: {
+                entrypoint: "runner.py",
+                files: [{ path: "runner.py", content: "print('scaffold ran')" }],
+              },
+            }],
+          }],
+        }],
+      }),
+    );
+    const env = { AIFIRST_CONTENT_DIR: join(sandbox, "scaffold-pack") };
+    await aifirst(["book", "py"], env);
+
+    const result = await aifirst(["next", "--format", "json"], env);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout).ran.stdout).toBe("scaffold ran\n");
+    expect(readFileSync(join(sandbox, "runner.py"), "utf8")).toBe("print('scaffold ran')\n");
+  });
+});
