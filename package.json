@@ -30,7 +30,7 @@
     "checkout and `bun link @aifirst/content` here."
   ],
   "dependencies": {
-    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.5.0",
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v1.6.0",
     "highlight.js": "11.12.0",
     "marked": "18.0.11"
   },
