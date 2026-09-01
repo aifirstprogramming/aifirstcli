@@ -33,6 +33,14 @@ aifirst learn     # open a temporary local Claude Code session for the book
 Nothing else is required — no Node, no Python, no JVM. The binary is self-contained and ships with all
 the book content inside it, so it works offline on first run.
 
+### Security and code signing
+
+AI First Programming has applied to the SignPath Foundation for open-source
+Windows code signing. Windows executables remain unsigned while that
+application is pending. See the [code signing policy](CODE_SIGNING_POLICY.md)
+for project roles, privacy and network behavior, system changes, and release
+integrity details.
+
 ## Supported tools
 
 | Tool | What gets installed | Where |
@@ -354,8 +362,9 @@ AIFIRST_HOME_OVERRIDE=/tmp/fakehome AIFIRST_STATE_DIR=/tmp/fakestate bun run src
 
 ### Releasing
 
-Tag `vX.Y.Z`. The release workflow cross-compiles Linux and Windows on Ubuntu, builds and codesigns
-macOS on a macOS runner, and publishes nine artifacts plus `SHA256SUMS`.
+Tag `vX.Y.Z`. The release workflow builds each OS family on its native GitHub-hosted runner and
+publishes nine artifacts plus `SHA256SUMS`. A manual workflow run builds and verifies artifacts but
+does not publish a release.
 
 Two things are easy to get wrong here:
 
@@ -363,6 +372,9 @@ Two things are easy to get wrong here:
   Linux-cross-compiled darwin artifact dies on launch. The workflow ad-hoc signs with the JIT
   entitlements Bun requires; set `MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD` and
   `MACOS_SIGN_IDENTITY` to sign with a Developer ID instead.
+- **Windows must be built on Windows.** Bun can only set the ProductName, CompanyName, version and
+  other PE resources on a native Windows build host. Those fields are enforced by the SignPath
+  artifact configuration before signing.
 - **Artifact names are a three-way contract** between `src/targets.ts`, `src/platform.ts` and
   `install/install.sh`. `test/platform.test.ts` keeps them in agreement. The `-baseline` variants exist
   for x64 CPUs without AVX2 (which Bun's default build requires and which crash on it) and `-musl` for
@@ -376,3 +388,14 @@ Two things are easy to get wrong here:
   test on a machine with Antigravity installed. Note it shares `~/.gemini` with the Gemini CLI.
 - The Java filename derivation (naming the file after the public class so `javac` accepts it) is unit
   tested, but has not been run through a real JDK.
+
+## License
+
+The CLI source, documentation, generated artifacts, and distributable examples
+are released under the [Apache License 2.0](LICENSE). Its embedded content is
+provided by the separately Apache-2.0-licensed
+[`aifirstcontent`](https://github.com/aifirstprogramming/aifirstcontent)
+repository. See [NOTICE](NOTICE) for attribution.
+
+The license does not grant rights to the AI First names or logos. See
+[TRADEMARKS.md](TRADEMARKS.md).
