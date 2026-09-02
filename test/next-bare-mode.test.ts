@@ -310,7 +310,7 @@ describe("next bare-mode: scaffold entrypoints", () => {
 
     const result = await aifirst(["next", "--format", "json"], env);
     expect(result.code).toBe(0);
-    expect(JSON.parse(result.stdout).ran.stdout).toBe("scaffold ran\n");
+    expect(JSON.parse(result.stdout).ran.stdout.replace(/\r\n/g, "\n")).toBe("scaffold ran\n");
     expect(readFileSync(pythonWorkspaceFile("runner.py"), "utf8")).toBe("print('scaffold ran')\n");
   });
 });

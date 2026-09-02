@@ -91,7 +91,12 @@ describe("trusted replay execution", () => {
     expect(result.ok).toBe(true);
     expect(result.recorded).toBe(true);
     expect(result.files).toContain("hello.py");
-    expect(result.commands).toEqual([{ index: 1, executable: "python3", exitCode: 0, matchesExpected: true }]);
+    expect(result.commands).toEqual([{
+      index: 1,
+      executable: process.platform === "win32" ? "py" : "python3",
+      exitCode: 0,
+      matchesExpected: true,
+    }]);
     expect(readFileSync(join(sandbox, "hello.py"), "utf8")).toBe('print("Hello, World!")\n');
   });
 });

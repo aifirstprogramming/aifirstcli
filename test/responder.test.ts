@@ -17,6 +17,7 @@ import { emptyLog } from "../src/log/progress";
 
 const { content } = resolveContent();
 const log = emptyLog();
+const PYTHON_HELLO_COMMAND = process.platform === "win32" ? "py -3 hello.py" : "python3 hello.py";
 
 /** The shape Claude Code sends: a shell tool among many others. */
 const TOOLS = [
@@ -625,7 +626,7 @@ describe("answering a book prompt", () => {
       );
       expect(reply.stopReason).toBe("end_turn");
       expect(reply.toolUse).toBeUndefined();
-      expect(reply.text).toContain("$ python3 hello.py");
+      expect(reply.text).toContain(`$ ${PYTHON_HELLO_COMMAND}`);
     } finally {
       process.chdir(originalCwd);
       rmSync(workspace, { recursive: true, force: true });
@@ -649,7 +650,7 @@ describe("answering a book prompt", () => {
     }, content, log);
     expect(second.stopReason).toBe("tool_use");
     expect(second.toolUse?.name).toBe("Bash");
-    expect(second.toolUse?.input.command).toBe("python3 hello.py");
+    expect(second.toolUse?.input.command).toBe(PYTHON_HELLO_COMMAND);
     expect(second.text).toContain("### Turn 2");
   });
 

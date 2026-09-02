@@ -99,7 +99,10 @@ function commandsFor(example: Example, step: Step, file: string, python?: Python
     }
     return [runCommand("java", runFile) ?? ["java", runFile]];
   }
-  const command = entry ? ["python3", entry] : (runCommand(example.language, file) ?? ["python3", file]);
+  // A bare "-" means stdin to Python, but --into - intentionally creates a
+  // file with that name. Prefix it so every launcher treats it as a path.
+  const runFile = file === "-" ? "./-" : file;
+  const command = entry ? ["python3", entry] : (runCommand(example.language, runFile) ?? ["python3", runFile]);
   return [python ? withPythonRuntime(command, python) : command];
 }
 
