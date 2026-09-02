@@ -149,9 +149,25 @@ function targetInside(root: string, path: string): string {
 /** Authorizes only exact file states produced by this exercise's authored replay. */
 export class ReplayStateGuard {
   private readonly transitions: Map<string, AuthoredTransition>;
+  private readonly authoredStates = new Map<string, Set<string>>();
 
   constructor(content: Content, step: ReplayStep) {
     this.transitions = buildTransitions(content, step);
+    const memo = new Map<string, Map<string, string>[]>();
+    const visited = new Set<string>();
+    let current: ReplayStep | undefined = step;
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
+      for (const state of finalStates(content, current, memo, new Set())) {
+        for (const [path, value] of state) {
+          const values = this.authoredStates.get(path) ?? new Set<string>();
+          values.add(value);
+          this.authoredStates.set(path, values);
+        }
+      }
+      const predecessorId: string | undefined = current.replay?.initialState?.fromExercise;
+      current = predecessorId ? stepForExercise(content, predecessorId) : undefined;
+    }
   }
 
   decide(operation: Extract<ReplayOperation, { type: "write" | "edit" }>, root: string): ReplayFileDecision {
@@ -167,7 +183,10 @@ export class ReplayStateGuard {
     if (transition?.before.has(current)) return { kind: "execute" };
 
     if (!transition && operation.type === "write") {
-      return current === operation.content ? { kind: "already-applied", path } : { kind: "reject", path };
+      if (current === operation.content) return { kind: "already-applied", path };
+      return this.authoredStates.get(operation.path)?.has(current)
+        ? { kind: "execute" }
+        : { kind: "reject", path };
     }
     if (!transition) return { kind: "execute" };
     return { kind: "reject", path };

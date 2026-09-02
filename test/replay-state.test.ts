@@ -6,6 +6,7 @@ import { resolveContent } from "../src/content";
 import type { ReplayOperation, ReplayStep } from "../src/content/types";
 import { ReplayStateGuard } from "../src/learn/replayState";
 import { executeReplayOperation } from "../src/replay/executor";
+import { seedScaffold } from "./helpers/scaffold";
 
 let root = "";
 
@@ -60,5 +61,36 @@ describe("authored replay file states", () => {
 
     const levelWrite = sourceOperations.find((operation) => operation.type === "write" && operation.path === "level.py")!;
     expect(new ReplayStateGuard(content, step).decide(levelWrite, root).kind).toBe("reject");
+  });
+
+  test("allows a standalone exercise to replace an older exact book checkpoint", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-older-checkpoint-"));
+    const content = resolveContent().content;
+    const earlier = content.steps.find((candidate) => candidate.id === "py-9-03") as ReplayStep;
+    const target = content.steps.find((candidate) => candidate.id === "py-10-02") as ReplayStep;
+    seedScaffold(root, earlier, content);
+
+    const guard = new ReplayStateGuard(content, target);
+    for (const operation of target.replay!.operations) {
+      if (operation.type !== "write" && operation.type !== "edit") continue;
+      const decision = guard.decide(operation, root);
+      expect(decision.kind, operation.type + " " + operation.path).not.toBe("reject");
+      if (decision.kind === "execute") expect(executeReplayOperation(operation, root).ok).toBe(true);
+    }
+  });
+
+  test("still protects a learner modification to an older book checkpoint", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-older-modified-"));
+    const content = resolveContent().content;
+    const earlier = content.steps.find((candidate) => candidate.id === "py-9-03") as ReplayStep;
+    const target = content.steps.find((candidate) => candidate.id === "py-10-02") as ReplayStep;
+    seedScaffold(root, earlier, content);
+    appendFileSync(join(root, "assets_gen.py"), "\n# learner change\n");
+
+    const assetsWrite = target.replay!.operations.find(
+      (operation): operation is Extract<ReplayOperation, { type: "write" }> =>
+        operation.type === "write" && operation.path === "assets_gen.py",
+    )!;
+    expect(new ReplayStateGuard(content, target).decide(assetsWrite, root).kind).toBe("reject");
   });
 });
