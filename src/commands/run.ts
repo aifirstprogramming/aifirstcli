@@ -32,6 +32,7 @@ import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { defaultExercisePath } from "../workspace";
+import { mavenJavaFxCommand } from "../projects";
 
 const TIMEOUT_MS = 30_000;
 
@@ -89,6 +90,8 @@ function commandsFor(example: Example, step: Step, file: string, python?: Python
         ["java", "-jar", jar, "execute", "-cp", "out", "--select-class", cls, "--details=summary"],
       ];
     }
+    const mavenJavaFx = mavenJavaFxCommand(step);
+    if (mavenJavaFx) return [mavenJavaFx];
     const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
     const runFile = entry ?? file;
     if (extraSources) {

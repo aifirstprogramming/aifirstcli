@@ -30,6 +30,7 @@ import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, r
 import { withPythonRuntime } from "../dependencies";
 import { preflightDependencies } from "./dependencies";
 import { defaultExercisePath } from "../workspace";
+import { mavenJavaFxCommand } from "../projects";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -170,11 +171,16 @@ export async function next(args: Args): Promise<void> {
   const fileName = basename(path);
   let runCmd: string[];
   if (ex.language === "java") {
-    const runFile = entry ?? fileName;
-    const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
-    runCmd = extraSources
-      ? ["java", "-cp", "out", runFile.replace(/\.java$/, "")]
-      : (runCommand("java", runFile) ?? ["java", runFile]);
+    const mavenJavaFx = mavenJavaFxCommand(step);
+    if (mavenJavaFx) {
+      runCmd = mavenJavaFx;
+    } else {
+      const runFile = entry ?? fileName;
+      const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
+      runCmd = extraSources
+        ? ["java", "-cp", "out", runFile.replace(/\.java$/, "")]
+        : (runCommand("java", runFile) ?? ["java", runFile]);
+    }
   } else if (entry) {
     runCmd = runCommand(ex.language, entry) ?? ["python3", entry];
   } else {

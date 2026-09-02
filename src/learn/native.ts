@@ -37,6 +37,7 @@ import { runWithTui, shouldUseTui } from "../tui";
 import { prepareExerciseFiles } from "../commands/run";
 import { ReplayStateGuard } from "./replayState";
 import { ensureWorkspace as resolveWorkspace } from "../workspace";
+import { mavenJavaFxCommand } from "../projects";
 
 const TOOLS: ToolDefinition[] = [
   { name: "Bash", input_schema: { properties: { command: { type: "string" } } } },
@@ -877,8 +878,10 @@ async function answerQuestions(input: Record<string, unknown>): Promise<{ failed
 
 export function opensExternalWindow(step: ReplayStep): boolean {
   return Boolean(
-    step.scaffold?.entrypoint &&
-    step.dependencies?.some((dependency) => dependency.kind === "python-package" && dependency.module === "pygame"),
+    mavenJavaFxCommand(step) || (
+      step.scaffold?.entrypoint &&
+      step.dependencies?.some((dependency) => dependency.kind === "python-package" && dependency.module === "pygame")
+    ),
   );
 }
 

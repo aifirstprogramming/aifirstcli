@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveContent } from "../src/content";
@@ -68,6 +68,32 @@ function pythonWorkspaceFile(name: string): string {
 }
 
 describe("run", () => {
+  it("launches Maven JavaFX projects through the configured plugin", async () => {
+    const bin = join(sandbox, "bin");
+    const log = join(sandbox, "maven.log");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, process.platform === "win32" ? "mvn.cmd" : "mvn");
+    writeFileSync(
+      mvn,
+      process.platform === "win32"
+        ? `@echo %* > "${log}"\r\n`
+        : `#!/bin/sh\nprintf '%s\\n' "$*" > "$AIFIRST_MVN_LOG"\n`,
+    );
+    if (process.platform !== "win32") chmodSync(mvn, 0o755);
+
+    const result = await aifirst(
+      ["run", "java-11-01", "--yes", "--no-timeout", "--format", "json"],
+      {
+        PATH: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
+        AIFIRST_MVN_LOG: log,
+      },
+    );
+
+    expect(result.code, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout).ran.commands).toEqual(["mvn javafx:run"]);
+    expect(readFileSync(log, "utf8").trim()).toBe("javafx:run");
+  });
+
   it("reports missing dependencies before writing or recording anything", async () => {
     const dir = join(sandbox, "dependency-pack", "books");
     mkdirSync(dir, { recursive: true });

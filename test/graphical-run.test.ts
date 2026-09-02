@@ -7,6 +7,7 @@ import { runTimeoutMs } from "../src/commands/run";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
 import { nativeReplayOperation, opensExternalWindow } from "../src/learn/native";
+import { mavenJavaFxCommand } from "../src/projects";
 
 const suite = process.platform === "win32" ? describe.skip : describe;
 const DRIVER = join(import.meta.dir, "fixtures", "native-tui-driver.py");
@@ -25,6 +26,14 @@ describe("graphical exercise runs", () => {
     const hello = content.steps.find((step) => step.id === "py-1-01") as ReplayStep;
     expect(opensExternalWindow(duckling)).toBe(true);
     expect(opensExternalWindow(hello)).toBe(false);
+  });
+
+  test("launches Maven JavaFX projects as external-window programs", () => {
+    const content = resolveContent().content;
+    const pocketCfo = content.steps.find((step) => step.id === "java-11-01") as ReplayStep;
+
+    expect(mavenJavaFxCommand(pocketCfo)).toEqual(["mvn", "javafx:run"]);
+    expect(opensExternalWindow(pocketCfo)).toBe(true);
   });
 
   test("the internal no-timeout run option disables the short watchdog", () => {
