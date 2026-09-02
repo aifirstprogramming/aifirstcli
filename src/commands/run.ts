@@ -79,7 +79,7 @@ export const JUNIT_URL =
  * single-file launcher only pulls in siblings on JDK 22 and later, and a learner on
  * an LTS release would otherwise see "cannot find symbol" for code that is right.
  */
-function commandsFor(example: Example, step: Step, file: string, python?: PythonRuntime): string[][] {
+export function commandsFor(example: Example, step: Step, file: string, python?: PythonRuntime): string[][] {
   const entry = step.scaffold?.entrypoint;
   if (example.language === "java") {
     if (example.kind === "test") {

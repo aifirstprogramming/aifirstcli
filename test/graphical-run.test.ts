@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Args } from "../src/cli";
-import { runTimeoutMs } from "../src/commands/run";
+import { commandsFor, runTimeoutMs } from "../src/commands/run";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
 import { nativeReplayOperation, opensExternalWindow } from "../src/learn/native";
@@ -31,8 +31,10 @@ describe("graphical exercise runs", () => {
   test("launches Maven JavaFX projects as external-window programs", () => {
     const content = resolveContent().content;
     const pocketCfo = content.steps.find((step) => step.id === "java-11-01") as ReplayStep;
+    const example = content.examples.find((candidate) => candidate.id === pocketCfo.exampleId)!;
 
     expect(mavenJavaFxCommand(pocketCfo)).toEqual(["mvn", "javafx:run"]);
+    expect(commandsFor(example, pocketCfo, "Transaction.java")).toEqual([["mvn", "javafx:run"]]);
     expect(opensExternalWindow(pocketCfo)).toBe(true);
   });
 

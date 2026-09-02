@@ -61,6 +61,8 @@ async function aifirst(args: string[], extraEnv: Record<string, string> = {}): P
 const done = async (): Promise<number> =>
   JSON.parse((await aifirst(["progress", "--all", "--format", "json"])).stdout).overall.done;
 
+const shellTest = process.platform === "win32" ? it.skip : it;
+
 function pythonWorkspaceFile(name: string): string {
   const path = join(sandbox, "home", "aifirst", "py", name);
   mkdirSync(join(sandbox, "home", "aifirst", "py"), { recursive: true });
@@ -68,23 +70,21 @@ function pythonWorkspaceFile(name: string): string {
 }
 
 describe("run", () => {
-  it("launches Maven JavaFX projects through the configured plugin", async () => {
+  shellTest("launches Maven JavaFX projects through the configured plugin", async () => {
     const bin = join(sandbox, "bin");
     const log = join(sandbox, "maven.log");
     mkdirSync(bin, { recursive: true });
-    const mvn = join(bin, process.platform === "win32" ? "mvn.cmd" : "mvn");
+    const mvn = join(bin, "mvn");
     writeFileSync(
       mvn,
-      process.platform === "win32"
-        ? `@echo %* > "${log}"\r\n`
-        : `#!/bin/sh\nprintf '%s\\n' "$*" > "$AIFIRST_MVN_LOG"\n`,
+      `#!/bin/sh\nprintf '%s\\n' "$*" > "$AIFIRST_MVN_LOG"\n`,
     );
-    if (process.platform !== "win32") chmodSync(mvn, 0o755);
+    chmodSync(mvn, 0o755);
 
     const result = await aifirst(
       ["run", "java-11-01", "--yes", "--no-timeout", "--format", "json"],
       {
-        PATH: `${bin}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
         AIFIRST_MVN_LOG: log,
       },
     );
