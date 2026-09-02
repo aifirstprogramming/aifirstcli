@@ -1,4 +1,5 @@
 import type { Dependency } from "./content/types";
+import { existsSync } from "node:fs";
 
 const PYTHON_CHECK = "import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)";
 const IMPORT_CHECK = "import importlib,sys; importlib.import_module(sys.argv[1])";
@@ -42,6 +43,16 @@ export interface PythonInstallLocation {
 export interface RuntimeInstallPlan {
   label: string;
   commands: string[][];
+}
+
+export function isImmutableLinux(
+  platform = process.platform,
+  which: (name: string) => string | undefined = (name) => Bun.which(name) ?? undefined,
+  exists: (path: string) => boolean = existsSync,
+): boolean {
+  return platform === "linux" && (
+    exists("/run/ostree-booted") || Boolean(which("rpm-ostree"))
+  );
 }
 
 function decode(value: Uint8Array | undefined): string {
@@ -231,10 +242,15 @@ export async function installDependencies(
   if (missingSystem.length > 0) {
     const plan = systemDependencyInstallPlan(missingSystem);
     if (!plan) {
+      const immutableMaven = missingSystem.every(
+        (dependency) => dependency.kind === "system-command" && dependency.command === "mvn",
+      ) && isImmutableLinux();
       return {
         ok: false,
         report: before,
-        output: `Install ${missingSystem.map((dependency) => dependency.package).join(", ")} and retry.`,
+        output: immutableMaven
+          ? "This immutable Linux system cannot install Maven with dnf. Install Homebrew, ensure brew is on PATH, then retry; AI First will run brew install maven."
+          : `Install ${missingSystem.map((dependency) => dependency.package).join(", ")} and retry.`,
       };
     }
     for (const command of plan.commands) {
@@ -290,6 +306,7 @@ export function systemDependencyInstallPlan(
   dependencies: Dependency[],
   platform = process.platform,
   which: (name: string) => string | undefined = (name) => Bun.which(name) ?? undefined,
+  exists: (path: string) => boolean = existsSync,
 ): RuntimeInstallPlan | undefined {
   const commands = dependencies
     .filter((dependency) => dependency.kind === "system-command")
@@ -302,6 +319,12 @@ export function systemDependencyInstallPlan(
       label: "Windows Package Manager (winget)",
       commands: [["winget", "install", "--exact", "--id", "Apache.Maven", "--accept-package-agreements", "--accept-source-agreements"]],
     };
+  }
+  if (isImmutableLinux(platform, which, exists)) {
+    const brew = which("brew");
+    return brew
+      ? { label: "Homebrew (immutable Linux)", commands: [[brew, "install", "maven"]] }
+      : undefined;
   }
   if (platform === "linux" && which("apt-get")) {
     const prefix = elevatedPrefix(which, "sudo");

@@ -81,8 +81,10 @@ Run plain `aifirst learn` in a fresh Python workspace and repeat with Java:
 17. Confirm Duckling's captured three-second launch check uses dummy SDL drivers
     and does not open a first visible window before the final Run choice.
 18. With Maven absent, start `java-11-01` and confirm the Maven prompt appears
-    before `pom.xml` or source files are written. Approve installation on each
-    supported package manager, verify `mvn`, and run the replay in Docker.
+   before `pom.xml` or source files are written. Approve installation on each
+   supported package manager, verify `mvn`, and run the replay in Docker. On an
+   rpm-ostree system such as Bazzite or Fedora Silverblue, confirm Homebrew is
+   selected ahead of `dnf`; if Homebrew is unavailable, confirm `dnf` is not run.
 19. Confirm `pom.xml` code and diffs distinguish tags, attributes, quoted values,
     Maven coordinates, comments, and `${...}` property references.
 20. Confirm the screen is restored on normal exit and Ctrl-C. Then repeat
