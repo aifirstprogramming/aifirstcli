@@ -51,7 +51,8 @@ function inside(root: string, path: string): string {
 function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, root: string): ReplayCommandResult {
   try {
     const runtime = resolvePythonRuntime();
-    const command = runtime ? withPythonRuntime(operation.command, runtime) : operation.command;
+    const materialized = operation.command.map((argument) => argument.replaceAll("<workspace>", "."));
+    const command = runtime ? withPythonRuntime(materialized, runtime) : materialized;
     const executable = command[0] ?? "";
     const result = spawnSync(executable, command.slice(1), {
       cwd: inside(root, operation.cwd ?? "."),

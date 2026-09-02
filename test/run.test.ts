@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveContent } from "../src/content";
 
 /**
  * `aifirst run` and the completion rule.
@@ -12,6 +13,7 @@ import { join } from "node:path";
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
+const AUTHORED_EXERCISES = resolveContent().content.examples.length;
 
 let sandbox: string;
 
@@ -58,6 +60,12 @@ async function aifirst(args: string[], extraEnv: Record<string, string> = {}): P
 
 const done = async (): Promise<number> =>
   JSON.parse((await aifirst(["progress", "--all", "--format", "json"])).stdout).overall.done;
+
+function pythonWorkspaceFile(name: string): string {
+  const path = join(sandbox, "home", "aifirst", "py", name);
+  mkdirSync(join(sandbox, "home", "aifirst", "py"), { recursive: true });
+  return path;
+}
 
 describe("run", () => {
   it("reports missing dependencies before writing or recording anything", async () => {
@@ -196,16 +204,17 @@ describe("run", () => {
   });
 
   it("refuses to replace a file whose contents differ", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), "# my own attempt\n");
+    const path = pythonWorkspaceFile("hello_world.py");
+    writeFileSync(path, "# my own attempt\n");
     const r = await aifirst(["run", "py-1-01"]);
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("already exists with different contents");
-    expect(readFileSync(join(sandbox, "hello_world.py"), "utf8")).toBe("# my own attempt\n");
+    expect(readFileSync(path, "utf8")).toBe("# my own attempt\n");
     expect(await done()).toBe(0);
   });
 
   it("proceeds when the existing file already matches", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), 'print("Hello, World!")\n');
+    writeFileSync(pythonWorkspaceFile("hello_world.py"), 'print("Hello, World!")\n');
     const r = await aifirst(["run", "py-1-01", "--format", "json"]);
     const out = JSON.parse(r.stdout);
     expect(out.wrote).toBe(false);
@@ -253,7 +262,7 @@ describe("book scoping", () => {
     // next auto-runs in bare-mode; use show to read without running
     const s = JSON.parse((await aifirst(["show", "py-1-01", "--format", "json"])).stdout);
     expect(s.language).toBe("python");
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(59);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(58);
   });
 
   it("never hands a Python reader a Java exercise", async () => {
@@ -305,7 +314,7 @@ describe("book scoping", () => {
 
   it("all unscopes", async () => {
     await aifirst(["book", "all"]);
-    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(146);
+    expect(JSON.parse((await aifirst(["progress", "--format", "json"])).stdout).overall.total).toBe(AUTHORED_EXERCISES);
   });
 
   it("keeps the book choice when progress is reset", async () => {

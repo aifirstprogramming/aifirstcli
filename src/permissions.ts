@@ -21,6 +21,7 @@ export const ALLOWED_COMMANDS = [
   "progress",
   "doctor",
   "book",
+  "workspace",
   "run",
   "apply",
   // Reads a file and compares it to the book. Added because without it an

@@ -73,6 +73,8 @@ export interface Reply {
   stopReason: "end_turn" | "tool_use";
   /** Which exercise this answered, when it answered one. Used only for logging. */
   exerciseId?: string;
+  /** Built-in learner only: build finished, but completion waits for Run/Finish. */
+  nativeReady?: boolean;
 }
 
 /**
@@ -652,12 +654,17 @@ function replayResultMatches(
   operationIndex: number,
   result: { failed: boolean; detail: string },
   replay: Replay | undefined = step.replay,
+  relaxCommandOutput = false,
 ): boolean {
   const operation = replaySegments(replay)[operationIndex]?.operation;
-  return operation ? operationResultMatches(operation, result) : false;
+  return operation ? operationResultMatches(operation, result, relaxCommandOutput) : false;
 }
 
-function operationResultMatches(operation: ReplayOperation, result: { failed: boolean; detail: string }): boolean {
+function operationResultMatches(
+  operation: ReplayOperation,
+  result: { failed: boolean; detail: string },
+  relaxCommandOutput = false,
+): boolean {
   if (operation.type !== "command") return !result.failed;
   // Claude marks every non-zero Bash result as an error, including failures the
   // captured session expected and then repaired on the next replay turn.
@@ -665,9 +672,18 @@ function operationResultMatches(operation: ReplayOperation, result: { failed: bo
   if (result.failed && expectedExit === 0) return false;
   const reportedExit = result.detail.match(/\bexit code\s+(\d+)\b/i)?.[1];
   if (reportedExit !== undefined && Number(reportedExit) !== expectedExit) return false;
+  if (relaxCommandOutput) return true;
   if (operation.expectedStdout !== undefined && !result.detail.includes(operation.expectedStdout.trim())) return false;
   if (operation.expectedStderr !== undefined && !result.detail.includes(operation.expectedStderr.trim())) return false;
   return true;
+}
+
+function replayMismatch(label: string, turn: number, detail: string): string {
+  const summary = detail.trim().slice(0, 1_200);
+  return [
+    `AI First replay stopped: the ${label}result for turn ${turn} did not match the captured result.`,
+    ...(summary ? ["", "```text", summary, "```"] : []),
+  ].join("\n");
 }
 
 function replayPrelude(step: ReplayStep, content: Content): string {
@@ -908,15 +924,26 @@ function replayCompletion(
   content: Content,
   detail: string,
   active?: ActivePlanPath,
+  recordProgress = true,
 ): Reply {
   const example = content.examples.find((candidate) => candidate.id === step.exampleId);
-  markIfNew(step.exampleId, {
-    via: "agent",
-    agent: "claude",
-    ...(active?.kind === "authored"
-      ? { variant: { kind: "authored" as const, answers: active.answers } }
-      : {}),
-  });
+  if (recordProgress) {
+    markIfNew(step.exampleId, {
+      via: "agent",
+      agent: "claude",
+      ...(active?.kind === "authored"
+        ? { variant: { kind: "authored" as const, answers: active.answers } }
+        : {}),
+    });
+  }
+  if (!recordProgress) {
+    return {
+      text: "Build and verification finished. The program is ready for you to run.",
+      stopReason: "end_turn",
+      exerciseId: step.id,
+      nativeReady: true,
+    };
+  }
   const explanation = example ? renderBookEnvelope(example, step, "complete") : "AI First replay completed.";
   if (active?.replay.events || step.replay?.events) {
     return {
@@ -1159,6 +1186,10 @@ export interface RespondOptions {
   dependencies?: DependencySession;
   /** Test seam for deterministic dependency availability. */
   dependencyCheck?: DependencyCheck;
+  /** Built-in TUI/plain learner defers progress until Run or Finish without running. */
+  deferNativeCompletion?: boolean;
+  /** Native execution trusts the captured exit code across platform-specific output noise. */
+  relaxCommandOutput?: boolean;
 }
 
 /**
@@ -1310,7 +1341,7 @@ export function respond(
     if (report.missing.length > 0) {
       clearDependencySession(options.dependencies);
       return {
-        text: `Dependency installation finished, but ${dependencyNames(report.missing)} still cannot be imported. No exercise files were changed.`,
+        text: `Dependency installation finished, but ${dependencyNames(report.missing)} is still unavailable. No exercise files were changed.`,
         stopReason: "end_turn",
         exerciseId: step.id,
       };
@@ -1388,9 +1419,9 @@ export function respond(
       options.planning,
     );
     const segment = eventSegments(step ? workflowInterludeEvents(step, interludeResult.questionId) : [])[interludeResult.operationIndex];
-    if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, interludeResult)) {
+    if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, interludeResult, options.relaxCommandOutput)) {
       return {
-        text: `AI First replay stopped: the planning result for turn ${interludeResult.operationIndex + 1} did not match the captured result.`,
+        text: replayMismatch("planning ", interludeResult.operationIndex + 1, interludeResult.detail),
         stopReason: "end_turn",
         exerciseId: step?.id,
       };
@@ -1402,9 +1433,9 @@ export function respond(
   if (prePlanResult && options.planning) {
     const step = content.steps.find((candidate) => candidate.id === prePlanResult.stepId) as ReplayStep | undefined;
     const segment = prePlanSegments(step?.replay)[prePlanResult.operationIndex];
-    if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, prePlanResult)) {
+    if (!step?.replay?.workflow || !segment || !operationResultMatches(segment.operation, prePlanResult, options.relaxCommandOutput)) {
       return {
-        text: `AI First replay stopped: the pre-plan result for turn ${prePlanResult.operationIndex + 1} did not match the captured result.`,
+        text: replayMismatch("pre-plan ", prePlanResult.operationIndex + 1, prePlanResult.detail),
         stopReason: "end_turn",
         exerciseId: step?.id,
       };
@@ -1514,10 +1545,10 @@ export function respond(
           : step.replay
         : undefined
     );
-    if (!step?.replay || !replayResultMatches(step, replayResult.operationIndex, replayResult, replay)) {
+    if (!step?.replay || !replayResultMatches(step, replayResult.operationIndex, replayResult, replay, options.relaxCommandOutput)) {
       if (options.planning) clearActivePlanning(options.planning);
       return {
-        text: `AI First replay stopped: the result for turn ${replayResult.operationIndex + 1} did not match the captured result.`,
+        text: replayMismatch("", replayResult.operationIndex + 1, replayResult.detail),
         stopReason: "end_turn",
         exerciseId: step?.id,
       };
@@ -1526,13 +1557,26 @@ export function respond(
     if (next < replaySegments(replay).length) {
       return nativeReplayReply(step, content, request.tools, next, replay, replayResult.standalone);
     }
-    const completed = replayCompletion(step, content, replayResult.detail, matchingActive);
+    const completed = replayCompletion(
+      step,
+      content,
+      replayResult.detail,
+      matchingActive,
+      !options.deferNativeCompletion,
+    );
     if (options.planning) clearActivePlanning(options.planning);
     return completed;
   }
 
   const result = toolResult(request.messages);
   if (result && !cancelledPlanningTool && !ignoredStalePlanning && !ignoredStaleConfirmation) {
+    if (options.deferNativeCompletion && !result.failed) {
+      return {
+        text: "The code is ready for you to run.",
+        stopReason: "end_turn",
+        nativeReady: true,
+      };
+    }
     return { text: closing(log, content, result), stopReason: "end_turn" };
   }
 

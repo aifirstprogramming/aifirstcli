@@ -43,7 +43,8 @@ export async function preflightDependencies(
     );
   }
   if (report.missing.length === 0) return report;
-  if (!report.runtime) {
+  const missingPython = report.missing.some((dependency) => dependency.kind === "python-package");
+  if (missingPython && !report.runtime) {
     throw new CliError(
       report.error ?? `No supported runtime is available for ${step.id}.`,
       "missing_runtime",
@@ -66,7 +67,7 @@ export async function preflightDependencies(
 
     out();
     out(`  ${yellow(glyph.todo)} ${bold(step.id)} needs ${names}`);
-    out(dim(`  install target: ${report.installTarget ?? report.runtime.display}`));
+    out(dim(`  install target: ${report.installTarget ?? report.runtime?.display ?? "system package manager"}`));
     out();
     const accepted = await confirm(`Install ${names} now?`, `Run: ${manual}`);
     if (!accepted) {
@@ -128,7 +129,10 @@ export async function dependencies(args: Args): Promise<void> {
     out(dim("  no external dependencies"));
   } else {
     for (const status of report.dependencies) {
-      out(`  ${status.available ? green(glyph.done) : yellow(glyph.todo)} ${status.dependency.package} ${dim(`(import ${status.dependency.module})`)}`);
+      const check = status.dependency.kind === "python-package"
+        ? `import ${status.dependency.module}`
+        : `command ${status.dependency.command}`;
+      out(`  ${status.available ? green(glyph.done) : yellow(glyph.todo)} ${status.dependency.package} ${dim(`(${check})`)}`);
     }
     if (report.runtime) out(dim(`  Python: ${report.runtime.display}`));
     if (report.installTarget) out(dim(`  install target: ${report.installTarget}`));

@@ -11,7 +11,6 @@ import time
 
 PROMPTS = {
     "editor": "Design a level editor for the savetheduckling game.",
-    "leveldef": "wouldn't it be cleaner to also have a matching save_level_def in the LevelDef class?",
     "undo": "Implement undo/redo for the level editor.",
     "pathfinder": "Create a path finding algorithm for the level editor to test if a level is beatable. Make it animated.",
 }
@@ -55,7 +54,7 @@ def main() -> int:
     elif mode == "undo":
         answers = [PROMPTS[mode], "Approve and build"]
     else:
-        answers = [PROMPTS[mode]]
+        raise ValueError(f"unsupported chapter 10 mode: {mode}")
 
     proc = subprocess.Popen(
         [

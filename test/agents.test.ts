@@ -87,7 +87,8 @@ describe("skill markdown", () => {
     expect(md).toContain("Never merge a conditional follow-up");
     expect(md).toContain("Preserve option order");
     expect(md).toContain("`(Book Recommended)` suffix verbatim");
-    expect(md).toContain("relative to the current working directory");
+    expect(md).toContain("relative to the directory returned by `aifirst");
+    expect(md).toContain("workspace <exercise-id-or-book-tag> --format json");
     expect(md).toContain("never mention or");
     expect(md).toContain("captured absolute path");
   });

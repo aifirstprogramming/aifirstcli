@@ -15,13 +15,14 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
-import { exercisePath, resolve } from "@aifirst/content";
+import { resolve } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
 import { finalResponse } from "../exercises";
 import type { Step } from "../content/types";
 import { CliError, bold, dim, glyph, green, json, out } from "../output";
+import { defaultExercisePath } from "../workspace";
 
 
 export function apply(args: Args): void {
@@ -63,7 +64,7 @@ export function apply(args: Args): void {
     return;
   }
 
-  const path = resolvePath(target ?? exercisePath(example, step));
+  const path = resolvePath(target ?? defaultExercisePath(content, example, step));
   const force = boolFlag(args, "force");
 
   if (existsSync(path) && !force) {

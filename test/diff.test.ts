@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { claudeEntries } from "../src/permissions";
-import { condense, diffLines, normalize } from "../src/textdiff";
+import { condense, diffLines, normalize, unifiedPatch } from "../src/textdiff";
 
 /**
  * `aifirst diff` exists so an assistant never has to build a shell pipeline to
@@ -58,6 +58,21 @@ describe("diffLines", () => {
 
   it("does not treat a trailing newline as a difference", () => {
     expect(normalize("a\nb\n")).toBe(normalize("a\nb"));
+  });
+
+  it("builds compact, correctly numbered unified hunks", () => {
+    const original = Array.from({ length: 30 }, (_, index) => `line ${index + 1}`);
+    const changed = [...original];
+    changed[14] = "changed line 15";
+    const patch = unifiedPatch("example.py", `${original.join("\n")}\n`, `${changed.join("\n")}\n`);
+
+    expect(patch).toContain("--- a/example.py");
+    expect(patch).toContain("+++ b/example.py");
+    expect(patch).toContain("@@ -12,7 +12,7 @@");
+    expect(patch).toContain("-line 15");
+    expect(patch).toContain("+changed line 15");
+    expect(patch).not.toContain(" line 1\n");
+    expect(patch).not.toContain(" line 30");
   });
 });
 

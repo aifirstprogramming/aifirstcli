@@ -41,6 +41,21 @@ reproduce it **verbatim** — same characters, same spacing, same names, same or
 program, and records the exercise only if it actually ran. That is what "done"
 means here. Never call \`aifirst done\` on your own initiative.
 
+## Exercise workspace
+
+All AI First files belong in the same per-book workspace used by the built-in
+learner: \`~/aifirst/py\` or \`~/aifirst/java\` by default. Before any Write,
+Edit, Read, Bash, or captured replay operation, resolve the authoritative path:
+
+\`\`\`bash
+${cliCommand} workspace <exercise-id-or-book-tag> --format json
+\`\`\`
+
+Use the returned \`path\` as the root for every relative replay path and as the
+working directory for replay commands. Ordinary \`${cliCommand} run\`, \`apply\`,
+\`next\`, and default \`diff\` already use this workspace. An explicit
+learner-supplied \`--into\` still wins.
+
 ## The main flow
 
 \`\`\`bash
@@ -52,8 +67,8 @@ records the exercise on success. Present the code first, then the exercise's sto
 \`Explanation:\`, then the program's real output. Report completion only after the
 output, and only when \`recorded\` is true or it was already recorded.
 
-If JSON reports \`missing_dependencies\`, show the learner the missing package
-names and ask whether to install them. Only after they agree, repeat the same
+If JSON reports \`missing_dependencies\`, show the learner the missing package or
+system-tool names and ask whether to install them. Only after they agree, repeat the same
 \`${cliCommand} run\` command with \`--yes\`. Never add \`--yes\` preemptively: package
 installation must remain the learner's choice. A declined or failed install
 leaves the exercise files unchanged.
@@ -89,6 +104,7 @@ Never guess, and never hand them an exercise from a book they may not own.
 | \`${cliCommand} at [<id>]\` | Show or move where they are in the book. |
 | \`${cliCommand} progress --format json\` | Their ledger so far. |
 | \`${cliCommand} book <tag>\` | Set or switch which book they are reading. |
+| \`${cliCommand} workspace [<id>\|<tag>] --format json\` | Resolve the shared per-book file workspace. |
 
 Exercise ids look like \`py-2-06\` or \`java-3-05\`; \`py-2-06.2\` addresses step 2 of
 a multi-step exercise.
@@ -118,9 +134,9 @@ When the hook reports an interactive planning workflow:
    the preceding group. Preserve option order and display the supplied
    \`(Book Recommended)\` suffix verbatim without adding another label.
 3. If every answer matches \`canonicalAnswers\`, present \`canonicalPlan\` verbatim.
-   All paths are relative to the current working directory; never mention or
-   recreate a captured absolute path. After approval, execute \`canonicalReplay\`
-   in order and verify every result.
+   All replay paths are relative to the directory returned by \`${cliCommand}
+   workspace\`; never mention or recreate a captured absolute path. After
+   approval, execute \`canonicalReplay\` there in order and verify every result.
 4. If any answer differs, explain the difference, create a tailored plan, obtain
    approval, and implement and test that adaptive variant. Do not apply canonical
    operations as though they represented the learner's choices.
@@ -183,7 +199,7 @@ The leading \`!\` runs it in their own shell and shows you the output.
   fix it. Never describe an exercise as done because the code looks correct.
 - **Dependency installation needs consent.** On \`missing_dependencies\`, ask
   first, then rerun with \`--yes\` only after the learner agrees. Do not install
-  packages merely because the flag exists.
+  packages or system tools merely because the flag exists.
 - **Python and Java have separate exercises.** Pass \`--language py\` or
   \`--language java\` to \`search\` when you know which book they are reading.
 - **Never run \`${cliCommand} reset --all\`** unless the learner explicitly asks to wipe

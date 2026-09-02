@@ -4,6 +4,7 @@ import {
   pipInstallCommand,
   pythonCandidates,
   pythonRuntimeInstallPlan,
+  systemDependencyInstallPlan,
   withPythonRuntime,
   type PythonRuntime,
 } from "../src/dependencies";
@@ -57,5 +58,28 @@ describe("Python dependency runtime", () => {
     expect(report.dependencies[0]?.available).toBe(true);
     expect(report.dependencies[1]?.available).toBe(false);
     expect(report.missing.map((dependency) => dependency.package)).toEqual(["DefinitelyMissing"]);
+  });
+});
+
+describe("system command dependencies", () => {
+  const maven = [{ kind: "system-command" as const, package: "Maven", command: "mvn" }];
+
+  it("builds native Maven installation plans", () => {
+    expect(systemDependencyInstallPlan(maven, "darwin", (name) => name === "brew" ? "/opt/homebrew/bin/brew" : undefined))
+      .toEqual({ label: "Homebrew", commands: [["brew", "install", "maven"]] });
+    expect(systemDependencyInstallPlan(maven, "win32", (name) => name === "winget" ? "winget.exe" : undefined)?.commands[0])
+      .toContain("Apache.Maven");
+    const apt = systemDependencyInstallPlan(maven, "linux", (name) =>
+      name === "apt-get" ? "/usr/bin/apt-get" : name === "sudo" ? "/usr/bin/sudo" : undefined);
+    expect(apt?.label).toBe("APT");
+    expect(apt?.commands.at(-1)?.slice(-3)).toEqual(["install", "-y", "maven"]);
+  });
+
+  it("reports command availability independently of Python", () => {
+    const available = checkDependencies([{ kind: "system-command", package: "Shell", command: "sh" }], undefined);
+    const missing = checkDependencies([{ kind: "system-command", package: "Missing", command: "aifirst_missing_tool" }], undefined);
+    expect(available.missing).toEqual([]);
+    expect(missing.missing.map((dependency) => dependency.package)).toEqual(["Missing"]);
+    expect(missing.error).toBeUndefined();
   });
 });

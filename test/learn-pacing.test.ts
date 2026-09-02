@@ -12,7 +12,7 @@ describe("aifirst learn text pacing", () => {
   test("uses a readable default that is still faster than normal model output", () => {
     delete process.env.AIFIRST_LEARN_CHARS_PER_SECOND;
     expect(learnTextRate()).toBe(DEFAULT_LEARN_CHARS_PER_SECOND);
-    expect(DEFAULT_LEARN_CHARS_PER_SECOND).toBe(360);
+    expect(DEFAULT_LEARN_CHARS_PER_SECOND).toBe(540);
   });
 
   test("can be disabled or bounded through the environment", () => {

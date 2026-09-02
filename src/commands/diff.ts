@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve as resolvePath } from "node:path";
-import { exercisePath, resolve } from "@aifirst/content";
+import { resolve } from "@aifirst/content";
 import type { Args } from "../cli";
 import { formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
@@ -24,6 +24,7 @@ import { finalResponse } from "../exercises";
 import { CliError, bold, cyan, dim, glyph, green, json, out, red } from "../output";
 import { condense, diffLines, normalize } from "../textdiff";
 import { read as readProgress } from "../log/progress";
+import { defaultExercisePath } from "../workspace";
 
 export function diff(args: Args): void {
   const format = formatFlag(args, ["text", "json"]);
@@ -62,7 +63,7 @@ export function diff(args: Args): void {
 
   // A second positional is accepted so `aifirst diff py-7-01 assert.py` works the
   // way anyone would expect from `diff`.
-  const target = stringFlag(args, "file") ?? args.positionals[1] ?? exercisePath(example, step);
+  const target = stringFlag(args, "file") ?? args.positionals[1] ?? defaultExercisePath(content, example, step);
   const path = resolvePath(target);
 
   if (!existsSync(path)) {

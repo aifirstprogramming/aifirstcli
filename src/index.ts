@@ -28,6 +28,7 @@ import { serve } from "./commands/serve";
 import { show, prompt } from "./commands/show";
 import { skill } from "./commands/skill";
 import { update } from "./commands/update";
+import { workspace } from "./commands/workspace";
 import { CliError, out, reportError } from "./output";
 import { VERSION } from "./version";
 import { isInteractive } from "./prompt";
@@ -67,6 +68,7 @@ const COMMANDS: Record<string, Handler> = {
   skill,
   skills: skill,
   update,
+  workspace,
   home,
   start: home,
   help: () => help(),

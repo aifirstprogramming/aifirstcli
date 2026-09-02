@@ -166,7 +166,7 @@ describeLive("chapter 10 level-editor replay through aifirst learn", () => {
   });
 
   async function run(
-    mode: "editor" | "leveldef" | "undo" | "pathfinder",
+    mode: "editor" | "undo" | "pathfinder",
     stepId: string,
     seedId: string,
   ): Promise<void> {
@@ -210,15 +210,11 @@ describeLive("chapter 10 level-editor replay through aifirst learn", () => {
     await run("editor", "py-10-01", "py-9-03");
   }, 90_000);
 
-  test("replays the provenance-marked Copilot LevelDef refactor", async () => {
-    await run("leveldef", "py-10-02", "py-10-01");
-  }, 90_000);
-
   test("shows and approves the questionless undo plan", async () => {
-    await run("undo", "py-10-03", "py-10-02");
+    await run("undo", "py-10-02", "py-10-01");
   }, 90_000);
 
   test("builds and verifies the animated BFS pathfinder", async () => {
-    await run("pathfinder", "py-10-04", "py-10-03");
+    await run("pathfinder", "py-10-03", "py-10-02");
   }, 90_000);
 });

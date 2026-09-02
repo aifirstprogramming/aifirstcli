@@ -153,7 +153,7 @@ if [ "${1:-}" = "shell" ]; then
     $terminal_env \
     --volume "$VOLUME:/home/aifirst" \
     --volume "$ROOT:/checkout:ro" \
-    --workdir /workspace \
+    --workdir /home/aifirst \
     --entrypoint /bin/bash \
     "$IMAGE" "$@"
 fi
@@ -162,5 +162,5 @@ run_container --rm -i $tty --init \
   $claude_mount \
   $terminal_env \
   --volume "$VOLUME:/home/aifirst" \
-  --workdir /workspace \
+  --workdir /home/aifirst \
   "$IMAGE" "$@"

@@ -80,6 +80,7 @@ a healthy one.
 aifirst home                         readiness checklist and guided menu
 aifirst init [--yes] [--no-permissions] [--claude|--codex|--antigravity|--vscode]
 aifirst book [py|java|all]          which book you're reading
+aifirst workspace [id|book]         where that book's files are stored
 aifirst next                        your next unfinished exercise, in your book
 aifirst run <id> [--into <file>]    write the code, run it, record it
 aifirst dependencies <id>           list and check required packages
@@ -106,6 +107,11 @@ aifirst update [--content] [--check]
 ```
 
 Most commands take `--book <tag>` or `--all` to override the book you picked.
+
+Commands that write files use the same per-book workspace as Learn and the
+installed AI assistant skills: `~/aifirst/py` or `~/aifirst/java` by default.
+Run `aifirst workspace <id-or-book> --format json` to resolve the authoritative
+absolute path. Explicit `--into` and `--file` destinations still override it.
 
 Exercises can declare Python packages separately from their source code. Before `run`, bare-mode
 `next`, or a local `learn` replay changes files, aifirst imports those modules with the same Python
@@ -190,18 +196,72 @@ CLI is unaffected.
 ### Built-in learning
 
 `aifirst learn` is a first-party terminal walkthrough. It opens the next exercise,
-presents authored choices and plans, writes and runs trusted book examples, shows
-their real output and explanation, and records progress. It uses no model, account,
-API key, editor extension, or external AI application.
+presents authored choices and plans, prepares trusted book examples, and lets the
+learner decide when to launch the finished program. It uses no model, account, API
+key, editor extension, or external AI application.
+
+In an interactive terminal, `aifirst` Home and `aifirst learn` open a retained
+full-screen interface with keyboard and mouse pickers, a scrollable lesson
+transcript, separately shaded plan panels, syntax-highlighted Python and Java,
+Maven-aware `pom.xml` rendering, and color-coded unified diffs with line numbers
+and syntax colors. Dragging across
+text copies the TUI selection; Ctrl+C with a selection, Ctrl+Shift+C, and Cmd+C
+copy it again, and normal terminal paste works in exercise lookup. Under SSH/tmux,
+the TUI emits OSC52 directly so tmux's `set-clipboard` path can forward it to the
+local terminal. Explicit
+commands and machine-readable output remain ordinary terminal output. Use
+`--plain` for the classic numbered interface; non-interactive,
+`TERM=dumb`, `NO_COLOR`, and `AIFIRST_TUI=0` sessions also fall back to it.
+
+The learning menu also works as a full-book navigator. It shows overall and
+current-chapter progress, lets you browse every chapter and published exercise,
+and remains available after the book is complete. Type an exercise id such as
+`py-2-06`, selected-book shorthand such as `2.6`, or title/prompt words directly
+at the menu. Exact ids run immediately; text searches show the matching exercise
+before anything is written. A separate read path shows the authored material
+without writing files or marking the exercise complete.
+
+Typing `py`, `python`, `java`, or `all` at the main menu changes books immediately.
+A full id also switches to its owning book and workspace; number-only shorthand
+stays within the selected book. Replays preserve learner-owned files and pause
+with the underlying command detail when a safe operation cannot continue.
+
+Once the code is ready, the learner can run it, finish without running, review the
+exercise, return to the menu, or exit. A clean run and an explicit
+Finish-without-running choice both record the lesson as done; the authored
+explanation appears after that decision. Only then does the lesson-complete menu
+offer Next, Main menu, Review, and Exit. Choosing an exercise explicitly moves the
+reading bookmark, including when returning to an earlier chapter, so the next
+session continues from the place you selected.
+
+Graphical pygame exercises open in their own window while the learning TUI stays
+visible with a running status panel. They are not stopped by the ordinary
+30-second command watchdog; close the program window, or press Esc/Ctrl+C in the
+TUI to terminate the program process tree and return. Progress is recorded only
+after the program exits cleanly.
+
+Planning questions are asked one at a time in the built-in learner. A choice that
+needs model-generated code explains that immediately and offers the book answer,
+a restart, or an AI assistant before asking anything else. Every next exercise is
+introduced with its title, chapter, and prompt before operations begin, and
+captured edits render as concise unified diffs rather than full replacement files.
+Re-running a captured project recognizes exact authored intermediate and final
+file states, while any learner modification still stops the replay before overwrite.
 
 The learner reuses the same dependency checks as `run`: missing packages are
 shown before any exercise files change, require approval, and are verified before
 the exercise resumes. Ordinary lessons are offline; installing a missing runtime
 or package may use the network after approval.
 
+Maven-backed Java projects declare Maven as a required system tool. Learn checks
+for `mvn` before creating project files and, after approval, can install it through
+a supported package manager. A missing or declined install leaves the workspace
+unchanged.
+
 Lesson text is rendered as terminal Markdown, with syntax-highlighted Python and
-Java code panels. It streams at a fast readable pace; press **Space** or **Enter**
-to reveal the rest of the current paragraph, list, or code block. Use
+Java code panels. In both the TUI and plain interface it streams at a fast readable
+pace; press **Space** or **Enter** to reveal the rest of the current paragraph,
+list, or code block. Use
 `aifirst learn --no-animation`, or set `AIFIRST_LEARN_CHARS_PER_SECOND=0`, for
 immediate output. A different positive value changes the animation rate.
 
@@ -233,7 +293,7 @@ until the displayed plan is approved. Choices that require new model-generated
 code offer the book path, a restart, or instructions for continuing in normal
 Claude Code with the AI First skill.
 
-Both learning interfaces default to 360 characters per second before releasing
+Both learning interfaces default to 540 characters per second before releasing
 an associated tool call. `AIFIRST_LEARN_CHARS_PER_SECOND` controls both; other
 launch and serving modes remain unthrottled.
 
@@ -313,6 +373,8 @@ config or learner state.
 ```
 
 The runner rebuilds the image on every invocation, so source changes are included automatically.
+Shells start in `/home/aifirst`, with projects directly visible under
+`aifirst/py` and `aifirst/java`.
 Progress and configuration persist in the named Docker volume `aifirst-cli-test-home`; remove it
 when you want a completely fresh learner:
 

@@ -23,21 +23,13 @@ export interface PythonPackageDependency {
   module: string;
 }
 
-export type Dependency = PythonPackageDependency;
-
-declare module "@aifirst/content" {
-  interface RawExample {
-    dependencies?: Dependency[];
-  }
-
-  interface Example {
-    dependencies?: Dependency[];
-  }
-
-  interface Step {
-    dependencies?: Dependency[];
-  }
+export interface SystemCommandDependency {
+  kind: "system-command";
+  package: string;
+  command: string;
 }
+
+export type Dependency = PythonPackageDependency | SystemCommandDependency;
 
 export type ReplayOperation =
   | { type: "write"; path: string; content: string }
@@ -116,6 +108,11 @@ export interface Replay {
 }
 
 export type ReplayStep = import("@aifirst/content").Step & { replay?: Replay };
+
+/** Runtime packs may contain dependency kinds newer than the installed type package. */
+export function declaredDependencies(step: { dependencies?: unknown }): Dependency[] {
+  return Array.isArray(step.dependencies) ? step.dependencies as Dependency[] : [];
+}
 
 export interface RawEntry {
   filename: string;

@@ -1,20 +1,20 @@
-import { mkdirSync } from "node:fs";
-import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import type { Args } from "../cli";
 import { detectAll } from "../agents";
 import { resolveScope } from "../books";
-import { ALL_BOOKS, setBook, setWorkspace, workspaceFor } from "../config";
+import { ALL_BOOKS, setBook } from "../config";
 import { resolveContent } from "../content";
 import { report } from "../exercises";
 import { read as readLog } from "../log/progress";
 import { bold, cyan, dim, glyph, green, out } from "../output";
-import { home as homeDir } from "../paths";
 import { choose, isInteractive } from "../prompt";
 import { help } from "./help";
 import { nativeLearn } from "../learn/native";
 import { progress } from "./progress";
 import { list } from "./list";
+import { currentTuiSession } from "../tui/session";
+import { runWithTui, shouldUseTui } from "../tui";
+import { ensureWorkspace } from "../workspace";
 
 interface Destination {
   key: string;
@@ -24,6 +24,9 @@ interface Destination {
 }
 
 export async function home(args: Args): Promise<void> {
+  if (shouldUseTui(args) && !currentTuiSession()) {
+    return runWithTui(args, () => home(args), "AI First Home");
+  }
   if (!isInteractive()) {
     help();
     return;
@@ -44,9 +47,7 @@ export async function home(args: Args): Promise<void> {
     }
 
     const workspaceKey = scope.kind === "book" ? scope.book.tag : ALL_BOOKS;
-    const workspace = resolve(workspaceFor(workspaceKey) ?? join(homeDir(), "aifirst", workspaceKey));
-    mkdirSync(workspace, { recursive: true });
-    if (!workspaceFor(workspaceKey)) setWorkspace(workspaceKey, workspace);
+    const workspace = ensureWorkspace(content, workspaceKey).path;
 
     const log = readLog();
     const counts = report(content, log, scope).overall;
@@ -111,7 +112,9 @@ export async function home(args: Args): Promise<void> {
     }
     const destination = destinations.find((candidate) => candidate.key === picked);
     if (destination) {
-      await launch(destination, workspace);
+      const tui = currentTuiSession();
+      if (tui) await tui.suspendDuring(() => launch(destination, workspace));
+      else await launch(destination, workspace);
       return;
     }
   }

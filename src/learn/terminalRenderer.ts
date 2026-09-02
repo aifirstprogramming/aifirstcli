@@ -7,6 +7,8 @@ import java from "highlight.js/lib/languages/java";
 import json from "highlight.js/lib/languages/json";
 import python from "highlight.js/lib/languages/python";
 import xml from "highlight.js/lib/languages/xml";
+import { currentTuiSession } from "../tui/session";
+import { DEFAULT_LEARN_CHARS_PER_SECOND } from "./pacing";
 
 hljs.registerLanguage("bash", bash);
 hljs.registerLanguage("diff", diff);
@@ -85,6 +87,7 @@ const LANGUAGE_ALIASES: Record<string, string> = {
   shell: "bash",
   zsh: "bash",
   html: "xml",
+  maven: "xml",
 };
 
 const CLASS_STYLES: Record<string, Style[]> = {
@@ -102,6 +105,8 @@ const CLASS_STYLES: Record<string, Style[]> = {
   "hljs-punctuation": ["dim"],
   "hljs-section": ["bold", "brightBlue"],
   "hljs-string": ["green"],
+  "hljs-tag": ["dim"],
+  "hljs-name": ["bold", "brightBlue"],
   "hljs-symbol": ["cyan"],
   "hljs-title": ["bold", "brightBlue"],
   "hljs-type": ["yellow"],
@@ -341,7 +346,7 @@ export function terminalBlocks(markdown: string, options: TerminalRenderOptions 
   const color = options.color ?? defaultColor();
   const ascii = options.ascii ?? process.env.AIFIRST_ASCII === "1";
   const chunkChars = Math.max(4, options.chunkChars ?? 24);
-  const rate = Math.max(1, options.charsPerSecond ?? 360);
+  const rate = Math.max(1, options.charsPerSecond ?? DEFAULT_LEARN_CHARS_PER_SECOND);
   const blocks: TerminalBlock[] = [];
 
   for (const token of marked.lexer(markdown, { gfm: true })) {
@@ -472,6 +477,11 @@ class BlockSkipController {
 
 export async function renderTerminalMarkdown(markdown: string, options: TerminalRenderOptions = {}): Promise<void> {
   if (!markdown.trim()) return;
+  const tui = currentTuiSession();
+  if (tui) {
+    await tui.appendMarkdown(markdown, options);
+    return;
+  }
   const writer = options.writer ?? ((text: string) => process.stdout.write(text));
   const sleep = options.sleep ?? Bun.sleep;
   const rate = options.noAnimation ? undefined : options.charsPerSecond;

@@ -60,5 +60,10 @@ describe("Windows release metadata", () => {
     const target = TARGETS.find((candidate) => candidate.bunTarget === "bun-linux-x64")!;
     const args = buildArgs(target, "linux", "0.8.0", "src/index.ts", "bin/aifirst");
     expect(args.some((arg) => arg.startsWith("--windows-"))).toBe(false);
+    expect(args).toContain('--define=process.env.OPENTUI_LIBC="glibc"');
+
+    const musl = TARGETS.find((candidate) => candidate.bunTarget === "bun-linux-x64-musl")!;
+    expect(buildArgs(musl, "linux", "0.8.0", "src/index.ts", "bin/aifirst-musl"))
+      .toContain('--define=process.env.OPENTUI_LIBC="musl"');
   });
 });

@@ -13,7 +13,7 @@ RUN bun scripts/build.ts --target "$BUN_TARGET"
 # Test target keeps Bun and adds the book runtimes needed by live Claude tests.
 FROM build AS test
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y python3 python3-pil python3-pygame \
+    && apt-get install --no-install-recommends -y default-jdk-headless maven python3 python3-pil python3-pygame \
     && rm -rf /var/lib/apt/lists/*
 
 # Keep the manual-test image independent of Bun and the source checkout at runtime.
@@ -22,7 +22,7 @@ FROM debian:bookworm-slim
 ARG BINARY=aifirst-linux-x64
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y bash ca-certificates curl default-jre-headless python3 python3-pil python3-pygame ripgrep \
+    && apt-get install --no-install-recommends -y bash ca-certificates curl default-jdk-headless maven python3 python3-pil python3-pygame ripgrep \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash aifirst \
     && mkdir -p /opt/claude /workspace \

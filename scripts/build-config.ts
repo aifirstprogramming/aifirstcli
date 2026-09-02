@@ -68,6 +68,11 @@ export function buildArgs(
 ): string[] {
   const args = ["build", "--compile", "--minify", `--target=${target.bunTarget}`];
 
+  if (target.bunTarget.startsWith("bun-linux-")) {
+    const libc = target.bunTarget.endsWith("-musl") ? "musl" : "glibc";
+    args.push(`--define=process.env.OPENTUI_LIBC=${JSON.stringify(libc)}`);
+  }
+
   if (targetOs(target) === "windows") {
     if (platform !== "win32") {
       throw new Error("Windows release targets must be built on Windows so PE metadata can be applied");

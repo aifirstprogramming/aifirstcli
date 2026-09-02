@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveContent } from "../src/content";
+import { resume } from "../src/exercises";
 
 /**
  * Where a learner *is* and what they have *finished* are different questions.
@@ -108,22 +110,19 @@ describe("the bookmark", () => {
   });
 
   it("falls back rather than claiming the book is finished", async () => {
-    // Bookmark at the very end, with everything before it unfinished.
-    const last = JSON.parse((await aifirst(["list", "py", "--format", "json"])).stdout)
-      .books[0].chapters.flatMap((c: { exercises: { id: string }[] }) => c.exercises)
-      .pop().id;
-    await aifirst(["at", last]);
-    const result = await aifirst(["next", "--format", "json"]);
-    if (result.code === 0) {
-      const out = JSON.parse(result.stdout);
-      // next auto-runs the last exercise, so it should advance to the previous one
-      expect(out.next).not.toBeNull();
-    } else {
-      // A clean machine pauses at that same final exercise for dependency approval.
-      const error = JSON.parse(result.stderr).error;
-      expect(error.code).toBe("missing_dependencies");
-      expect(error.details.exerciseId).toBe(last);
-    }
+    // Test selection directly: the final Python exercise opens a persistent
+    // pygame editor, so an integration run would wait for the reader to close it.
+    const { content } = resolveContent();
+    const book = content.books.find((candidate) => candidate.tag === "py")!;
+    const last = book.sections.flatMap((section) => section.chapters)
+      .flatMap((chapter) => chapter.examples)
+      .at(-1)!;
+    const result = resume(
+      content,
+      { version: 1, exercises: {}, position: last.id },
+      { kind: "book", book },
+    );
+    expect(result.example?.id).toBe(last.id);
   });
 
   it("is not a completion — it records nothing", async () => {

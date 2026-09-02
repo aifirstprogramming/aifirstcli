@@ -1,4 +1,4 @@
-export const DEFAULT_LEARN_CHARS_PER_SECOND = 360;
+export const DEFAULT_LEARN_CHARS_PER_SECOND = 540;
 
 export function learnTextRate(env: NodeJS.ProcessEnv = process.env): number | undefined {
   const configured = env.AIFIRST_LEARN_CHARS_PER_SECOND;

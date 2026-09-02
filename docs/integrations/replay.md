@@ -83,7 +83,7 @@ question and option ids. Free-form learner text and generated plans are not
 stored in the progress log.
 
 Local learning paces cached text so commentary and plans remain readable before
-their corresponding native tool call appears. The default is 360 characters per
+their corresponding native tool call appears. The default is 540 characters per
 second and can be overridden with `AIFIRST_LEARN_CHARS_PER_SECOND`; `0` restores
 instant output. Skill mode and the direct replay server are not paced.
 

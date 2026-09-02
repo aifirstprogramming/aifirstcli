@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveContent } from "../src/content";
 
 /**
  * End-to-end: runs the real CLI as a subprocess.
@@ -13,6 +14,7 @@ import { join } from "node:path";
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
+const AUTHORED_EXERCISES = resolveContent().content.examples.length;
 
 let sandbox: string;
 
@@ -259,7 +261,7 @@ describe("apply", () => {
 describe("progress", () => {
   it("counts only authored exercises", async () => {
     const r = await aifirst(["progress", "--format", "json"]);
-    expect(JSON.parse(r.stdout).overall.total).toBe(146);
+    expect(JSON.parse(r.stdout).overall.total).toBe(AUTHORED_EXERCISES);
   });
 
   it("does not count empty chapters toward a denominator", async () => {

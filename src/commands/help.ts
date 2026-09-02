@@ -14,10 +14,11 @@ export function help(): void {
   out();
   out(`  ${bold("Getting started")}`);
   out(`    ${cyan("aifirst")}                   open AI First Home`);
-  out(`    ${cyan("aifirst learn")}             guided offline learning, no AI tool required`);
+  out(`    ${cyan("aifirst learn")}             guided offline book menu, no AI tool required`);
   out(`    ${cyan("aifirst learn --claude")}    use Claude Code as the local-learning interface`);
   out(`    ${cyan("aifirst init")}              refresh optional AI tool integrations`);
   out(`    ${cyan("aifirst book")} ${dim("[py|java]")}      which book you're reading`);
+  out(`    ${cyan("aifirst workspace")} ${dim("[id|book]")}  where exercise files are stored`);
   out(`    ${cyan("aifirst next")}              show your next exercise`);
   out(`    ${cyan("aifirst progress")}          how far you've got`);
   out();
@@ -46,6 +47,7 @@ export function help(): void {
   out(`    ${dim("--format text|json|md")}     json is the machine-readable contract`);
   out(`    ${dim("--yes")}                     approve setup or dependency installation`);
   out(`    ${dim("--no-animation")}            show built-in lessons immediately`);
+  out(`    ${dim("--plain")}                   use the classic non-TUI Home/Learn interface`);
   out(`    ${dim("--claude --codex --antigravity --antigravity-cli --vscode")}`);
   out(`    ${dim("                          target specific tools")}`);
   out();

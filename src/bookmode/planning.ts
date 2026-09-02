@@ -28,6 +28,7 @@ export interface ActivePlanPath {
 export interface PlanningSession {
   stepId?: string;
   replayMode?: "captured" | "standalone";
+  questionMode?: "grouped" | "sequential";
   expectedToolId?: string;
   answers: Record<string, string>;
   awaiting?:
@@ -375,7 +376,7 @@ function advance(step: ReplayStep, state: PlanningSession, tools: ToolDefinition
   if (next) {
     const group = next.group;
     const start = workflow.questions.indexOf(next);
-    const questions = group
+    const questions = group && state.questionMode !== "sequential"
       ? workflow.questions.slice(start).filter((question) => question.group === group && applies(question, state.answers) && state.answers[question.id] === undefined)
       : [next];
     return askQuestions(step, state, tools, questions);

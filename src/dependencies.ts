@@ -188,24 +188,21 @@ export function checkDependencies(
 ): DependencyReport {
   const declared = dependencies ?? [];
   if (declared.length === 0) return { dependencies: [], missing: [] };
-  if (!runtime) {
-    return {
-      dependencies: declared.map((dependency) => ({ dependency, available: false })),
-      missing: declared,
-      error: "Python 3 is not installed or not on PATH.",
-    };
-  }
 
   const statuses = declared.map((dependency) => ({
     dependency,
-    available: dependency.kind === "python-package" && importAvailable(runtime, dependency.module),
+    available: dependency.kind === "python-package"
+      ? Boolean(runtime && importAvailable(runtime, dependency.module))
+      : Boolean(Bun.which(dependency.command)),
   }));
-  const location = installLocation(runtime);
+  const hasPythonDependencies = declared.some((dependency) => dependency.kind === "python-package");
+  const location = runtime && hasPythonDependencies ? installLocation(runtime) : undefined;
   return {
     dependencies: statuses,
     missing: statuses.filter((status) => !status.available).map((status) => status.dependency),
-    runtime,
-    ...(location ? { installTarget: location.venv ? runtime.display : location.userSite } : {}),
+    ...(runtime ? { runtime } : {}),
+    ...(location && runtime ? { installTarget: location.venv ? runtime.display : location.userSite } : {}),
+    ...(!runtime && hasPythonDependencies ? { error: "Python 3 is not installed or not on PATH." } : {}),
   };
 }
 
@@ -229,7 +226,30 @@ export async function installDependencies(
 ): Promise<DependencyInstallResult> {
   const before = checkDependencies(dependencies, runtime);
   if (before.missing.length === 0) return { ok: true, report: before, output: "" };
-  if (!runtime) return { ok: false, report: before, output: before.error ?? "Python 3 is unavailable." };
+  const output: string[] = [];
+  const missingSystem = before.missing.filter((dependency) => dependency.kind === "system-command");
+  if (missingSystem.length > 0) {
+    const plan = systemDependencyInstallPlan(missingSystem);
+    if (!plan) {
+      return {
+        ok: false,
+        report: before,
+        output: `Install ${missingSystem.map((dependency) => dependency.package).join(", ")} and retry.`,
+      };
+    }
+    for (const command of plan.commands) {
+      const installed = await spawn(command);
+      if (installed.output) output.push(installed.output);
+      if (!installed.ok) return { ok: false, report: checkDependencies(dependencies, runtime), output: output.join("\n"), command };
+    }
+  }
+
+  const afterSystem = checkDependencies(dependencies, runtime);
+  const missingPython = afterSystem.missing.filter((dependency) => dependency.kind === "python-package");
+  if (missingPython.length === 0) {
+    return { ok: afterSystem.missing.length === 0, report: afterSystem, output: output.join("\n") };
+  }
+  if (!runtime) return { ok: false, report: afterSystem, output: afterSystem.error ?? "Python 3 is unavailable." };
 
   const location = installLocation(runtime);
   if (!location) {
@@ -243,7 +263,6 @@ export async function installDependencies(
     };
   }
 
-  const output: string[] = [];
   const pipCheck = spawnSync(pythonArgv(runtime, "-m", "pip", "--version"));
   if (!pipCheck.ok) {
     const ensureArgs = pythonArgv(runtime, "-m", "ensurepip", "--upgrade", ...(location.venv ? [] : ["--user"]));
@@ -254,7 +273,7 @@ export async function installDependencies(
     }
   }
 
-  const packages = uniquePackages(before.missing);
+  const packages = uniquePackages(missingPython);
   const command = pipInstallCommand(runtime, location, packages);
   const installed = await spawn(command);
   if (installed.output) output.push(installed.output);
@@ -265,6 +284,41 @@ export async function installDependencies(
     output: output.join("\n"),
     command,
   };
+}
+
+export function systemDependencyInstallPlan(
+  dependencies: Dependency[],
+  platform = process.platform,
+  which: (name: string) => string | undefined = (name) => Bun.which(name) ?? undefined,
+): RuntimeInstallPlan | undefined {
+  const commands = dependencies
+    .filter((dependency) => dependency.kind === "system-command")
+    .map((dependency) => dependency.command);
+  if (commands.length === 0) return undefined;
+  if (!commands.every((command) => command === "mvn")) return undefined;
+  if (platform === "darwin" && which("brew")) return { label: "Homebrew", commands: [["brew", "install", "maven"]] };
+  if (platform === "win32" && which("winget")) {
+    return {
+      label: "Windows Package Manager (winget)",
+      commands: [["winget", "install", "--exact", "--id", "Apache.Maven", "--accept-package-agreements", "--accept-source-agreements"]],
+    };
+  }
+  if (platform === "linux" && which("apt-get")) {
+    const prefix = elevatedPrefix(which, "sudo");
+    if (!prefix) return undefined;
+    return { label: "APT", commands: [[...prefix, "apt-get", "update"], [...prefix, "apt-get", "install", "-y", "maven"]] };
+  }
+  if (platform === "linux" && which("dnf")) {
+    const prefix = elevatedPrefix(which, "sudo");
+    if (!prefix) return undefined;
+    return { label: "DNF", commands: [[...prefix, "dnf", "install", "-y", "maven"]] };
+  }
+  if (platform === "linux" && which("apk")) {
+    const prefix = elevatedPrefix(which, "doas");
+    if (!prefix) return undefined;
+    return { label: "Alpine apk", commands: [[...prefix, "apk", "add", "maven"]] };
+  }
+  return undefined;
 }
 
 export function dependencyNames(dependencies: Dependency[] | undefined): string {

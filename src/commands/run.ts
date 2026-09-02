@@ -31,8 +31,13 @@ import { withPythonRuntime } from "../dependencies";
 import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
+import { defaultExercisePath } from "../workspace";
 
 const TIMEOUT_MS = 30_000;
+
+export function runTimeoutMs(args: Args): number | undefined {
+  return boolFlag(args, "no-timeout") ? undefined : TIMEOUT_MS;
+}
 
 /** Trailing-newline differences are not a difference in the code. */
 function sameCode(a: string, b: string): boolean {
@@ -116,49 +121,31 @@ function pickStep(args: Args, example: Example, addressed?: Step): Step {
   return addressed ?? finalResponse(example);
 }
 
-export async function run(args: Args): Promise<void> {
-  const format = formatFlag(args, ["text", "json"]);
-  const id = args.positionals[0];
-  if (!id) {
-    throw new CliError("run needs an exercise id", "missing_argument", "Try: aifirst run py-1-01");
-  }
+export interface PreparedExerciseFiles {
+  path: string;
+  wrote: boolean;
+  replaced?: string;
+  scaffoldFiles: string[];
+}
 
-  const { content } = resolveContent();
-  const hit = resolve(id, content);
-  const example = hit.example;
-  const step = pickStep(args, example, hit.kind === "step" ? hit.step : undefined);
-
-  const into = stringFlag(args, "into");
-  const retryCommand = [
-    "aifirst run",
-    step.id,
-    "--yes",
-    ...(into ? ["--into", JSON.stringify(into)] : []),
-    ...(boolFlag(args, "force") ? ["--force"] : []),
-    ...(format === "json" ? ["--format json"] : []),
-  ].join(" ");
-  const dependencyReport = await preflightDependencies(args, example, step, format, retryCommand);
-
+/** Safely materialize an exercise without executing or recording it. */
+export function prepareExerciseFiles(
+  content: Content,
+  example: Example,
+  step: Step,
+  options: { into?: string; force?: boolean } = {},
+): PreparedExerciseFiles {
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(into ?? exercisePath(example, step));
-  const force = boolFlag(args, "force");
-
-  // Write it, but never over something different that the learner wrote.
-  //
-  // "Something different" excludes code this tool wrote for another exercise.
-  // Whole chapters evolve a single file: Python 7 builds one test file across five
-  // exercises, and java-6-01/05/07/09 all declare `public class Thermostat`, so
-  // javac *requires* the same filename each time. Refusing to replace our own
-  // previous output would make those chapters unrunnable without a manual delete.
+  const path = resolvePath(options.into ?? exercisePath(example, step));
   let wrote = false;
   let replaced: string | undefined;
+
   if (existsSync(path)) {
     const existing = readFileSync(path, "utf8");
     const previous = canonicalOwner(existing, content);
-
     if (sameCode(existing, body)) {
-      // Already exactly this exercise's code; nothing to write.
-    } else if (force || previous) {
+      // Already exactly this exercise's code.
+    } else if (options.force || previous) {
       writeFileSync(path, body);
       wrote = true;
       replaced = previous;
@@ -176,8 +163,40 @@ export async function run(args: Args): Promise<void> {
     wrote = true;
   }
 
-  // Anything the exercise needs around it, written next to it.
   const scaffoldFiles = writeScaffold(dirname(path), step, content);
+  return { path, wrote, ...(replaced ? { replaced } : {}), scaffoldFiles };
+}
+
+export async function run(args: Args): Promise<void> {
+  const format = formatFlag(args, ["text", "json"]);
+  const id = args.positionals[0];
+  if (!id) {
+    throw new CliError("run needs an exercise id", "missing_argument", "Try: aifirst run py-1-01");
+  }
+
+  const { content } = resolveContent();
+  const hit = resolve(id, content);
+  const example = hit.example;
+  const step = pickStep(args, example, hit.kind === "step" ? hit.step : undefined);
+
+  const into = stringFlag(args, "into");
+  const destination = into ?? defaultExercisePath(content, example, step);
+  const retryCommand = [
+    "aifirst run",
+    step.id,
+    "--yes",
+    ...(into ? ["--into", JSON.stringify(into)] : []),
+    ...(boolFlag(args, "force") ? ["--force"] : []),
+    ...(format === "json" ? ["--format json"] : []),
+  ].join(" ");
+  const dependencyReport = await preflightDependencies(args, example, step, format, retryCommand);
+
+  const prepared = prepareExerciseFiles(content, example, step, {
+    into: destination,
+    force: boolFlag(args, "force"),
+  });
+  const { path, wrote, replaced, scaffoldFiles } = prepared;
+  const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
 
   const commands = commandsFor(example, step, basename(path), dependencyReport.runtime);
   // Whatever happened above, the file about to run must hold this exercise's code.
@@ -256,13 +275,14 @@ export async function run(args: Args): Promise<void> {
       stderr: useTty && last ? "inherit" : "pipe",
     });
 
-    const timer = setTimeout(() => proc.kill(), TIMEOUT_MS);
+    const timeoutMs = runTimeoutMs(args);
+    const timer = timeoutMs === undefined ? undefined : setTimeout(() => proc.kill(), timeoutMs);
     const [o, e] =
       useTty && last
         ? ["", ""]
         : await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
     await proc.exited;
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
 
     stdout += o;
     stderr += e;

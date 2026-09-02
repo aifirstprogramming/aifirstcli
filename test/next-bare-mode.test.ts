@@ -60,6 +60,12 @@ async function aifirst(args: string[], extraEnv: Record<string, string> = {}): P
   return { stdout, stderr, code: proc.exitCode ?? 0 };
 }
 
+function pythonWorkspaceFile(name: string): string {
+  const directory = join(sandbox, "home", "aifirst", "py");
+  mkdirSync(directory, { recursive: true });
+  return join(directory, name);
+}
+
 describe("next bare-mode: text output", () => {
   beforeEach(async () => {
     await aifirst(["book", "py"]);
@@ -77,7 +83,7 @@ describe("next bare-mode: text output", () => {
 
   it("writes the file automatically", async () => {
     await aifirst(["next"]);
-    const path = join(sandbox, "hello_world.py");
+    const path = pythonWorkspaceFile("hello_world.py");
     expect(existsSync(path)).toBe(true);
     expect(readFileSync(path, "utf8")).toBe('print("Hello, World!")\n');
   });
@@ -244,7 +250,7 @@ describe("next bare-mode: failure semantics", () => {
     await aifirst(["book", "py"], { AIFIRST_CONTENT_DIR: join(sandbox, "broken3") });
     await aifirst(["next"], { AIFIRST_CONTENT_DIR: join(sandbox, "broken3") });
     // The exercise title is "Boom" so the filename is boom.py
-    const path = join(sandbox, "boom.py");
+    const path = pythonWorkspaceFile("boom.py");
     expect(existsSync(path)).toBe(true);
   });
 });
@@ -255,7 +261,7 @@ describe("next bare-mode: already-written file", () => {
   });
 
   it("uses the existing file if it already matches", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), 'print("Hello, World!")\n');
+    writeFileSync(pythonWorkspaceFile("hello_world.py"), 'print("Hello, World!")\n');
     const r = await aifirst(["next", "--format", "json"]);
     const out = JSON.parse(r.stdout);
     expect(out.wrote).toBe(false);
@@ -264,7 +270,7 @@ describe("next bare-mode: already-written file", () => {
   });
 
   it("refuses to replace a different existing file", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), "# my own attempt\n");
+    writeFileSync(pythonWorkspaceFile("hello_world.py"), "# my own attempt\n");
     const r = await aifirst(["next"]);
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("already exists with different contents");
@@ -305,6 +311,6 @@ describe("next bare-mode: scaffold entrypoints", () => {
     const result = await aifirst(["next", "--format", "json"], env);
     expect(result.code).toBe(0);
     expect(JSON.parse(result.stdout).ran.stdout).toBe("scaffold ran\n");
-    expect(readFileSync(join(sandbox, "runner.py"), "utf8")).toBe("print('scaffold ran')\n");
+    expect(readFileSync(pythonWorkspaceFile("runner.py"), "utf8")).toBe("print('scaffold ran')\n");
   });
 });

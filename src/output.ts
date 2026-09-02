@@ -15,6 +15,13 @@ const useColor = (() => {
   return Boolean(process.stdout.isTTY);
 })();
 
+export type OutputSink = (line: string) => void;
+let outputSink: OutputSink | undefined;
+
+export function setOutputSink(sink: OutputSink | undefined): void {
+  outputSink = sink;
+}
+
 const wrap = (code: string) => (s: string) => (useColor ? `[${code}m${s}[0m` : s);
 
 export const bold = wrap("1");
@@ -39,6 +46,10 @@ export const glyph = {
 };
 
 export function out(line = ""): void {
+  if (outputSink) {
+    outputSink(line);
+    return;
+  }
   process.stdout.write(line + "\n");
 }
 

@@ -60,6 +60,7 @@ async function aifirst(args: string[]): Promise<Run> {
  */
 const FIRST = "py-7-01";
 const SECOND = "py-7-02";
+const pythonWorkspace = () => join(sandbox, "home", "aifirst", "py");
 
 describe("two exercises that would share a filename", () => {
   it("keeps both, in their own directories", async () => {
@@ -75,7 +76,7 @@ describe("two exercises that would share a filename", () => {
     // Both versions survive, and each holds its own exercise's code.
     for (const id of [FIRST, SECOND]) {
       const shown = JSON.parse((await aifirst(["show", id, "--format", "json"])).stdout);
-      const onDisk = readFileSync(join(sandbox, id, "assert.py"), "utf8");
+      const onDisk = readFileSync(join(pythonWorkspace(), id, "assert.py"), "utf8");
       expect(onDisk.trimEnd()).toBe(shown.steps[0].response.trimEnd());
     }
   });
@@ -136,6 +137,6 @@ describe("what `recorded` means", () => {
     const out = JSON.parse(r.stdout);
     expect(out.wrote).toBe(false);
     expect(out.ran.ok).toBe(true);
-    expect(existsSync(join(sandbox, FIRST, "assert.py"))).toBe(true);
+    expect(existsSync(join(pythonWorkspace(), FIRST, "assert.py"))).toBe(true);
   });
 });

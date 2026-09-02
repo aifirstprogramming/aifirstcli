@@ -17,7 +17,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve as resolvePath } from "node:path";
-import { exercisePath, runCommand } from "@aifirst/content";
+import { runCommand } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
@@ -29,6 +29,7 @@ import { read, markIfNew } from "../log/progress";
 import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { withPythonRuntime } from "../dependencies";
 import { preflightDependencies } from "./dependencies";
+import { defaultExercisePath } from "../workspace";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -113,7 +114,7 @@ export async function next(args: Args): Promise<void> {
   ].join(" ");
   const dependencyReport = await preflightDependencies(args, ex, step, format, retryCommand);
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(into ?? exercisePath(ex, step));
+  const path = resolvePath(into ?? defaultExercisePath(content, ex, step));
   const force = boolFlag(args, "force");
 
   // Write it, but never over something different that the learner wrote.

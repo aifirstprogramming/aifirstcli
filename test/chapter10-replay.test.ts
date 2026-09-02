@@ -48,7 +48,7 @@ function seed(workspace: string, stepId: string): void {
 }
 
 describe("chapter 10 level-editor replays", () => {
-  test("publishes the authoritative four-step progression", () => {
+  test("publishes the three guided manuscript exercises", () => {
     const chapter = content.books
       .find((book) => book.tag === "py")!
       .sections.flatMap((section) => section.chapters)
@@ -57,7 +57,11 @@ describe("chapter 10 level-editor replays", () => {
       "py-10-01",
       "py-10-02",
       "py-10-03",
-      "py-10-04",
+    ]);
+    expect(chapter.examples.map((example) => example.title)).toEqual([
+      "Design a Level Editor",
+      "Add Undo and Redo",
+      "Animate a Beatability Pathfinder",
     ]);
   });
 
@@ -72,26 +76,33 @@ describe("chapter 10 level-editor replays", () => {
       true,
     );
 
-    const pathfinder = step("py-10-04").replay!.workflow!;
+    const pathfinder = step("py-10-03").replay!.workflow!;
     expect(pathfinder.canonicalAnswers).toEqual({
       fox_handling: "ignore_foxes_check_static_connectivity",
       animation_style: "frontier_expansion_final_path",
     });
   });
 
-  test("keeps the Copilot checkpoint as an explicit two-file reconstruction", () => {
-    const replay = step("py-10-02").replay!;
-    expect(replay.workflow).toBeUndefined();
+  test("folds the JSON-saving checkpoint into the editor exercise", () => {
+    const editor = step("py-10-01");
+    const replay = editor.replay!;
     expect(
       replay.events?.filter(
-        (event) => event.type === "operation" && event.operation.type === "edit",
+        (event) =>
+          event.type === "operation" &&
+          event.operation.type === "edit" &&
+          ["level.py", "level_editor.py"].includes(event.operation.path),
       ),
-    ).toHaveLength(2);
-    expect(replay.source?.sessionId).toContain("legacy-");
+    ).toHaveLength(4);
+    expect(replay.events?.some(
+      (event) => event.type === "text" && event.text.startsWith("The chapter presents JSON loading and saving"),
+    )).toBe(true);
+    expect(editor.scaffold?.files.find((file) => file.path === "level.py")?.content)
+      .toContain("def save_level_def(level_def, path):");
   });
 
   test("shows questionless Claude plan mode before undo implementation", () => {
-    const undo = step("py-10-03");
+    const undo = step("py-10-02");
     const planning: PlanningSession = { answers: {} };
     const outcome = beginPlanning(undo, planning, tools);
     expect(outcome.kind).toBe("reply");
@@ -199,42 +210,45 @@ describe("chapter 10 level-editor replays", () => {
     }
   });
 
-  test("uses full-file operations for a later exercise in an empty workspace", () => {
-    const workspace = mkdtempSync(join(tmpdir(), "aifirst-leveldef-standalone-"));
+  test("continues directly from the editor checkpoint into undo", () => {
+    const workspace = mkdtempSync(join(tmpdir(), "aifirst-undo-captured-"));
     const original = process.cwd();
+    seed(workspace, "py-10-01");
     process.chdir(workspace);
     try {
+      const planning: PlanningSession = { answers: {} };
       const reply = respond(
         {
-          messages: [{ role: "user", content: "wouldn't it be cleaner to also have a matching save_level_def in the LevelDef class?" }],
+          messages: [{ role: "user", content: "Implement undo/redo for the level editor." }],
           tools,
         },
         content,
         emptyLog(),
+        { planning },
       );
-      expect(reply.toolUse?.name).toBe("Write");
-      expect(reply.toolUse?.id).toBe("aifirst_replay_standalone_py-10-02_0");
-
-      const next = respond(
-        {
-          messages: [{
-            role: "user",
-            content: [{
-              type: "tool_result",
-              tool_use_id: reply.toolUse?.id,
-              content: "File written successfully",
-            }],
-          }],
-          tools,
-        },
-        content,
-        emptyLog(),
-      );
-      expect(next.toolUse?.name).toBe("Write");
-      expect(next.toolUse?.id).toBe("aifirst_replay_standalone_py-10-02_1");
+      expect(reply.toolUse?.name).toBe("Read");
+      expect(reply.text).not.toContain("self-contained build path");
+      expect(planning.replayMode).toBe("captured");
     } finally {
       process.chdir(original);
       rmSync(workspace, { recursive: true, force: true });
     }
+  });
+
+  test("does not match the explanatory JSON-saving prose as an exercise", () => {
+    const reply = respond(
+      {
+        messages: [{ role: "user", content: "wouldn't it be cleaner to also have a matching save_level_def in the LevelDef class?" }],
+        tools,
+      },
+      content,
+      emptyLog(),
+    );
+    expect(reply.toolUse).toBeUndefined();
+    expect(reply.text).toContain("isn't a prompt from the book");
+  });
+
+  test("runs the pathfinding project through the interactive editor", () => {
+    expect(step("py-10-03").scaffold?.entrypoint).toBe("level_editor.py");
   });
 });

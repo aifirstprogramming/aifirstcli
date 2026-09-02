@@ -77,6 +77,12 @@ async function aifirst(args: string[], extraEnv: Record<string, string> = {}): P
   return { stdout, stderr, code: proc.exitCode ?? 0 };
 }
 
+function pythonWorkspaceFile(name: string): string {
+  const directory = join(sandbox, "home", "aifirst", "py");
+  mkdirSync(directory, { recursive: true });
+  return join(directory, name);
+}
+
 // ===========================================================================
 // 1. Python Scenario: next does full write/run/record/advance cycle
 // ===========================================================================
@@ -186,16 +192,17 @@ describe("2. Java scenario: next with missing JDK", () => {
 
 describe("3. Failure scenario: existing file with different contents", () => {
   it("next refuses to replace file with different contents (no --force)", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), "# my own attempt\n");
+    const path = pythonWorkspaceFile("hello_world.py");
+    writeFileSync(path, "# my own attempt\n");
     const r = await aifirst(["next", "py"]);
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("already exists with different contents");
     // File NOT replaced
-    expect(readFileSync(join(sandbox, "hello_world.py"), "utf8")).toBe("# my own attempt\n");
+    expect(readFileSync(path, "utf8")).toBe("# my own attempt\n");
   });
 
   it("next --force replaces learner's file with canonical code", async () => {
-    writeFileSync(join(sandbox, "hello_world.py"), "# my own attempt\n");
+    writeFileSync(pythonWorkspaceFile("hello_world.py"), "# my own attempt\n");
     const r = await aifirst(["next", "py", "--force", "--format", "json"]);
     expect(r.code).toBe(0);
     const data = JSON.parse(r.stdout);

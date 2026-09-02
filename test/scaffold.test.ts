@@ -17,7 +17,7 @@ afterEach(() => {
 describe("binary exercise scaffolds", () => {
   test("materializes every tracked PNG exactly once for every asset-backed replay", () => {
     expect(binarySteps.map((step) => step.id)).toEqual([
-      "py-9-01", "py-9-02", "py-9-03", "py-10-01", "py-10-02", "py-10-03", "py-10-04",
+      "py-9-01", "py-9-02", "py-9-03", "py-10-01", "py-10-02", "py-10-03",
     ]);
     for (const step of binarySteps) {
       workspace = mkdtempSync(join(tmpdir(), `aifirst-scaffold-${step.id}-`));

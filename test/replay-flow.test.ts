@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeReplay } from "../src/replay/executor";
+import { executeReplay, executeReplayOperation } from "../src/replay/executor";
 import { resolveReplay } from "../src/replay/resolver";
 import { clearPendingReplay, confirmationAnswer, readPendingReplay, replaySelection, savePendingReplay } from "../src/replay/pending";
 import type { Content, ReplayStep } from "../src/content/types";
@@ -78,6 +78,18 @@ describe("replay resolution", () => {
 });
 
 describe("replay execution", () => {
+  it("materializes privacy-safe workspace placeholders before executing commands", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-workspace-"));
+    const result = executeReplayOperation({
+      type: "command",
+      command: ["bash", "-lc", 'test -d "<workspace>" && printf workspace-ok'],
+      expectedExitCode: 0,
+      expectedStdout: "workspace-ok",
+    }, root);
+    expect(result.ok).toBe(true);
+    expect(result.command?.command.at(-1)).toContain('test -d "."');
+  });
+
   it("writes files, runs commands, and checks expected output", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-replay-flow-"));
     process.env.AIFIRST_STATE_DIR = root;

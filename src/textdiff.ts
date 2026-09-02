@@ -1,3 +1,5 @@
+import { createTwoFilesPatch, FILE_HEADERS_ONLY } from "diff";
+
 /**
  * Line diff, for comparing a learner's file against the book's code.
  *
@@ -88,4 +90,17 @@ export function condense(lines: DiffLine[], context = 2): (DiffLine | "gap")[] {
 /** Trailing-newline differences are not a mismatch a reader should be shown. */
 export function normalize(text: string): string {
   return text.replace(/\r\n/g, "\n").replace(/\n+$/, "");
+}
+
+/** A real unified patch with compact hunks, suitable for terminal diff renderers. */
+export function unifiedPatch(path: string, oldText: string, newText: string, context = 3): string {
+  return createTwoFilesPatch(
+    `a/${path}`,
+    `b/${path}`,
+    oldText,
+    newText,
+    undefined,
+    undefined,
+    { context, headerOptions: FILE_HEADERS_ONLY },
+  ).replace(/\n$/, "");
 }

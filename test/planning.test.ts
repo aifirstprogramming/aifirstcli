@@ -84,6 +84,23 @@ describe("model-free planning workflow", () => {
     expect(JSON.stringify(resumed.toolUse?.input)).toContain("What should make the search challenging");
   });
 
+  test("native sequential planning gives unsupported-choice feedback immediately", () => {
+    const planning: PlanningSession = { answers: {}, questionMode: "sequential" };
+    const first = reply(beginPlanning(duckling, planning, TOOLS));
+    const firstInput = JSON.stringify(first.toolUse?.input);
+    expect(firstInput).toContain("What style of gameplay");
+    expect(firstInput).not.toContain("What should make the search challenging");
+    expect(firstInput).not.toContain("What visual style");
+
+    const fallback = reply(continuePlanning(duckling, planning, TOOLS, "Side-scrolling platformer"));
+    expect(fallback.text).toContain("This choice needs an LLM");
+    expect(JSON.stringify(fallback.toolUse?.input)).toContain("Use book-recommended answer");
+
+    const resumed = reply(continuePlanning(duckling, planning, TOOLS, "Use book-recommended answer"));
+    expect(JSON.stringify(resumed.toolUse?.input)).toContain("What should make the search challenging");
+    expect(JSON.stringify(resumed.toolUse?.input)).not.toContain("What visual style");
+  });
+
   test("can restart or exit without producing replay operations", () => {
     const planning = state();
     const first = reply(beginPlanning(duckling, planning, TOOLS));
