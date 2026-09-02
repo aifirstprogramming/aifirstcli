@@ -120,7 +120,7 @@ describe("show", () => {
   it("lists authored dependencies without checking or installing them", async () => {
     const shown = JSON.parse((await aifirst(["show", "py-10-01", "--format", "json"])).stdout);
     expect(shown.dependencies).toEqual([
-      { kind: "python-package", package: "pygame", module: "pygame" },
+      { kind: "python-package", package: "pygame-ce", module: "pygame" },
       { kind: "python-package", package: "Pillow", module: "PIL" },
     ]);
 
@@ -172,7 +172,7 @@ describe("dependencies", () => {
     expect([0, 1]).toContain(r.code);
     expect(result.exerciseId).toBe("py-10-01");
     expect(result.dependencies.map((status: { dependency: { package: string } }) => status.dependency.package))
-      .toEqual(["pygame", "Pillow"]);
+      .toEqual(["pygame-ce", "Pillow"]);
     expect(existsSync(join(sandbox, "level_editor.py"))).toBe(before);
   });
 });

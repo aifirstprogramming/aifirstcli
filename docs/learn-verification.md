@@ -123,7 +123,7 @@ synthetic child-only `ANTHROPIC_AUTH_TOKEN`, `IS_DEMO=1`, and an ephemeral
    `/aifirst next` is intercepted by Claude Code's own slash-command layer before it reaches book mode;
    it is not a supported chat form.
 4. Verify `aifirst run <id>` records completion only after a successful Bash tool result.
-5. With pygame/Pillow absent from the selected Python user site, start `py-9-01`. Confirm the native
+5. With pygame-ce/Pillow absent from the selected Python user site, start `py-9-01`. Confirm the native
    dependency question appears before any replay operation, accept it, and verify
    `python3 -c "import pygame, PIL"` succeeds afterward. Repeat once and confirm there is no second prompt.
 6. Start `py-9-01`, answer each planning question with the **Book Recommended** option, and confirm no

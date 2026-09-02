@@ -137,7 +137,7 @@ describe("answering a book prompt", () => {
     );
     expect(question.toolUse?.name).toBe("AskUserQuestion");
     expect(question.toolUse?.id).toStartWith("aifirst_dependency_confirm_");
-    expect(question.text).toContain("pygame, Pillow");
+    expect(question.text).toContain("pygame-ce, Pillow");
 
     const install = respond({
       messages: [{ role: "user", content: [{
