@@ -100,4 +100,5 @@ jobs:
         shell: pwsh
         run: |
           $env:AIFIRST_DUCKLING_PORTABLE = "1"
+          $env:AIFIRST_PYTHON = (Get-Command python).Source
           bun test test/windows-duckling-replay.test.ts
