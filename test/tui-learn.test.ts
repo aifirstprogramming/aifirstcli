@@ -97,7 +97,7 @@ suite("OpenTUI learning interface", () => {
     await proc.exited;
 
     expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
-    expect(stdout).toContain("content pack 1.7.1");
+    expect(stdout).toContain("Chapter 9: Building a Game with Pygame");
     expect(stdout).toContain("target specific tools");
     expect(stdout).not.toContain("Browse books and exercises");
     expect(stdout).not.toContain("Connect an AI assistant (optional)");
