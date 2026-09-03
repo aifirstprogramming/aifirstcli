@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { $ } from "bun";
@@ -116,6 +116,22 @@ async function runCommandAsync(
   }
   const python = runtime?.command.map((part) => $.escape(part)).join(" ") ?? "<python>";
   const script = (source[1] ?? "").replaceAll("<python>", python).replaceAll("<workspace>", ".");
+  const removeArgument = simpleRemoveArgument(script);
+  if (removeArgument) {
+    try {
+      unlinkSync(inside(root, removeArgument));
+      return {
+        command: ["<shell>", script],
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        timedOut: false,
+        matchesExpected: commandMatches(operation, 0, "", "", false),
+      };
+    } catch (error) {
+      return { command: ["<shell>", script], exitCode: 1, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
+    }
+  }
   try {
     const task = $`${{ raw: script }}`
       .cwd(inside(root, operation.cwd ?? "."))
@@ -141,6 +157,14 @@ async function runCommandAsync(
   } catch (error) {
     return { command: ["<shell>", script], exitCode: 127, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
   }
+}
+
+function simpleRemoveArgument(script: string): string | undefined {
+  const trimmed = script.trim();
+  if (!trimmed.startsWith("rm ")) return undefined;
+  const argument = trimmed.slice(3).trim().replace(/^['"]|['"]$/g, "").replaceAll("\\", "/");
+  if (!argument || /[;&|`$]/.test(argument)) return undefined;
+  return argument;
 }
 
 function operationText(result: ReplayCommandResult): string {

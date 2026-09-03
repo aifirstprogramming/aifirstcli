@@ -99,7 +99,7 @@ describe("replay execution", () => {
     }, root);
     expect(result.ok).toBe(true);
     expect(result.command?.command[0]).toBe("<shell>");
-    expect(result.command?.stdout).toBe("portable\n");
+    expect(result.command?.stdout.replace(/\r\n/g, "\n")).toBe("portable\n");
   });
 
   it("materializes privacy-safe workspace placeholders before executing commands", () => {
