@@ -68,6 +68,8 @@ export interface ToolDefinition {
 
 export interface Reply {
   text: string;
+  /** Built-in learner presentation that preserves text/status boundaries. */
+  nativeBlocks?: Array<{ kind: "text" | "status"; text: string }>;
   /** Present when the reply asks the client to run the exercise. */
   toolUse?: { id?: string; name: string; input: Record<string, unknown>; nativeAction?: NativeLearnAction };
   stopReason: "end_turn" | "tool_use";
@@ -293,22 +295,26 @@ function interludeToolId(stepId: string, questionId: string, operationIndex: num
 
 interface ReplaySegment {
   text: string;
+  blocks: Array<{ kind: "text" | "status"; text: string }>;
   operation: ReplayOperation;
 }
 
 function replaySegments(replay: Replay | undefined): ReplaySegment[] {
   if (!replay) return [];
   if (!replay.events) {
-    return replay.operations.map((operation, index) => ({ text: replay.commentary?.[index] ?? "", operation }));
+    return replay.operations.map((operation, index) => {
+      const text = replay.commentary?.[index] ?? "";
+      return { text, blocks: text ? [{ kind: "text" as const, text }] : [], operation };
+    });
   }
   const segments: ReplaySegment[] = [];
-  const text: string[] = [];
+  const blocks: ReplaySegment["blocks"] = [];
   for (const event of replay.events) {
     if (event.type === "operation") {
-      segments.push({ text: text.join("\n\n"), operation: event.operation });
-      text.length = 0;
+      segments.push({ text: blocks.map((block) => block.text).join("\n\n"), blocks: [...blocks], operation: event.operation });
+      blocks.length = 0;
     } else {
-      text.push(event.text);
+      blocks.push({ kind: event.type === "status" ? "status" : "text", text: event.text });
     }
   }
   return segments;
@@ -316,13 +322,13 @@ function replaySegments(replay: Replay | undefined): ReplaySegment[] {
 
 function eventSegments(events: Replay["events"]): ReplaySegment[] {
   const segments: ReplaySegment[] = [];
-  const text: string[] = [];
+  const blocks: ReplaySegment["blocks"] = [];
   for (const event of events ?? []) {
     if (event.type === "operation") {
-      segments.push({ text: text.join("\n\n"), operation: event.operation });
-      text.length = 0;
+      segments.push({ text: blocks.map((block) => block.text).join("\n\n"), blocks: [...blocks], operation: event.operation });
+      blocks.length = 0;
     } else {
-      text.push(event.text);
+      blocks.push({ kind: event.type === "status" ? "status" : "text", text: event.text });
     }
   }
   return segments;
@@ -332,19 +338,13 @@ function prePlanSegments(replay: Replay | undefined): ReplaySegment[] {
   return eventSegments(replay?.prePlanEvents);
 }
 
-function eventTrailingText(events: Replay["events"]): string {
+function eventTrailingBlocks(events: Replay["events"]): ReplaySegment["blocks"] {
   let lastOperation = -1;
   (events ?? []).forEach((event, index) => {
     if (event.type === "operation") lastOperation = index;
   });
-  return (events ?? []).slice(lastOperation + 1)
-    .filter((event) => event.type !== "operation")
-    .map((event) => event.text)
-    .join("\n\n");
-}
-
-function prePlanTrailingText(replay: Replay | undefined): string {
-  return eventTrailingText(replay?.prePlanEvents);
+  return (events ?? []).slice(lastOperation + 1).flatMap((event) =>
+    event.type === "operation" ? [] : [{ kind: event.type === "status" ? "status" as const : "text" as const, text: event.text }]);
 }
 
 function workflowInterludeEvents(step: ReplayStep, questionId: string): ReplayEvent[] {
@@ -716,7 +716,7 @@ function nativeReplayReply(
     };
   }
   if (replay?.events) {
-    return { text: replayTurn(step, operationIndex, replay), toolUse, stopReason: "tool_use", exerciseId: step.id };
+    return { text: replayTurn(step, operationIndex, replay), nativeBlocks: replaySegments(replay)[operationIndex]?.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
   }
   const header = operationIndex === 0 ? replayPrelude(step, content) : "## AI First Replay (continued)";
   return { text: `${header}\n\n${replayTurn(step, operationIndex, replay)}`, toolUse, stopReason: "tool_use", exerciseId: step.id };
@@ -724,6 +724,16 @@ function nativeReplayReply(
 
 function withLeadingText(reply: Reply, leading: string): Reply {
   return leading ? { ...reply, text: reply.text ? `${leading}\n\n${reply.text}` : leading } : reply;
+}
+
+function withLeadingBlocks(reply: Reply, blocks: ReplaySegment["blocks"]): Reply {
+  if (blocks.length === 0) return reply;
+  const leading = blocks.map((block) => block.text).join("\n\n");
+  return {
+    ...reply,
+    text: reply.text ? `${leading}\n\n${reply.text}` : leading,
+    nativeBlocks: [...blocks, ...(reply.nativeBlocks ?? (reply.text ? [{ kind: "text" as const, text: reply.text }] : []))],
+  };
 }
 
 function prePlanReply(
@@ -736,7 +746,7 @@ function prePlanReply(
   const segment = prePlanSegments(step.replay)[operationIndex];
   if (!segment) {
     const outcome = beginPlanning(step, planning, tools);
-    return withLeadingText(planningOutcomeReply(step, content, tools, planning, outcome), prePlanTrailingText(step.replay));
+    return withLeadingBlocks(planningOutcomeReply(step, content, tools, planning, outcome), eventTrailingBlocks(step.replay?.prePlanEvents));
   }
   const toolUse = replayToolUse(step, operationIndex, tools, step.replay, "preplan");
   if (!toolUse) {
@@ -746,7 +756,7 @@ function prePlanReply(
       exerciseId: step.id,
     };
   }
-  return { text: segment.text, toolUse, stopReason: "tool_use", exerciseId: step.id };
+  return { text: segment.text, nativeBlocks: segment.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
 }
 
 function planningOutcomeReply(
@@ -783,7 +793,7 @@ function planningInterludeReply(
   const segment = eventSegments(events)[operationIndex];
   if (!segment) {
     const outcome = finishPlanningInterlude(step, planning, tools, questionId);
-    return withLeadingText(planningOutcomeReply(step, content, tools, planning, outcome), eventTrailingText(events));
+    return withLeadingBlocks(planningOutcomeReply(step, content, tools, planning, outcome), eventTrailingBlocks(events));
   }
   const toolUse = operationToolUse(interludeToolId(step.id, questionId, operationIndex), segment.operation, tools);
   if (!toolUse) {
@@ -793,7 +803,7 @@ function planningInterludeReply(
       exerciseId: step.id,
     };
   }
-  return { text: segment.text, toolUse, stopReason: "tool_use", exerciseId: step.id };
+  return { text: segment.text, nativeBlocks: segment.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
 }
 
 type ReplayMode = "captured" | "standalone";
@@ -865,9 +875,9 @@ function beginSelectedReplay(
     }
     const outcome = beginPlanning(selectedStep, planning, tools);
     return withLeadingText(
-      withLeadingText(
+      withLeadingBlocks(
         planningOutcomeReply(selectedStep, content, tools, planning, outcome),
-        prePlanTrailingText(selectedStep.replay),
+        eventTrailingBlocks(selectedStep.replay?.prePlanEvents),
       ),
       notice,
     );

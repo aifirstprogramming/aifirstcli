@@ -44,7 +44,7 @@ describe("graphical exercise runs", () => {
     expect(runTimeoutMs(args(new Map([["no-timeout", true]])))).toBeUndefined();
   });
 
-  test("keeps captured pygame entrypoint smoke launches headless", () => {
+  test("replaces captured pygame window launches with a portable compile check", () => {
     const content = resolveContent().content;
     const step = content.steps.find((candidate) => candidate.id === "py-9-01") as ReplayStep;
     const command = step.replay?.events
@@ -55,8 +55,9 @@ describe("graphical exercise runs", () => {
     const materialized = nativeReplayOperation(command, step);
     expect(materialized.type).toBe("command");
     if (materialized.type !== "command") return;
-    expect(materialized.env?.SDL_VIDEODRIVER).toBe("dummy");
-    expect(materialized.env?.SDL_AUDIODRIVER).toBe("dummy");
+    expect(materialized.portableCommand).toEqual(["<python>", "-m", "py_compile", "main.py"]);
+    expect(materialized.expectedExitCode).toBe(0);
+    expect(materialized.timeoutMs).toBeUndefined();
   });
 });
 

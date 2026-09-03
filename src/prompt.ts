@@ -22,6 +22,24 @@ export function isInteractive(): boolean {
   return Boolean(process.stdin.isTTY && process.stdout.isTTY);
 }
 
+export async function pauseForEnter(message = "Press Enter to continue"): Promise<void> {
+  const tui = currentTuiSession();
+  if (tui) {
+    await tui.waitForDocumentReturn();
+    return;
+  }
+  if (!isInteractive()) return;
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    await rl.question(`  ${dim(message)} `);
+  } catch (error) {
+    if ((error as Error).name !== "AbortError") throw error;
+    promptInterrupted = true;
+  } finally {
+    rl.close();
+  }
+}
+
 export async function confirm(question: string, hint: string): Promise<boolean> {
   const tui = currentTuiSession();
   if (tui) {

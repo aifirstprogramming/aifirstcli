@@ -36,6 +36,7 @@ def main() -> int:
     output = bytearray()
     action_index = 0
     search_offset = 0
+    prompt_acknowledged = False
     child_done = False
     deadline = time.monotonic() + float(scenario.get("timeoutSeconds", 45))
     try:
@@ -51,6 +52,13 @@ def main() -> int:
                 output.extend(chunk)
 
             visible = compact(output)
+            if scenario.get("autoRunPrompts", True) and not prompt_acknowledged:
+                prompt_marker = "PRESSENTERTORUNTHISPROMPT"
+                found_prompt = visible.find(prompt_marker)
+                if found_prompt >= 0:
+                    os.write(fd, b"\r")
+                    prompt_acknowledged = True
+                    time.sleep(0.1)
             action = scenario["actions"][action_index]
             marker = re.sub(r"\s+", "", str(action["wait"]))
             found = visible.find(marker, search_offset)

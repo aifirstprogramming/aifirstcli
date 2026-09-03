@@ -232,6 +232,10 @@ describe("responder planning integration", () => {
     }] }], tools: TOOLS }, content, emptyLog(), { planning });
     expect(result.toolUse?.name).toBe("AskUserQuestion");
     expect(result.toolUse?.id).toContain("question_game_style+challenge+art_style");
+    expect(result.nativeBlocks).toContainEqual({
+      kind: "text",
+      text: expect.stringContaining("greenfield build"),
+    });
     expect(planning.stepId).toBe("py-9-01");
   });
 

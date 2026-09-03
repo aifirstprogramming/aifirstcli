@@ -11,7 +11,7 @@ import { loadReplayPack, packPath, replayExists, resetReplay } from "../replay/s
 import { renderReplayStep } from "../replay/contentSource";
 import type { ReplayPack } from "../replay/types";
 import { resolveContent } from "../content";
-import { executeReplay } from "../replay/executor";
+import { executeReplayAsync } from "../replay/executor";
 import { resolveReplay } from "../replay/resolver";
 import { clearPendingReplay, readPendingReplay, replaySelection, savePendingReplay } from "../replay/pending";
 import type { ReplayStep } from "../content/types";
@@ -99,7 +99,7 @@ export async function replay(args: Args): Promise<void> {
     const step = resolveContent().content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
     if (!step?.replay) throw new CliError(`No replay found for ${id}`, "unknown_exercise");
     const root = process.cwd();
-    const result = executeReplay(step.replay, root);
+    const result = await executeReplayAsync(step.replay, root);
     if (result.ok) markIfNew(step.exampleId, { via: "agent", agent: "claude" });
     const response = {
       exerciseId: step.id,
@@ -183,7 +183,7 @@ export async function replay(args: Args): Promise<void> {
           else json({ match: "confirmed", exerciseId: step.id, workflow: step.replay.workflow });
           return;
         }
-        const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : executeReplay(step.replay, root);
+        const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : await executeReplayAsync(step.replay, root);
         const context = ["The user confirmed the pending AI First replay.", execution?.text, `Replay exercise: ${step.id}`].filter(Boolean).join("\n\n");
         if (action === "hook") json({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: context } });
         else json({ match: "confirmed", exerciseId: step.id, execution: execution ?? null });
@@ -226,7 +226,7 @@ export async function replay(args: Args): Promise<void> {
       else json({ match: "exact", exerciseId: match.step.id, workflow: match.step.replay.workflow });
       return;
     }
-    const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : executeReplay(match.step.replay!, root);
+    const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : await executeReplayAsync(match.step.replay!, root);
     const context = [
       "This prompt exactly matches an AI First replay.",
       "Use the captured replay response verbatim; do not invent commentary or commands.",

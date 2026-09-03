@@ -55,6 +55,54 @@ suite("OpenTUI learning interface", () => {
     expect(stdout).toContain("\x1b[?1049l");
   }, 40_000);
 
+  test("opens progress and command reference as dismissible Home screens", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-tui-home-pages-"));
+    const state = join(root, "state");
+    const home = join(root, "home");
+    const scenario = join(root, "scenario.json");
+    mkdirSync(state);
+    mkdirSync(home);
+    writeFileSync(scenario, JSON.stringify({
+      columns: 100,
+      rows: 30,
+      timeoutSeconds: 25,
+      actions: [
+        { wait: "Which book are you reading?", down: 1, enter: true },
+        { wait: "What would you like to do?", down: 1, enter: true },
+        { wait: "Enter/Esc return to Home", settleSeconds: 0.5, enter: true },
+        { wait: "What would you like to do?", down: 3, enter: true },
+        { wait: "Enter/Esc return to Home", settleSeconds: 0.5, escape: true },
+        { wait: "What would you like to do?", ctrlC: true },
+      ],
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", ENTRY], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: "/usr/bin:/bin",
+        TERM: "xterm-256color",
+        NO_COLOR: "",
+        AIFIRST_TUI: "1",
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: home,
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
+    expect(stdout).toContain("content pack 1.7.1");
+    expect(stdout).toContain("target specific tools");
+    expect(stdout).not.toContain("Browse books and exercises");
+    expect(stdout).not.toContain("Connect an AI assistant (optional)");
+  }, 40_000);
+
   test("uses highlighted pickers, accepts direct exercise input, and finishes without running", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-tui-learn-"));
     const state = join(root, "state");

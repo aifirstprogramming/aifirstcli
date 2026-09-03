@@ -63,6 +63,8 @@ export interface TerminalRenderOptions {
   onInterrupt?: () => void;
 }
 
+export type PromptGateResult = "run" | "back" | "exit";
+
 const STYLE_CODES: Record<Style, string> = {
   bold: "1",
   dim: "2",
@@ -509,4 +511,92 @@ export async function renderTerminalMarkdown(markdown: string, options: Terminal
       controller.finish();
     }
   }
+}
+
+export async function renderExercisePrompt(
+  prompt: string,
+  options: TerminalRenderOptions = {},
+): Promise<PromptGateResult> {
+  const tui = currentTuiSession();
+  if (tui) {
+    return tui.presentPrompt(prompt, {
+      ...options,
+      charsPerSecond: options.noAnimation ? undefined : 40,
+    });
+  }
+
+  const writer = options.writer ?? ((text: string) => process.stdout.write(text));
+  const sleep = options.sleep ?? Bun.sleep;
+  const stdin = options.stdin ?? process.stdin;
+  const columns = Math.max(30, options.columns ?? process.stdout.columns ?? 80);
+  const width = Math.max(20, columns - 8);
+  const ascii = options.ascii ?? process.env.AIFIRST_ASCII === "1";
+  const top = ascii ? `+- Exercise Prompt (read only) ${"-".repeat(Math.max(1, width - 31))}+\n` : `╭─ Exercise Prompt • read only ${"─".repeat(Math.max(1, width - 31))}╮\n`;
+  const bottom = ascii ? `+${"-".repeat(width + 2)}+\n` : `╰${"─".repeat(width + 2)}╯\n`;
+  const prefix = ascii ? "| " : "│ ";
+  const suffix = ascii ? " |\n" : " │\n";
+  const lines = wrapCells(cells(prompt), width).map((line) => line.map((cell) => cell.char).join(""));
+  const enabled = Boolean(stdin.isTTY && typeof stdin.setRawMode === "function");
+  const previousRaw = Boolean(stdin.isRaw);
+  let cancelled: PromptGateResult | undefined;
+  let release: (() => void) | undefined;
+  const onTypingKey = (_text: string, key: { name?: string; ctrl?: boolean }) => {
+    if (key.ctrl && key.name === "c") cancelled = "exit";
+    else if (key.name === "escape") cancelled = "back";
+    if (cancelled) release?.();
+  };
+  if (enabled) {
+    emitKeypressEvents(stdin);
+    stdin.on("keypress", onTypingKey);
+    if (!previousRaw) stdin.setRawMode!(true);
+    stdin.resume();
+  }
+  const restore = () => {
+    if (!enabled) return;
+    if (!previousRaw) stdin.setRawMode!(false);
+    if (!previousRaw) stdin.pause();
+  };
+  writer(top);
+  try {
+    for (const line of lines) {
+      writer(prefix);
+      for (const char of Array.from(line)) {
+        if (cancelled) break;
+        writer(char);
+        if (!options.noAnimation) {
+          await Promise.race([
+            sleep(25),
+            new Promise<void>((resolve) => { release = resolve; }),
+          ]);
+          release = undefined;
+        }
+      }
+      if (cancelled) break;
+      writer(`${" ".repeat(Math.max(0, width - Array.from(line).length))}${suffix}`);
+    }
+  } finally {
+    if (enabled) stdin.off("keypress", onTypingKey);
+    release?.();
+  }
+  if (cancelled) {
+    restore();
+    return cancelled;
+  }
+  writer(bottom);
+  writer("\n  ▶  PRESS ENTER TO RUN THIS PROMPT  ◀\n");
+  if (!enabled) return "run";
+
+  return await new Promise<PromptGateResult>((resolve) => {
+    const finish = (result: PromptGateResult) => {
+      stdin.off("keypress", onKey);
+      restore();
+      resolve(result);
+    };
+    const onKey = (_text: string, key: { name?: string; ctrl?: boolean }) => {
+      if (key.ctrl && key.name === "c") finish("exit");
+      else if (key.name === "escape") finish("back");
+      else if (key.name === "return" || key.name === "enter" || key.name === "linefeed") finish("run");
+    };
+    stdin.on("keypress", onKey);
+  });
 }

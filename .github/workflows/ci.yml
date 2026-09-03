@@ -83,3 +83,21 @@ jobs:
             "install/install.ps1", [ref]$null, [ref]$errors) | Out-Null
           if ($errors) { $errors | ForEach-Object { Write-Error $_ }; exit 1 }
           Write-Host "install.ps1 parses cleanly"
+
+  windows-duckling-replay:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: bun install --frozen-lockfile
+      - run: python -m pip install pygame-ce Pillow
+      - name: Execute portable Save the Duckling replay
+        shell: pwsh
+        run: |
+          $env:AIFIRST_DUCKLING_PORTABLE = "1"
+          bun test test/windows-duckling-replay.test.ts

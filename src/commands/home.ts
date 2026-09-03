@@ -7,11 +7,10 @@ import { resolveContent } from "../content";
 import { report } from "../exercises";
 import { read as readLog } from "../log/progress";
 import { bold, cyan, dim, glyph, green, out } from "../output";
-import { choose, isInteractive } from "../prompt";
+import { choose, isInteractive, pauseForEnter } from "../prompt";
 import { help } from "./help";
 import { nativeLearn } from "../learn/native";
 import { progress } from "./progress";
-import { list } from "./list";
 import { currentTuiSession } from "../tui/session";
 import { runWithTui, shouldUseTui } from "../tui";
 import { ensureWorkspace } from "../workspace";
@@ -66,10 +65,8 @@ export async function home(args: Args): Promise<void> {
     const choices = [
       { key: "learn", label: "Start or continue built-in learning (recommended)" },
       ...destinations.map((destination) => ({ key: destination.key, label: `Open ${destination.label}` })),
-      { key: "browse", label: "Browse books and exercises" },
       { key: "progress", label: "View progress" },
       { key: "book", label: "Change book" },
-      { key: "connect", label: "Connect an AI assistant (optional)" },
       { key: "help", label: "Command reference" },
       { key: "exit", label: "Exit" },
     ];
@@ -88,26 +85,18 @@ export async function home(args: Args): Promise<void> {
       else if (selected) setBook(content.books.find((book) => book.tag === selected)!.id);
       continue;
     }
-    if (picked === "browse") {
-      list({ command: "list", positionals: [], flags: new Map() });
-      continue;
-    }
     if (picked === "progress") {
+      currentTuiSession()?.clearTranscript();
       progress({ command: "progress", positionals: [], flags: new Map() });
-      continue;
-    }
-    if (picked === "connect") {
-      out();
-      out(`  ${bold("Optional AI assistants")}`);
-      out(dim("  Claude Code   https://claude.com/claude-code"));
-      out(dim("  Codex         https://developers.openai.com/codex/cli"));
-      out(dim("  Antigravity   https://antigravity.google"));
-      out(dim("  VS Code       https://code.visualstudio.com"));
-      out();
+      await pauseForEnter("Press Enter to return Home");
+      currentTuiSession()?.clearTranscript();
       continue;
     }
     if (picked === "help") {
+      currentTuiSession()?.clearTranscript();
       help();
+      await pauseForEnter("Press Enter to return Home");
+      currentTuiSession()?.clearTranscript();
       continue;
     }
     const destination = destinations.find((candidate) => candidate.key === picked);

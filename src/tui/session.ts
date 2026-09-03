@@ -1,6 +1,7 @@
 import {
   BoxRenderable,
   CliRenderEvents,
+  CodeRenderable,
   DiffRenderable,
   MarkdownRenderable,
   ScrollBoxRenderable,
@@ -73,6 +74,8 @@ export class LearnTuiSession {
   private footerHint = "";
   private clipboardNotice = 0;
   private postExitMessage = "";
+  private interactionActive = false;
+  private expandLatest: (() => void) | undefined;
 
   static async create(title = "AI First"): Promise<LearnTuiSession> {
     const session = new LearnTuiSession();
@@ -249,6 +252,260 @@ export class LearnTuiSession {
     this.renderer.requestRender();
   }
 
+  clearTranscript(): void {
+    for (const child of this.transcript.getChildren()) child.destroyRecursively();
+    this.lastText = undefined;
+    this.lastTextValue = "";
+    this.expandLatest = undefined;
+    this.transcript.scrollTo(0);
+    this.renderer.requestRender();
+  }
+
+  async waitForDocumentReturn(): Promise<void> {
+    this.clearBottom();
+    this.interactionActive = true;
+    this.setFooter("↑/↓ or Page Up/Page Down scroll  •  Enter/Esc return to Home");
+    this.renderer.requestRender();
+    await new Promise<void>((resolve) => {
+      const onKey = (key: KeyEvent) => {
+        if (key.name === "up" || key.name === "k") {
+          key.preventDefault();
+          key.stopPropagation();
+          this.transcript.scrollBy(-1);
+          return;
+        }
+        if (key.name === "down" || key.name === "j") {
+          key.preventDefault();
+          key.stopPropagation();
+          this.transcript.scrollBy(1);
+          return;
+        }
+        if (key.name === "pageup") {
+          key.preventDefault();
+          key.stopPropagation();
+          this.transcript.scrollBy(-Math.max(1, this.renderer.height - 8));
+          return;
+        }
+        if (key.name === "pagedown") {
+          key.preventDefault();
+          key.stopPropagation();
+          this.transcript.scrollBy(Math.max(1, this.renderer.height - 8));
+          return;
+        }
+        if (key.name !== "escape" && key.name !== "return" && key.name !== "enter" && key.name !== "linefeed") return;
+        key.preventDefault();
+        key.stopPropagation();
+        this.renderer.keyInput.off("keypress", onKey);
+        this.interactionActive = false;
+        this.clearBottom();
+        resolve();
+      };
+      this.renderer.keyInput.on("keypress", onKey);
+    });
+  }
+
+  async presentPrompt(prompt: string, options: TuiMarkdownOptions = {}): Promise<"run" | "back" | "exit"> {
+    this.lastText = undefined;
+    this.lastTextValue = "";
+    this.clearBottom();
+    this.interactionActive = true;
+    const panel = new BoxRenderable(this.renderer, {
+      width: "100%",
+      height: "auto",
+      minHeight: 5,
+      flexShrink: 0,
+      padding: 1,
+      marginY: 1,
+      border: true,
+      borderColor: this.palette.accent,
+      backgroundColor: this.palette.panel,
+      title: " Exercise Prompt • read only ",
+      titleColor: this.palette.accent,
+    });
+    const field = new TextRenderable(this.renderer, {
+      width: "100%",
+      height: "auto",
+      minHeight: 2,
+      flexShrink: 0,
+      content: "▌",
+      fg: this.palette.text,
+    });
+    panel.add(field);
+    this.transcript.add(panel);
+    this.renderer.requestRender();
+
+    let cancelled: "back" | "exit" | undefined;
+    let releaseSleep: (() => void) | undefined;
+    const blockEditing = (key: KeyEvent) => {
+      if (key.ctrl && key.name === "c") cancelled = "exit";
+      else if (key.name === "escape") cancelled = "back";
+      key.preventDefault();
+      key.stopPropagation();
+      if (cancelled) releaseSleep?.();
+    };
+    this.renderer.keyInput.on("keypress", blockEditing);
+    const sleep = options.sleep ?? Bun.sleep;
+    const rate = options.noAnimation ? undefined : (options.charsPerSecond ?? 40);
+    let rendered = "";
+    try {
+      for (const char of Array.from(prompt)) {
+        if (cancelled) break;
+        rendered += char;
+        field.content = `${rendered}▌`;
+        this.renderer.requestRender();
+        if (rate) {
+          await Promise.race([
+            sleep(Math.max(1, Math.round(1000 / rate))),
+            new Promise<void>((resolve) => { releaseSleep = resolve; }),
+          ]);
+          releaseSleep = undefined;
+        }
+      }
+    } finally {
+      this.renderer.keyInput.off("keypress", blockEditing);
+      releaseSleep?.();
+    }
+    if (cancelled) {
+      this.interactionActive = false;
+      this.clearBottom();
+      return cancelled;
+    }
+    field.content = prompt;
+
+    this.bottom.height = 3;
+    this.bottom.border = true;
+    this.bottom.borderColor = this.palette.accent;
+    this.bottom.paddingX = 1;
+    const cta = new TextRenderable(this.renderer, {
+      width: "100%",
+      height: 1,
+      content: "▶  PRESS ENTER TO RUN THIS PROMPT  ◀",
+      fg: this.palette.selectedText,
+      bg: this.palette.selected,
+      attributes: 1,
+    });
+    this.bottom.add(cta);
+    this.setFooter("Enter run prompt  •  Esc back  •  Ctrl+C exit");
+    let bright = true;
+    const timer = setInterval(() => {
+      bright = !bright;
+      cta.content = bright ? "▶  PRESS ENTER TO RUN THIS PROMPT  ◀" : "   PRESS ENTER TO RUN THIS PROMPT   ";
+      this.renderer.requestRender();
+    }, 260);
+    this.renderer.requestRender();
+    return await new Promise<"run" | "back" | "exit">((resolve) => {
+      const onKey = (key: KeyEvent) => {
+        let result: "run" | "back" | "exit" | undefined;
+        if (key.ctrl && key.name === "c") result = "exit";
+        else if (key.name === "escape") result = "back";
+        else if (key.name === "return" || key.name === "enter" || key.name === "linefeed") result = "run";
+        if (!result) {
+          key.preventDefault();
+          key.stopPropagation();
+          return;
+        }
+        key.preventDefault();
+        key.stopPropagation();
+        clearInterval(timer);
+        this.renderer.keyInput.off("keypress", onKey);
+        this.interactionActive = false;
+        this.clearBottom();
+        resolve(result);
+      };
+      this.renderer.keyInput.on("keypress", onKey);
+    });
+  }
+
+  appendCode(path: string | undefined, language: string, source: string, previewLines = 40): void {
+    this.lastText = undefined;
+    this.lastTextValue = "";
+    const lines = source.replace(/\n+$/, "").split("\n");
+    const collapsed = lines.length > previewLines;
+    const panel = new BoxRenderable(this.renderer, {
+      width: "100%",
+      height: Math.min(lines.length, previewLines) + (collapsed ? 4 : 3),
+      flexShrink: 0,
+      border: true,
+      borderColor: this.palette.border,
+      title: ` Code${path ? ` • ${path}` : ""} `,
+      titleColor: this.palette.accent,
+      marginY: 1,
+      flexDirection: "column",
+    });
+    const visible = collapsed ? lines.slice(0, previewLines) : lines;
+    const numbered = (values: string[]) => values.map((line, index) => `${String(index + 1).padStart(4)}  ${line}`).join("\n");
+    const code = new CodeRenderable(this.renderer, {
+      width: "100%",
+      height: visible.length,
+      flexShrink: 0,
+      content: numbered(visible),
+      filetype: language,
+      syntaxStyle: this.syntaxStyle,
+      treeSitterClient: tuiHighlightClient,
+      wrapMode: "none",
+      fg: this.palette.text,
+      selectionBg: this.palette.selection,
+      selectionFg: this.palette.selectionText,
+    });
+    panel.add(code);
+    if (collapsed) {
+      const remaining = lines.length - previewLines;
+      const footer = new TextRenderable(this.renderer, {
+        width: "100%",
+        height: 1,
+        flexShrink: 0,
+        content: `… ${remaining} more lines — press e or click to expand`,
+        fg: this.palette.accent,
+        attributes: 1,
+        onMouseDown: (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          expand();
+        },
+      });
+      const expand = () => {
+        if (code.content === numbered(lines)) return;
+        code.content = numbered(lines);
+        code.height = lines.length;
+        panel.height = lines.length + 4;
+        footer.content = `Showing all ${lines.length} lines`;
+        footer.fg = this.palette.muted;
+        if (this.expandLatest === expand) this.expandLatest = undefined;
+        this.renderer.requestRender();
+      };
+      panel.add(footer);
+      this.expandLatest = expand;
+    }
+    this.transcript.add(panel);
+    this.renderer.requestRender();
+  }
+
+  appendToolCard(title: string, detail: string, ok?: boolean): void {
+    this.lastText = undefined;
+    this.lastTextValue = "";
+    const lines = detail.trim().split("\n");
+    const shown = lines.slice(0, 12);
+    const panel = new BoxRenderable(this.renderer, {
+      width: "100%",
+      height: shown.length + (lines.length > shown.length ? 3 : 2),
+      flexShrink: 0,
+      paddingX: 1,
+      border: true,
+      borderColor: ok === false ? "#ef4444" : ok === true ? "#22c55e" : this.palette.border,
+      title: ` ${title} `,
+      titleColor: ok === false ? "#ef4444" : ok === true ? "#22c55e" : this.palette.accent,
+      marginY: 1,
+    });
+    panel.add(new TextRenderable(this.renderer, {
+      width: "100%",
+      height: shown.length + (lines.length > shown.length ? 1 : 0),
+      content: `${shown.join("\n")}${lines.length > shown.length ? `\n… ${lines.length - shown.length} more lines` : ""}`,
+      fg: this.palette.text,
+    }));
+    this.transcript.add(panel);
+    this.renderer.requestRender();
+  }
+
   async appendMarkdown(markdown: string, options: TuiMarkdownOptions = {}): Promise<void> {
     this.lastText = undefined;
     this.lastTextValue = "";
@@ -403,6 +660,7 @@ export class LearnTuiSession {
 
   async choose(question: string, choices: TuiChoice[], inputHint?: string): Promise<TuiChoiceResult | undefined> {
     this.clearBottom();
+    this.interactionActive = true;
     const height = Math.min(Math.max(7, choices.length * 2 + (inputHint ? 5 : 4)), Math.max(7, this.renderer.height - 5));
     this.bottom.height = height;
     this.bottom.border = true;
@@ -456,6 +714,7 @@ export class LearnTuiSession {
         this.renderer.keyInput.off("paste", onPaste);
         select.off(SelectRenderableEvents.ITEM_SELECTED, onSelect);
         select.blur();
+        this.interactionActive = false;
         this.clearBottom();
         resolve(value);
       };
@@ -609,6 +868,12 @@ export class LearnTuiSession {
   };
 
   private onGlobalKey = (key: KeyEvent): void => {
+    if (!this.interactionActive && !this.renderer.getSelection() && key.sequence.toLowerCase() === "e" && this.expandLatest) {
+      key.preventDefault();
+      key.stopPropagation();
+      this.expandLatest();
+      return;
+    }
     const selection = this.renderer.getSelection();
     if (!selection) return;
     const copy = key.name === "c" && ((key.ctrl && key.shift) || key.ctrl || key.super === true);

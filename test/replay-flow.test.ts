@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeReplay, executeReplayOperation } from "../src/replay/executor";
+import { executeReplay, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
 import { resolveReplay } from "../src/replay/resolver";
 import { clearPendingReplay, confirmationAnswer, readPendingReplay, replaySelection, savePendingReplay } from "../src/replay/pending";
 import type { Content, ReplayStep } from "../src/content/types";
@@ -78,6 +78,30 @@ describe("replay resolution", () => {
 });
 
 describe("replay execution", () => {
+  it("materializes portable Python commands with the selected Windows launcher", () => {
+    const command = materializeReplayCommand({
+      type: "command",
+      command: ["bash", "-lc", "python3 main.py"],
+      portableCommand: ["<python>", "main.py"],
+    }, { command: ["py", "-3"], display: "py -3" });
+    expect(command).toEqual(["py", "-3", "main.py"]);
+  });
+
+  it("runs compound portable shell scripts without invoking external bash", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-portable-shell-"));
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: ["bash", "-lc", "python3 -c \"print('portable')\""],
+      portableCommand: ["<shell>", "<python> -c \"print('portable')\""],
+      expectedExitCode: 0,
+      expectedStdout: "portable\n",
+      expectedStderr: "",
+    }, root);
+    expect(result.ok).toBe(true);
+    expect(result.command?.command[0]).toBe("<shell>");
+    expect(result.command?.stdout).toBe("portable\n");
+  });
+
   it("materializes privacy-safe workspace placeholders before executing commands", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-replay-workspace-"));
     const result = executeReplayOperation({

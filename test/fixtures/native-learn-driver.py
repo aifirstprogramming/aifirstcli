@@ -34,6 +34,14 @@ def main() -> int:
                 sys.stdout.buffer.write(data)
                 sys.stdout.buffer.flush()
                 pending += data
+                if b"PRESS ENTER TO RUN THIS PROMPT" in pending:
+                    os.write(fd, b"\r")
+                    pending = b""
+                    continue
+                if b"press e to expand, Enter to continue" in pending:
+                    os.write(fd, b"\r")
+                    pending = b""
+                    continue
                 if b"  > " in pending:
                     if not answers:
                         os.kill(pid, signal.SIGKILL)

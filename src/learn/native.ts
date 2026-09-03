@@ -1,4 +1,5 @@
 import { extname } from "node:path";
+import { emitKeypressEvents } from "node:readline";
 import { exercisePath } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag } from "../cli";
@@ -18,7 +19,7 @@ import { finalResponse, report, resume } from "../exercises";
 import { mark, read as readLog, setPosition } from "../log/progress";
 import { bar, bold, cyan, dim, glyph, green, out, red, yellow } from "../output";
 import { choose, chooseOrInput, confirm, consumePromptInterrupt, isInteractive } from "../prompt";
-import { executeReplayOperation, type ReplayOperationExecution } from "../replay/executor";
+import { executeReplayOperationAsync, type ReplayOperationExecution } from "../replay/executor";
 import type { NativeLearnAction } from "./actions";
 import {
   respond,
@@ -30,7 +31,7 @@ import {
 import type { PlanningSession } from "../bookmode/planning";
 import { chapterLabel, exerciseLabel, learnChapters, lookupExercise } from "./menu";
 import { learnTextRate } from "./pacing";
-import { renderTerminalMarkdown, type TerminalRenderOptions } from "./terminalRenderer";
+import { renderExercisePrompt, renderTerminalMarkdown, type TerminalRenderOptions } from "./terminalRenderer";
 import { unifiedPatch } from "../textdiff";
 import { currentTuiSession } from "../tui/session";
 import { runWithTui, shouldUseTui } from "../tui";
@@ -183,7 +184,9 @@ export async function nativeLearn(args: Args): Promise<void> {
     if (owner.key !== selection.key) activateSelection(owner);
     setPosition(example.id);
     const step = finalResponse(example) as ReplayStep;
-    await renderExerciseIntroduction(example, step, renderOptions);
+    const promptAction = await renderExerciseIntroduction(example, step, renderOptions);
+    if (promptAction === "exit") return;
+    if (promptAction === "back") continue;
     const result = await driveExercise(
       step.prompt,
       content,
@@ -552,17 +555,25 @@ async function renderExerciseIntroduction(
   example: Example,
   step: ReplayStep,
   options: TerminalRenderOptions,
-): Promise<void> {
+): Promise<"run" | "back" | "exit"> {
   if (!currentTuiSession()) process.stdout.write("\n");
-  await renderTerminalMarkdown(exerciseIntroduction(example, step), options);
+  await renderTerminalMarkdown(exerciseHeading(example, step), { ...options, noAnimation: true });
+  const result = await renderExercisePrompt(step.prompt, options);
   if (!currentTuiSession()) process.stdout.write("\n");
+  return result;
 }
 
-export function exerciseIntroduction(example: Example, step: ReplayStep): string {
+function exerciseHeading(example: Example, step: ReplayStep): string {
   return [
     `## ${step.id}: ${example.title}`,
     "",
     `${example.bookTitle} ${glyph.bullet} ${example.chapterTitle}`,
+  ].join("\n");
+}
+
+export function exerciseIntroduction(example: Example, step: ReplayStep): string {
+  return [
+    exerciseHeading(example, step),
     "",
     "**Exercise prompt**",
     "",
@@ -609,12 +620,14 @@ async function driveExercise(
         { type: "tool_use", id, name: reply.toolUse.name, input: reply.toolUse.input },
       ],
     });
+    renderToolCall(reply.toolUse.nativeAction, reply.toolUse.name, reply.toolUse.input);
     await renderActionCodeBefore(reply.toolUse.nativeAction, content, renderOptions, shownCode);
     const result = await executeTool(reply.toolUse.nativeAction, reply.toolUse.input, replayState, step);
     preparedWithoutRun ||= result.prepared === true;
     preparedInto = result.preparedInto ?? preparedInto;
     failed ||= result.failed;
     await renderActionCodeAfter(reply.toolUse.nativeAction, result.files, renderOptions);
+    renderToolResult(reply.toolUse.nativeAction, result);
     messages.push({
       role: "user",
       content: [{
@@ -630,6 +643,20 @@ async function driveExercise(
 }
 
 async function renderReply(reply: Reply, options: TerminalRenderOptions): Promise<void> {
+  if (reply.nativeBlocks && reply.nativeBlocks.length > 0) {
+    for (const block of reply.nativeBlocks) {
+      if (block.kind === "status") {
+        const tui = currentTuiSession();
+        if (tui) tui.appendToolCard("Claude activity", block.text);
+        else out(`  ${dim(glyph.bullet)} ${dim(block.text)}`);
+      } else if (block.text.trim()) {
+        if (!currentTuiSession()) process.stdout.write("\n");
+        await renderTerminalMarkdown(block.text, options);
+        if (!currentTuiSession()) process.stdout.write("\n");
+      }
+    }
+    return;
+  }
   if (!reply.text.trim()) return;
   if (!currentTuiSession()) process.stdout.write("\n");
   await renderTerminalMarkdown(reply.text, options);
@@ -660,14 +687,14 @@ async function executeTool(
         }
         if (decision.kind === "already-applied") {
           const text = `Already applied ${action.operation.path}`;
-          out(`  ${green(glyph.done)} ${text}`);
+          if (!currentTuiSession()) out(`  ${green(glyph.done)} ${text}`);
           return { failed: false, content: text, files: [decision.path] };
         }
       }
       const operation = nativeReplayOperation(action.operation, step);
-      const result = executeReplayOperation(operation, process.cwd());
+      const result = await executeReplayOperationAsync(operation, process.cwd());
       const failed = replayOperationFailed(action.operation, result);
-      out(`  ${failed ? red(glyph.todo) : green(glyph.done)} ${result.text.split("\n")[0]}`);
+      if (!currentTuiSession()) out(`  ${failed ? red(glyph.todo) : green(glyph.done)} ${result.text.split("\n")[0]}`);
       return {
         failed,
         content: summarizeReplayResult(action.operation, result.text, result.command?.stdout),
@@ -720,6 +747,7 @@ export function replayOperationFailed(
   result: ReplayOperationExecution,
 ): boolean {
   if (operation.type !== "command") return !result.ok;
+  if (operation.expectedTimeout === true) return result.command?.timedOut !== true;
   return (result.command?.exitCode ?? 127) !== (operation.expectedExitCode ?? 0);
 }
 
@@ -738,6 +766,20 @@ export function nativeReplayOperation(
     operation.command.some((argument) => argument.includes(entrypoint) && /(?:python|timeout)/.test(argument)),
   );
   if (!launchesGraphicalEntrypoint) return operation;
+  const isPythonGame = step.dependencies?.some(
+    (dependency) => dependency.kind === "python-package" && dependency.module === "pygame",
+  );
+  if (isPythonGame && entrypoint) {
+    return {
+      ...operation,
+      portableCommand: ["<python>", "-m", "py_compile", entrypoint],
+      timeoutMs: undefined,
+      expectedTimeout: undefined,
+      expectedExitCode: 0,
+      expectedStdout: undefined,
+      expectedStderr: undefined,
+    };
+  }
   return {
     ...operation,
     env: {
@@ -804,11 +846,78 @@ async function renderCode(
   options: TerminalRenderOptions,
   path?: string,
 ): Promise<void> {
+  const tui = currentTuiSession();
+  if (tui) {
+    tui.appendCode(path, language, code, 40);
+    return;
+  }
   const fence = code.includes("```") ? "````" : "```";
   const title = path ? `## Code - \`${path}\`` : "## Code";
+  const lines = code.replace(/\n+$/, "").split("\n");
+  const shown = lines.slice(0, 40).join("\n");
   if (!currentTuiSession()) process.stdout.write("\n");
-  await renderTerminalMarkdown(`${title}\n\n${fence}${language}\n${code.replace(/\n+$/, "")}\n${fence}`, options);
+  await renderTerminalMarkdown(`${title}\n\n${fence}${language}\n${shown}\n${fence}`, options);
+  if (lines.length > 40) {
+    const remaining = lines.length - 40;
+    process.stdout.write(`  … ${remaining} more lines — press e to expand, Enter to continue\n`);
+    if (await wantsCodeExpansion()) {
+      await renderTerminalMarkdown(`${title} (full)\n\n${fence}${language}\n${code.replace(/\n+$/, "")}\n${fence}`, { ...options, noAnimation: true });
+    }
+  }
   if (!currentTuiSession()) process.stdout.write("\n");
+}
+
+async function wantsCodeExpansion(): Promise<boolean> {
+  const stdin = process.stdin;
+  if (!stdin.isTTY || typeof stdin.setRawMode !== "function") return false;
+  const previousRaw = Boolean(stdin.isRaw);
+  emitKeypressEvents(stdin);
+  if (!previousRaw) stdin.setRawMode(true);
+  stdin.resume();
+  return await new Promise<boolean>((resolve) => {
+    const finish = (expanded: boolean) => {
+      stdin.off("keypress", onKey);
+      if (!previousRaw) stdin.setRawMode!(false);
+      if (!previousRaw) stdin.pause();
+      resolve(expanded);
+    };
+    const onKey = (text: string, key: { name?: string; ctrl?: boolean }) => {
+      if (key.ctrl && key.name === "c") {
+        finish(false);
+        process.kill(process.pid, "SIGINT");
+      } else if (text.toLowerCase() === "e" || key.name === "e") finish(true);
+      else if (key.name === "return" || key.name === "enter" || key.name === "linefeed" || key.name === "escape") finish(false);
+    };
+    stdin.on("keypress", onKey);
+  });
+}
+
+function renderToolCall(
+  action: NativeLearnAction | undefined,
+  fallbackName: string,
+  input: Record<string, unknown>,
+): void {
+  const operation = action?.kind === "replay-operation" ? action.operation : undefined;
+  const display = operation?.display;
+  const name = display?.toolName ?? fallbackName;
+  const detail = display?.command ?? display?.description ?? summarizeToolInput(operation, input);
+  const tui = currentTuiSession();
+  if (tui) tui.appendToolCard(name, detail || "Captured tool call");
+  else out(`  ${dim(glyph.bullet)} ${bold(name)}${detail ? `  ${dim(detail.split("\n")[0])}` : ""}`);
+}
+
+function renderToolResult(action: NativeLearnAction | undefined, result: ToolExecutionResult): void {
+  const operation = action?.kind === "replay-operation" ? action.operation : undefined;
+  const label = operation?.type === "command" ? "Command result" : operation ? `${operation.type} result` : "Tool result";
+  currentTuiSession()?.appendToolCard(label, result.content || (result.failed ? "Failed" : "Completed"), !result.failed);
+}
+
+function summarizeToolInput(operation: ReplayOperation | undefined, input: Record<string, unknown>): string {
+  if (operation?.type === "write" || operation?.type === "edit" || operation?.type === "read") return operation.path;
+  if (operation?.type === "command") return operation.command.join(" ");
+  if (typeof input.file_path === "string") return input.file_path;
+  if (typeof input.command === "string") return input.command;
+  return "";
 }
 
 function aifirstRunCommand(command: string[]): { id: string; into?: string } | undefined {

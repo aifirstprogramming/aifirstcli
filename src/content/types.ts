@@ -31,16 +31,30 @@ export interface SystemCommandDependency {
 
 export type Dependency = PythonPackageDependency | SystemCommandDependency;
 
+export interface ReplayToolDisplay {
+  toolName: string;
+  description?: string;
+  command?: string;
+}
+
+interface ReplayOperationBase {
+  display?: ReplayToolDisplay;
+}
+
 export type ReplayOperation =
-  | { type: "write"; path: string; content: string }
-  | { type: "edit"; path: string; oldText: string; newText: string; replaceAll?: boolean }
-  | { type: "read"; path: string }
+  | (ReplayOperationBase & { type: "write"; path: string; content: string })
+  | (ReplayOperationBase & { type: "edit"; path: string; oldText: string; newText: string; replaceAll?: boolean })
+  | (ReplayOperationBase & { type: "read"; path: string })
   | {
       type: "command";
+      display?: ReplayToolDisplay;
+      portableCommand?: string[];
       command: string[];
       cwd?: string;
       env?: Record<string, string>;
       stdin?: string;
+      timeoutMs?: number;
+      expectedTimeout?: boolean;
       readOnly?: boolean;
       expectedExitCode?: number;
       expectedStdout?: string;
@@ -49,7 +63,7 @@ export type ReplayOperation =
 
 export type ReplayEvent =
   | { type: "text"; text: string }
-  | { type: "status"; text: string }
+  | { type: "status"; text: string; display?: ReplayToolDisplay }
   | { type: "operation"; operation: ReplayOperation };
 
 export interface PlanOption {
