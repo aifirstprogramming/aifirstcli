@@ -32,6 +32,7 @@ interface Run {
 
 interface RunOptions {
   cwd?: string;
+  env?: Record<string, string>;
   /**
    * Replace PATH. Agent detection probes PATH first, so a test that depends on
    * whether a tool is installed is otherwise non-deterministic: it would pass on
@@ -50,6 +51,7 @@ async function aifirst(args: string[], options: RunOptions = {}): Promise<Run> {
       AIFIRST_STATE_DIR: join(sandbox, "state"),
       AIFIRST_HOME_OVERRIDE: join(sandbox, "home"),
       NO_COLOR: "1",
+      ...options.env,
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -227,6 +229,41 @@ describe("apply", () => {
     const r = await aifirst(["apply", "py-1-01", "--into", "mine.py", "--force"]);
     expect(r.code).toBe(0);
     expect(readFileSync(join(sandbox, "mine.py"), "utf8")).toBe('print("Hello, World!")\n');
+  });
+
+  it("refreshes its unchanged output but preserves later learner edits", async () => {
+    const makePack = (name: string, response: string): string => {
+      const root = join(sandbox, name);
+      const books = join(root, "books");
+      mkdirSync(books, { recursive: true });
+      writeFileSync(join(books, "versioned.json"), JSON.stringify({
+        title: "Versioned Python",
+        tag: "py",
+        language: "python",
+        sections: [{
+          title: "S",
+          chapters: [{
+            title: "Chapter 1: C",
+            examples: [{ id: "py-1-01", title: "Versioned", prompt: "p", response }],
+          }],
+        }],
+      }));
+      return root;
+    };
+    const target = join(sandbox, "versioned.py");
+    const oldPack = makePack("apply-old", 'print("old")');
+    const newPack = makePack("apply-new", 'print("new")');
+    const latestPack = makePack("apply-latest", 'print("latest")');
+
+    writeFileSync(target, "# adopted with force\n");
+    expect((await aifirst(["apply", "py-1-01", "--into", target, "--force"], { env: { AIFIRST_CONTENT_DIR: oldPack } })).code).toBe(0);
+    expect((await aifirst(["apply", "py-1-01", "--into", target], { env: { AIFIRST_CONTENT_DIR: newPack } })).code).toBe(0);
+    expect(readFileSync(target, "utf8")).toBe('print("new")\n');
+
+    writeFileSync(target, "# learner change\n");
+    const protectedApply = await aifirst(["apply", "py-1-01", "--into", target], { env: { AIFIRST_CONTENT_DIR: latestPack } });
+    expect(protectedApply.code).toBe(1);
+    expect(readFileSync(target, "utf8")).toBe("# learner change\n");
   });
 
   it("writes to stdout with --into -", async () => {

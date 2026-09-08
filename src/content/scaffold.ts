@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import type { Content, Step } from "./types";
+import type { GeneratedFileStore } from "../generatedFiles";
 
 type ScaffoldFile = NonNullable<Step["scaffold"]>["files"][number] & {
   contentBase64?: string;
@@ -20,12 +21,12 @@ export function scaffoldFileData(
   return { data: text, binary: false };
 }
 
-/** Write missing scaffold files without replacing anything in the learner's workspace. */
+/** Write scaffolds, refreshing only files that still match AI First's last output. */
 export function writeScaffold(
   root: string,
   step: Step,
   content: Content,
-  options: { binaryOnly?: boolean } = {},
+  options: { binaryOnly?: boolean; generatedFiles?: GeneratedFileStore } = {},
 ): string[] {
   const written: string[] = [];
   for (const rawFile of step.scaffold?.files ?? []) {
@@ -34,12 +35,20 @@ export function writeScaffold(
     const source = scaffoldFileData(file, content);
     if (!source || (options.binaryOnly && !source.binary)) continue;
     const target = resolve(root, file.path);
-    if (existsSync(target)) continue;
-    mkdirSync(dirname(target), { recursive: true });
     const data = !source.binary && typeof source.data === "string" && !source.data.endsWith("\n")
       ? `${source.data}\n`
       : source.data;
+    const expected = Buffer.from(data);
+    if (existsSync(target)) {
+      if (readFileSync(target).equals(expected)) {
+        options.generatedFiles?.record(target);
+        continue;
+      }
+      if (!options.generatedFiles?.matches(target)) continue;
+    }
+    mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, data);
+    options.generatedFiles?.record(target);
     written.push(file.path);
   }
   return written;

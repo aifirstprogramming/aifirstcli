@@ -78,23 +78,27 @@ Run plain `aifirst learn` in a fresh Python workspace and repeat with Java:
     manually and confirm a subsequent replay refuses to overwrite it. While the
     game is running, verify both Esc and Ctrl-C stop its complete child process tree
     without exiting or suspending the Learn TUI.
-17. Confirm Duckling's captured three-second launch check uses dummy SDL drivers
+17. Generate an exercise project, install a corrected content pack that changes its
+    files, and confirm rerunning refreshes every unchanged generated source/scaffold
+    without `--force`. Restore the old project, change one source file manually, and
+    confirm the same update preserves that file and pauses before overwrite.
+18. Confirm Duckling's captured three-second launch check uses dummy SDL drivers
     and does not open a first visible window before the final Run choice.
-18. With Maven absent, start `java-11-01` and confirm the Maven prompt appears
+19. With Maven absent, start `java-11-01` and confirm the Maven prompt appears
     before `pom.xml` or source files are written. Approve installation on each
     supported package manager, verify `mvn`, and run the replay in Docker. On an
     rpm-ostree system such as Bazzite or Fedora Silverblue, confirm Homebrew is
     selected ahead of `dnf`; if Homebrew is unavailable, confirm `dnf` is not run.
-19. Complete `java-11-01`, choose **Run the program**, and confirm the final launch uses
+20. Complete `java-11-01`, choose **Run the program**, and confirm the final launch uses
     `mvn javafx:run`, keeps the learning UI active while JavaFX is open, and succeeds when
     the learner closes the application window.
-20. Confirm `pom.xml` code and diffs distinguish tags, attributes, quoted values,
+21. Confirm `pom.xml` code and diffs distinguish tags, attributes, quoted values,
     Maven coordinates, comments, and `${...}` property references.
-21. Confirm the screen is restored on normal exit and Ctrl-C. Then repeat
+22. Confirm the screen is restored on normal exit and Ctrl-C. Then repeat
     representative Home and Learn flows with `--plain`, `NO_COLOR=1`,
     `TERM=dumb`, `AIFIRST_TUI=0`, and redirected input/output. Confirm each uses
     the classic/scriptable path and never emits alternate-screen control codes.
-22. Complete Python chapters 9 and 10 consecutively in one workspace. Confirm
+23. Complete Python chapters 9 and 10 consecutively in one workspace. Confirm
    chapter 10 contains only `py-10-01` (level editor), `py-10-02` (undo/redo),
    and `py-10-03` (animated pathfinding), with no standalone JSON-saving
    exercise or self-contained fallback between them. Confirm Run program for

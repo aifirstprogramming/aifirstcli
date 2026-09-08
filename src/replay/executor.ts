@@ -28,6 +28,15 @@ export interface ReplayOperationExecution {
   text: string;
 }
 
+export interface ReplayFileGuard {
+  decide(operation: Extract<ReplayOperation, { type: "write" | "edit" }>, root: string):
+    | { kind: "execute" }
+    | { kind: "replace"; path: string; content: string }
+    | { kind: "already-applied"; path: string }
+    | { kind: "reject"; path: string };
+  record(path: string): void;
+}
+
 function applyEdit(operation: Extract<ReplayOperation, { type: "edit" }>, root: string): void {
   const path = inside(root, operation.path);
   const current = readFileSync(path, "utf8");
@@ -172,32 +181,79 @@ function operationText(result: ReplayCommandResult): string {
   return `$ ${result.command.join(" ")}\n${output}`.trim();
 }
 
-export async function executeReplayAsync(replay: Replay, root = process.cwd()): Promise<ReplayExecution> {
+export async function executeReplayAsync(
+  replay: Replay,
+  root = process.cwd(),
+  guard?: ReplayFileGuard,
+): Promise<ReplayExecution> {
   const files: string[] = [];
   const commands: ReplayCommandResult[] = [];
+  const notices: string[] = [];
   let ok = true;
   for (const operation of replay.operations) {
-    const result = await executeReplayOperationAsync(operation, root);
+    let executable = operation;
+    if (guard && (operation.type === "write" || operation.type === "edit")) {
+      const decision = guard.decide(operation, root);
+      if (decision.kind === "reject") {
+        notices.push(`${decision.path} already exists with different contents, so the replay left it alone.`);
+        ok = false;
+        break;
+      }
+      if (decision.kind === "already-applied") {
+        guard.record(decision.path);
+        files.push(decision.path);
+        continue;
+      }
+      if (decision.kind === "replace") {
+        executable = { type: "write", path: operation.path, content: decision.content };
+      }
+    }
+    const result = await executeReplayOperationAsync(executable, root);
     files.push(...result.files);
     if (result.command) commands.push(result.command);
     if (!result.ok) ok = false;
+    if (guard && result.ok && (operation.type === "write" || operation.type === "edit")) {
+      guard.record(result.files[0]!);
+    }
   }
-  const parts = [...(replay.commentary ?? []), ...commands.map(operationText)].filter(Boolean);
+  const parts = [...(replay.commentary ?? []), ...notices, ...commands.map(operationText)].filter(Boolean);
   return { files, commands, ok, text: parts.join("\n\n") };
 }
 
-export function executeReplay(replay: Replay, root = process.cwd()): ReplayExecution {
+export function executeReplay(replay: Replay, root = process.cwd(), guard?: ReplayFileGuard): ReplayExecution {
   const files: string[] = [];
   const commands: ReplayCommandResult[] = [];
+  const notices: string[] = [];
   let ok = true;
   for (const operation of replay.operations) {
-    const result = executeReplayOperation(operation, root);
+    let executable = operation;
+    if (guard && (operation.type === "write" || operation.type === "edit")) {
+      const decision = guard.decide(operation, root);
+      if (decision.kind === "reject") {
+        notices.push(`${decision.path} already exists with different contents, so the replay left it alone.`);
+        ok = false;
+        break;
+      }
+      if (decision.kind === "already-applied") {
+        guard.record(decision.path);
+        files.push(decision.path);
+        continue;
+      }
+      if (decision.kind === "replace") {
+        executable = { type: "write", path: operation.path, content: decision.content };
+      }
+    }
+    const result = executeReplayOperation(executable, root);
     files.push(...result.files);
     if (result.command) commands.push(result.command);
     if (!result.ok) ok = false;
+    if (guard && result.ok && (operation.type === "write" || operation.type === "edit")) {
+      guard.record(result.files[0]!);
+    }
   }
   const parts = [
     ...(replay.commentary ?? []),
+    ...notices,
     ...commands.map(operationText),
   ].filter(Boolean);
   return { files, commands, ok, text: parts.join("\n\n") };

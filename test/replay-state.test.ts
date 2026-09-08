@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { appendFileSync, mkdtempSync, rmSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveContent } from "../src/content";
-import type { ReplayOperation, ReplayStep } from "../src/content/types";
+import type { Content, ReplayOperation, ReplayStep } from "../src/content/types";
 import { ReplayStateGuard } from "../src/learn/replayState";
-import { executeReplayOperation } from "../src/replay/executor";
+import { executeReplayAsync, executeReplayOperation } from "../src/replay/executor";
 import { seedScaffold } from "./helpers/scaffold";
+import { GeneratedFileStore } from "../src/generatedFiles";
 
 let root = "";
 
@@ -92,5 +93,84 @@ describe("authored replay file states", () => {
         operation.type === "write" && operation.path === "assets_gen.py",
     )!;
     expect(new ReplayStateGuard(content, target).decide(assetsWrite, root).kind).toBe("reject");
+  });
+
+  test("repairs a tracked generated file when a corrected edit no longer applies", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-corrected-edit-"));
+    const previous = {
+      id: "old-step",
+      exampleId: "old",
+      response: "",
+      replay: { operations: [{ type: "write", path: "main.py", content: "fixed baseline\n" }] },
+    } as unknown as ReplayStep;
+    const operation = { type: "edit", path: "main.py", oldText: "fixed", newText: "current" } as const;
+    const target = {
+      id: "new-step",
+      exampleId: "new",
+      response: "",
+      replay: { initialState: { fromExercise: "old" }, operations: [operation] },
+    } as ReplayStep;
+    const content = {
+      steps: [previous, target],
+      examples: [{ id: "old", steps: [previous] }, { id: "new", steps: [target] }],
+    } as unknown as Content;
+    const file = join(root, "main.py");
+    const store = new GeneratedFileStore(join(root, "state"));
+    writeFileSync(file, "buggy baseline\n");
+    store.record(file);
+
+    const guard = new ReplayStateGuard(content, target, store);
+    expect(guard.decide(operation, root)).toEqual({ kind: "replace", path: file, content: "current baseline\n" });
+
+    const result = await executeReplayAsync(target.replay!, root, guard);
+    expect(result.ok).toBe(true);
+    expect(readFileSync(file, "utf8")).toBe("current baseline\n");
+    expect(store.matches(file)).toBe(true);
+  });
+
+  test("does not repair a generated file after the learner changes it", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-corrected-owned-"));
+    const previous = {
+      id: "old-step",
+      exampleId: "old",
+      response: "",
+      replay: { operations: [{ type: "write", path: "main.py", content: "fixed baseline\n" }] },
+    } as ReplayStep;
+    const operation = { type: "edit", path: "main.py", oldText: "fixed", newText: "current" } as const;
+    const target = {
+      id: "new-step",
+      exampleId: "new",
+      response: "",
+      replay: { initialState: { fromExercise: "old" }, operations: [operation] },
+    } as ReplayStep;
+    const content = {
+      steps: [previous, target],
+      examples: [{ id: "old", steps: [previous] }, { id: "new", steps: [target] }],
+    } as unknown as Content;
+    const file = join(root, "main.py");
+    const store = new GeneratedFileStore(join(root, "state"));
+    writeFileSync(file, "buggy baseline\n");
+    store.record(file);
+    appendFileSync(file, "# learner change\n");
+
+    expect(new ReplayStateGuard(content, target, store).decide(operation, root).kind).toBe("reject");
+  });
+
+  test("rejects an unrecognized edit against an unowned file", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-unknown-edit-"));
+    const operation = { type: "edit", path: "main.py", oldText: "old", newText: "new" } as const;
+    const step = {
+      id: "step",
+      exampleId: "example",
+      response: "",
+      replay: { operations: [] },
+    } as unknown as ReplayStep;
+    const content = {
+      steps: [step],
+      examples: [{ id: "example", steps: [step] }],
+    } as unknown as Content;
+    writeFileSync(join(root, "main.py"), "old learner file\n");
+
+    expect(new ReplayStateGuard(content, step).decide(operation, root).kind).toBe("reject");
   });
 });

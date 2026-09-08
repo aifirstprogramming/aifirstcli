@@ -48,6 +48,11 @@ export function replayDir(): string {
   return join(stateDir(), "replay");
 }
 
+/** Hash records for files materialized by exercise commands and replays. */
+export function generatedFilesDir(): string {
+  return join(stateDir(), "generated-files");
+}
+
 // ---------------------------------------------------------------------------
 // Agent locations
 // ---------------------------------------------------------------------------

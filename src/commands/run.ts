@@ -25,6 +25,7 @@ import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
 import { writeScaffold } from "../content/scaffold";
 import type { Example, Step } from "../content/types";
+import { GeneratedFileStore } from "../generatedFiles";
 import { preflightDependencies } from "./dependencies";
 import type { PythonRuntime } from "../dependencies";
 import { withPythonRuntime } from "../dependencies";
@@ -139,10 +140,11 @@ export function prepareExerciseFiles(
   content: Content,
   example: Example,
   step: Step,
-  options: { into?: string; force?: boolean } = {},
+  options: { into?: string; force?: boolean; generatedFiles?: GeneratedFileStore } = {},
 ): PreparedExerciseFiles {
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
   const path = resolvePath(options.into ?? exercisePath(example, step));
+  const generatedFiles = options.generatedFiles ?? new GeneratedFileStore();
   let wrote = false;
   let replaced: string | undefined;
 
@@ -151,8 +153,10 @@ export function prepareExerciseFiles(
     const previous = canonicalOwner(existing, content);
     if (sameCode(existing, body)) {
       // Already exactly this exercise's code.
-    } else if (options.force || previous) {
+      generatedFiles.record(path);
+    } else if (options.force || previous || generatedFiles.matches(path)) {
       writeFileSync(path, body);
+      generatedFiles.record(path);
       wrote = true;
       replaced = previous;
     } else {
@@ -166,10 +170,11 @@ export function prepareExerciseFiles(
   } else {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, body);
+    generatedFiles.record(path);
     wrote = true;
   }
 
-  const scaffoldFiles = writeScaffold(dirname(path), step, content);
+  const scaffoldFiles = writeScaffold(dirname(path), step, content, { generatedFiles });
   return { path, wrote, ...(replaced ? { replaced } : {}), scaffoldFiles };
 }
 

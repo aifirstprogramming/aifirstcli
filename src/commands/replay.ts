@@ -16,6 +16,7 @@ import { resolveReplay } from "../replay/resolver";
 import { clearPendingReplay, readPendingReplay, replaySelection, savePendingReplay } from "../replay/pending";
 import type { ReplayStep } from "../content/types";
 import { markIfNew } from "../log/progress";
+import { ReplayStateGuard } from "../learn/replayState";
 
 function sanitizeCapturedText(value: string): string {
   return value
@@ -96,10 +97,11 @@ export async function replay(args: Args): Promise<void> {
   if (action === "execute") {
     const id = args.positionals[1];
     if (!id) throw new CliError("Usage: aifirst replay execute <exercise-id> [--format json]", "bad_option");
-    const step = resolveContent().content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
+    const { content } = resolveContent();
+    const step = content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
     if (!step?.replay) throw new CliError(`No replay found for ${id}`, "unknown_exercise");
     const root = process.cwd();
-    const result = await executeReplayAsync(step.replay, root);
+    const result = await executeReplayAsync(step.replay, root, new ReplayStateGuard(content, step));
     if (result.ok) markIfNew(step.exampleId, { via: "agent", agent: "claude" });
     const response = {
       exerciseId: step.id,
@@ -183,7 +185,9 @@ export async function replay(args: Args): Promise<void> {
           else json({ match: "confirmed", exerciseId: step.id, workflow: step.replay.workflow });
           return;
         }
-        const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : await executeReplayAsync(step.replay, root);
+        const execution = process.env.IS_DEMO === "1" || action === "resolve"
+          ? undefined
+          : await executeReplayAsync(step.replay, root, new ReplayStateGuard(content, step));
         const context = ["The user confirmed the pending AI First replay.", execution?.text, `Replay exercise: ${step.id}`].filter(Boolean).join("\n\n");
         if (action === "hook") json({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: context } });
         else json({ match: "confirmed", exerciseId: step.id, execution: execution ?? null });
@@ -226,7 +230,9 @@ export async function replay(args: Args): Promise<void> {
       else json({ match: "exact", exerciseId: match.step.id, workflow: match.step.replay.workflow });
       return;
     }
-    const execution = process.env.IS_DEMO === "1" || action === "resolve" ? undefined : await executeReplayAsync(match.step.replay!, root);
+    const execution = process.env.IS_DEMO === "1" || action === "resolve"
+      ? undefined
+      : await executeReplayAsync(match.step.replay!, root, new ReplayStateGuard(content, match.step));
     const context = [
       "This prompt exactly matches an AI First replay.",
       "Use the captured replay response verbatim; do not invent commentary or commands.",

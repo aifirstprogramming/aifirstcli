@@ -9,11 +9,11 @@
  * exercise done for writing a file was the original behaviour and it let an
  * assistant tick off an exercise it had neither written nor run.
  *
- * Never overwrites an existing file without `--force`. A learner's own attempt at
- * an exercise is the most valuable thing in the directory.
+ * Refreshes only unchanged output that AI First previously generated. A learner's
+ * own attempt is left alone unless they explicitly pass `--force`.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve as resolvePath } from "node:path";
 import { resolve } from "@aifirst/content";
 import type { Args } from "../cli";
@@ -23,6 +23,7 @@ import { finalResponse } from "../exercises";
 import type { Step } from "../content/types";
 import { CliError, bold, dim, glyph, green, json, out } from "../output";
 import { defaultExercisePath } from "../workspace";
+import { GeneratedFileStore } from "../generatedFiles";
 
 
 export function apply(args: Args): void {
@@ -66,17 +67,30 @@ export function apply(args: Args): void {
 
   const path = resolvePath(target ?? defaultExercisePath(content, example, step));
   const force = boolFlag(args, "force");
+  const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
+  const generatedFiles = new GeneratedFileStore();
+  let wrote = false;
 
-  if (existsSync(path) && !force) {
-    throw new CliError(
-      `${path} already exists`,
-      "file_exists",
-      `Pass --force to overwrite, --into <file> to choose another name, or --into - to print it`,
-    );
+  if (existsSync(path)) {
+    if (readFileSync(path, "utf8") === body) {
+      generatedFiles.record(path);
+    } else if (force || generatedFiles.matches(path)) {
+      writeFileSync(path, body);
+      generatedFiles.record(path);
+      wrote = true;
+    } else {
+      throw new CliError(
+        `${path} already exists`,
+        "file_exists",
+        `Pass --force to overwrite, --into <file> to choose another name, or --into - to print it`,
+      );
+    }
+  } else {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, body);
+    generatedFiles.record(path);
+    wrote = true;
   }
-
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, step.response.endsWith("\n") ? step.response : step.response + "\n");
 
   if (format === "json") {
     json({
@@ -88,7 +102,7 @@ export function apply(args: Args): void {
   }
 
   out();
-  out(`  ${green(glyph.done)} wrote ${bold(path)}  ${dim(step.id)}`);
+  out(`  ${green(glyph.done)} ${wrote ? "wrote" : "using"} ${bold(path)}  ${dim(step.id)}`);
   out(dim(`  ${glyph.arrow} aifirst run ${example.id}   run it and record it`));
   out();
 }

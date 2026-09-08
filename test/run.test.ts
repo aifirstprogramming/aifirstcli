@@ -69,6 +69,24 @@ function pythonWorkspaceFile(name: string): string {
   return path;
 }
 
+function writeVersionedBook(root: string, response: string): string {
+  const books = join(root, "books");
+  mkdirSync(books, { recursive: true });
+  writeFileSync(join(books, "versioned.json"), JSON.stringify({
+    title: "Versioned Python",
+    tag: "py",
+    language: "python",
+    sections: [{
+      title: "S",
+      chapters: [{
+        title: "Chapter 1: C",
+        examples: [{ id: "py-1-01", title: "Versioned", prompt: "p", response }],
+      }],
+    }],
+  }));
+  return root;
+}
+
 describe("run", () => {
   shellTest("launches Maven JavaFX projects through the configured plugin", async () => {
     const bin = join(sandbox, "bin");
@@ -246,6 +264,26 @@ describe("run", () => {
     expect(out.wrote).toBe(false);
     expect(out.ran.ok).toBe(true);
     expect(out.recorded).toBe(true);
+  });
+
+  it("refreshes unchanged generated code after a content correction", async () => {
+    const oldPack = writeVersionedBook(join(sandbox, "old-pack"), 'print("old")');
+    const newPack = writeVersionedBook(join(sandbox, "new-pack"), 'print("new")');
+    const latestPack = writeVersionedBook(join(sandbox, "latest-pack"), 'print("latest")');
+
+    const first = await aifirst(["run", "py-1-01", "--format", "json"], { AIFIRST_CONTENT_DIR: oldPack });
+    expect(first.code).toBe(0);
+    const path = JSON.parse(first.stdout).path as string;
+
+    const corrected = await aifirst(["run", "py-1-01", "--format", "json"], { AIFIRST_CONTENT_DIR: newPack });
+    expect(corrected.code).toBe(0);
+    expect(JSON.parse(corrected.stdout).wrote).toBe(true);
+    expect(readFileSync(path, "utf8")).toBe('print("new")\n');
+
+    writeFileSync(path, "# learner change\n");
+    const protectedRun = await aifirst(["run", "py-1-01"], { AIFIRST_CONTENT_DIR: latestPack });
+    expect(protectedRun.code).toBe(1);
+    expect(readFileSync(path, "utf8")).toBe("# learner change\n");
   });
 
   it("keeps the original completion date when re-run", async () => {
