@@ -39,6 +39,8 @@ import { prepareExerciseFiles } from "../commands/run";
 import { ReplayStateGuard } from "./replayState";
 import { ensureWorkspace as resolveWorkspace } from "../workspace";
 import { mavenJavaFxCommand } from "../projects";
+import { GeneratedFileStore } from "../generatedFiles";
+import { writeScaffold } from "../content/scaffold";
 
 const TOOLS: ToolDefinition[] = [
   { name: "Bash", input_schema: { properties: { command: { type: "string" } } } },
@@ -597,7 +599,9 @@ async function driveExercise(
   let readyToRun = false;
   let preparedWithoutRun = false;
   let preparedInto: string | undefined;
-  const replayState = new ReplayStateGuard(content, step);
+  const generatedFiles = new GeneratedFileStore();
+  const replayState = new ReplayStateGuard(content, step, generatedFiles);
+  let scaffoldPrepared = false;
 
   for (let turn = 0; turn < 200; turn++) {
     const reply = respond(
@@ -622,6 +626,10 @@ async function driveExercise(
     });
     renderToolCall(reply.toolUse.nativeAction, reply.toolUse.name, reply.toolUse.input);
     await renderActionCodeBefore(reply.toolUse.nativeAction, content, renderOptions, shownCode);
+    if (!scaffoldPrepared && reply.toolUse.nativeAction?.kind === "replay-operation") {
+      writeScaffold(process.cwd(), step, content, { binaryOnly: true, generatedFiles });
+      scaffoldPrepared = true;
+    }
     const result = await executeTool(reply.toolUse.nativeAction, reply.toolUse.input, replayState, step);
     preparedWithoutRun ||= result.prepared === true;
     preparedInto = result.preparedInto ?? preparedInto;
@@ -686,14 +694,31 @@ async function executeTool(
           };
         }
         if (decision.kind === "already-applied") {
+          replayState.record(decision.path);
           const text = `Already applied ${action.operation.path}`;
           if (!currentTuiSession()) out(`  ${green(glyph.done)} ${text}`);
           return { failed: false, content: text, files: [decision.path] };
+        }
+        if (decision.kind === "replace") {
+          const result = await executeReplayOperationAsync(
+            { type: "write", path: action.operation.path, content: decision.content },
+            process.cwd(),
+          );
+          if (result.ok) replayState.record(decision.path);
+          if (!currentTuiSession()) out(`  ${result.ok ? green(glyph.done) : red(glyph.todo)} Updated ${action.operation.path}`);
+          return {
+            failed: !result.ok,
+            content: result.ok ? `Updated ${action.operation.path}` : result.text,
+            files: result.files,
+          };
         }
       }
       const operation = nativeReplayOperation(action.operation, step);
       const result = await executeReplayOperationAsync(operation, process.cwd());
       const failed = replayOperationFailed(action.operation, result);
+      if (!failed && (action.operation.type === "write" || action.operation.type === "edit")) {
+        replayState.record(action.operation.path);
+      }
       if (!currentTuiSession()) out(`  ${failed ? red(glyph.todo) : green(glyph.done)} ${result.text.split("\n")[0]}`);
       return {
         failed,

@@ -232,8 +232,9 @@ The leading \`!\` runs it in their own shell and shows you the output.
   not delete the file first, and do not invent \`--into\` names to dodge the
   collision; the learner ends up with scattered copies and loses the thread of
   the chapter.
-- **Do not overwrite their work.** \`run\` and \`apply\` refuse to replace a file
-  whose contents differ. Do not add \`--force\` on their behalf.
+- **Do not overwrite their work.** \`run\` and \`apply\` can refresh unchanged
+  output that AI First previously generated, but refuse after the learner changes
+  it. Do not add \`--force\` on their behalf.
 - If \`aifirst\` is missing, use the installer for the environment where Claude
   Code is running rather than reconstructing examples from memory:
   - Native Windows, including Claude Code using Git Bash: ask the learner to run

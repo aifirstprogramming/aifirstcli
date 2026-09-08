@@ -1,14 +1,17 @@
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import type { Content, Replay, ReplayOperation, ReplayStep } from "../content/types";
+import { GeneratedFileStore } from "../generatedFiles";
 
 interface AuthoredTransition {
   before: Set<string>;
+  after: Set<string>;
   afterOrLater: Set<string>;
 }
 
 export type ReplayFileDecision =
   | { kind: "execute" }
+  | { kind: "replace"; path: string; content: string }
   | { kind: "already-applied"; path: string }
   | { kind: "reject"; path: string };
 
@@ -120,8 +123,13 @@ function buildTransitions(content: Content, step: ReplayStep): Map<string, Autho
       });
 
       for (const record of records) {
-        const transition = transitions.get(record.key) ?? { before: new Set<string>(), afterOrLater: new Set<string>() };
+        const transition = transitions.get(record.key) ?? {
+          before: new Set<string>(),
+          after: new Set<string>(),
+          afterOrLater: new Set<string>(),
+        };
         if (record.before !== undefined) transition.before.add(record.before);
+        transition.after.add(record.after);
         transition.afterOrLater.add(record.after);
         for (const later of records) {
           if (later.path === record.path && later.sequenceIndex > record.sequenceIndex) {
@@ -146,12 +154,16 @@ function targetInside(root: string, path: string): string {
   return target;
 }
 
-/** Authorizes only exact file states produced by this exercise's authored replay. */
+/** Authorizes authored checkpoints and unchanged files recorded as AI First output. */
 export class ReplayStateGuard {
   private readonly transitions: Map<string, AuthoredTransition>;
   private readonly authoredStates = new Map<string, Set<string>>();
 
-  constructor(content: Content, step: ReplayStep) {
+  constructor(
+    content: Content,
+    step: ReplayStep,
+    private readonly generatedFiles = new GeneratedFileStore(),
+  ) {
     this.transitions = buildTransitions(content, step);
     const memo = new Map<string, Map<string, string>[]>();
     const visited = new Set<string>();
@@ -170,6 +182,10 @@ export class ReplayStateGuard {
     }
   }
 
+  record(path: string): void {
+    this.generatedFiles.record(path);
+  }
+
   decide(operation: Extract<ReplayOperation, { type: "write" | "edit" }>, root: string): ReplayFileDecision {
     const path = targetInside(root, operation.path);
     if (!existsSync(path)) return operation.type === "write" ? { kind: "execute" } : { kind: "reject", path };
@@ -182,13 +198,26 @@ export class ReplayStateGuard {
     }
     if (transition?.before.has(current)) return { kind: "execute" };
 
+    if (this.generatedFiles.matches(path)) {
+      if (operation.type === "write") return { kind: "execute" };
+      if (transition?.after.size === 1) {
+        return { kind: "replace", path, content: transition.after.values().next().value! };
+      }
+      if (!transition) return { kind: "execute" };
+      return { kind: "reject", path };
+    }
+
     if (!transition && operation.type === "write") {
       if (current === operation.content) return { kind: "already-applied", path };
       return this.authoredStates.get(operation.path)?.has(current)
         ? { kind: "execute" }
         : { kind: "reject", path };
     }
-    if (!transition) return { kind: "execute" };
+    if (!transition) {
+      return this.authoredStates.get(operation.path)?.has(current)
+        ? { kind: "execute" }
+        : { kind: "reject", path };
+    }
     return { kind: "reject", path };
   }
 }

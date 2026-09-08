@@ -313,4 +313,44 @@ describe("next bare-mode: scaffold entrypoints", () => {
     expect(JSON.parse(result.stdout).ran.stdout.replace(/\r\n/g, "\n")).toBe("scaffold ran\n");
     expect(readFileSync(pythonWorkspaceFile("runner.py"), "utf8")).toBe("print('scaffold ran')\n");
   });
+
+  it("refreshes unchanged generated output after the content changes", async () => {
+    const pack = join(sandbox, "next-versioned");
+    const books = join(pack, "books");
+    mkdirSync(books, { recursive: true });
+    const writePack = (response: string) => writeFileSync(
+      join(books, "ai-first-python-programming.json"),
+      JSON.stringify({
+        title: "Versioned Python",
+        tag: "py",
+        language: "python",
+        sections: [{
+          title: "S",
+          chapters: [{
+            title: "Chapter 1: C",
+            examples: [{ id: "py-1-01", title: "Versioned", prompt: "p", response }],
+          }],
+        }],
+      }),
+    );
+    const env = { AIFIRST_CONTENT_DIR: pack };
+    writePack('print("old")');
+    await aifirst(["book", "py"], env);
+    expect((await aifirst(["next", "--format", "json"], env)).code).toBe(0);
+
+    await aifirst(["reset", "py-1-01"], env);
+    writePack('print("new")');
+    const corrected = await aifirst(["next", "--format", "json"], env);
+    expect(corrected.code).toBe(0);
+    expect(JSON.parse(corrected.stdout).wrote).toBe(true);
+    const target = pythonWorkspaceFile("versioned.py");
+    expect(readFileSync(target, "utf8")).toBe('print("new")\n');
+
+    writeFileSync(target, "# learner change\n");
+    await aifirst(["reset", "py-1-01"], env);
+    writePack('print("latest")');
+    const protectedNext = await aifirst(["next"], env);
+    expect(protectedNext.code).toBe(1);
+    expect(readFileSync(target, "utf8")).toBe("# learner change\n");
+  });
 });

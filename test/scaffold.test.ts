@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveContent } from "../src/content";
 import { writeScaffold } from "../src/content/scaffold";
+import type { Step } from "../src/content/types";
+import { GeneratedFileStore } from "../src/generatedFiles";
 
 const { content } = resolveContent();
 const binarySteps = content.steps.filter((step) =>
@@ -36,5 +38,21 @@ describe("binary exercise scaffolds", () => {
       rmSync(workspace, { recursive: true, force: true });
       workspace = "";
     }
+  });
+
+  test("refreshes only unchanged generated scaffold files", () => {
+    workspace = mkdtempSync(join(tmpdir(), "aifirst-scaffold-refresh-"));
+    const store = new GeneratedFileStore(join(workspace, "state"));
+    const oldStep = { scaffold: { files: [{ path: "runner.py", content: "print('old')" }] } } as Step;
+    const newStep = { scaffold: { files: [{ path: "runner.py", content: "print('new')" }] } } as Step;
+    const latestStep = { scaffold: { files: [{ path: "runner.py", content: "print('latest')" }] } } as Step;
+
+    expect(writeScaffold(workspace, oldStep, content, { generatedFiles: store })).toEqual(["runner.py"]);
+    expect(writeScaffold(workspace, newStep, content, { generatedFiles: store })).toEqual(["runner.py"]);
+    expect(readFileSync(join(workspace, "runner.py"), "utf8")).toBe("print('new')\n");
+
+    writeFileSync(join(workspace, "runner.py"), "# learner change\n");
+    expect(writeScaffold(workspace, latestStep, content, { generatedFiles: store })).toEqual([]);
+    expect(readFileSync(join(workspace, "runner.py"), "utf8")).toBe("# learner change\n");
   });
 });

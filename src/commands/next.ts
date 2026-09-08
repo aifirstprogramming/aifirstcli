@@ -15,14 +15,12 @@
  * `run` stays explicit write/run/record.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, resolve as resolvePath } from "node:path";
+import { basename, dirname } from "node:path";
 import { runCommand } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
 import { resolveContent } from "../content";
-import { writeScaffold } from "../content/scaffold";
 import { finalResponse, report, resume } from "../exercises";
 import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
@@ -31,6 +29,7 @@ import { withPythonRuntime } from "../dependencies";
 import { preflightDependencies } from "./dependencies";
 import { defaultExercisePath } from "../workspace";
 import { mavenJavaFxCommand } from "../projects";
+import { prepareExerciseFiles } from "./run";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -114,49 +113,32 @@ export async function next(args: Args): Promise<void> {
     ...(format === "json" ? ["--format json"] : []),
   ].join(" ");
   const dependencyReport = await preflightDependencies(args, ex, step, format, retryCommand);
-  const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const path = resolvePath(into ?? defaultExercisePath(content, ex, step));
-  const force = boolFlag(args, "force");
-
-  // Write it, but never over something different that the learner wrote.
-  let wrote = false;
-  if (existsSync(path)) {
-    const existing = readFileSync(path, "utf8");
-    const same = existing.replace(/\r\n/g, "\n").replace(/\n+$/, "") === body.replace(/\r\n/g, "\n").replace(/\n+$/, "");
-    if (same) {
-      // Already this exercise's code; nothing to write.
-    } else if (force) {
-      writeFileSync(path, body);
-      wrote = true;
+  let prepared;
+  try {
+    prepared = prepareExerciseFiles(content, ex, step, {
+      into: into ?? defaultExercisePath(content, ex, step),
+      force: boolFlag(args, "force"),
+    });
+  } catch (error) {
+    if (!(error instanceof CliError) || error.code !== "file_exists") throw error;
+    if (format === "json") {
+      json({
+        completed: false,
+        exerciseId: ex.id,
+        wrote: false,
+        ran: null,
+        recorded: false,
+        next: { id: ex.id, title: ex.title, language: ex.language },
+      });
     } else {
-      if (format === "json") {
-        json({
-          completed: false,
-          exerciseId: ex.id,
-          wrote: false,
-          ran: null,
-          recorded: false,
-          next: { id: ex.id, title: ex.title, language: ex.language },
-        });
-        process.exitCode = 1;
-        return;
-      }
-      out(`  ${red(glyph.todo)} ${bold(path)} already exists with different contents`);
+      out(`  ${red(glyph.todo)} ${bold(error.message)}`);
       out(dim(`  Pass --force to replace, or write this exercise elsewhere with --into <file>.`));
       out();
-      process.exitCode = 1;
-      return;
     }
-  } else {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, body);
-    wrote = true;
+    process.exitCode = 1;
+    return;
   }
-
-  // Project exercises may run a scaffold entrypoint rather than the default
-  // response filename. Match `run` by materializing those owned support files
-  // before resolving and launching the command.
-  writeScaffold(dirname(path), step, content);
+  const { path, wrote } = prepared;
 
   // Run the exercise.
   const TIMEOUT_MS = 30_000;

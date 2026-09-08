@@ -245,8 +245,9 @@ needs model-generated code explains that immediately and offers the book answer,
 a restart, or an AI assistant before asking anything else. Every next exercise is
 introduced with its title, chapter, and prompt before operations begin, and
 captured edits render as concise unified diffs rather than full replacement files.
-Re-running a captured project recognizes exact authored intermediate and final
-file states, while any learner modification still stops the replay before overwrite.
+Re-running a captured project recognizes exact authored states and hashes of the
+last files AI First generated. Content fixes can therefore refresh unchanged
+generated files, while any learner modification still stops the replay before overwrite.
 
 The learner reuses the same dependency checks as `run`: missing packages are
 shown before any exercise files change, require approval, and are verified before
@@ -329,7 +330,10 @@ Plain JSON at `~/.aifirst/progress.json` (`$XDG_STATE_HOME/aifirst` if set,
 `%LOCALAPPDATA%\aifirst` on Windows). Read it, edit it, copy it between machines, delete it. Your book
 choice lives beside it in `config.json`, so resetting progress doesn't lose it.
 
-It's a personal ledger, not an assessment — there's no verification and nothing to defend against
+AI First stores SHA-256 ownership records beneath `generated-files/` in the same
+state directory. Those records contain paths and hashes, never learner source code.
+
+The progress log is a personal ledger, not an assessment — there's no verification and nothing to defend against
 tampering.
 
 Progress is scoped to the book you're reading, so a Python reader sees a denominator they can
