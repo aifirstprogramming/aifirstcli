@@ -173,6 +173,7 @@ jobs:
           BIN=$([ "$ARCH" = "arm64" ] && echo bin/aifirst-darwin-arm64 || echo bin/aifirst-darwin-x64)
           "$BIN" --version
           "$BIN" show py-1-01 --format json | grep -q 'Hello, World'
+          sh install/test-macos-installer-tty.sh "$BIN"
 
       - uses: actions/upload-artifact@v4
         with:

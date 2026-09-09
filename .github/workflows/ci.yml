@@ -41,6 +41,9 @@ jobs:
           # Count non-retired examples; must match the pack, not a fixed number.
           EXPECTED=$(node -p "let t=0;const fs=require('fs');for(const f of fs.readdirSync('books').filter(x=>x.endsWith('.json'))){const d=JSON.parse(fs.readFileSync('books/'+f));for(const s of d.sections||[])for(const c of s.chapters||[])for(const e of c.examples||[])if(e.status!=='retired')t++;}t")
           "$BIN" progress --format json | grep -q "\"total\": $EXPECTED"
+          if [ "$(uname -s)" = "Darwin" ]; then
+            sh install/test-macos-installer-tty.sh "$BIN"
+          fi
 
   learn-contract:
     runs-on: ubuntu-latest
@@ -69,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Lint install.sh
-        run: shellcheck --shell=sh install/install.sh
+        run: shellcheck --shell=sh install/install.sh install/test-macos-installer-tty.sh
 
   powershell:
     runs-on: windows-latest

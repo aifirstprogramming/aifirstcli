@@ -313,7 +313,13 @@ esac
 # --- first setup -----------------------------------------------------------
 
 if [ "${AIFIRST_SKIP_SETUP:-}" != "1" ]; then
-  if ( : </dev/tty ) 2>/dev/null; then
+  if [ "$OS" = "darwin" ]; then
+    # Bun cannot currently poll stdin reopened through macOS's /dev/tty alias
+    # (oven-sh/bun#41495). A direct invocation inherits the real /dev/ttysNNN
+    # device and remains interactive, so defer setup until this pipe has exited.
+    info "On macOS, finish setup in a new terminal:"
+    info "  aifirst init"
+  elif ( : </dev/tty ) 2>/dev/null; then
     say ""
     "$INSTALL_DIR/aifirst" init </dev/tty || info "Setup was not completed; run aifirst later to resume."
   else
