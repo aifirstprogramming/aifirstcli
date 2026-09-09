@@ -21,9 +21,11 @@ curl -fsSL https://aifirstprogramming.com/install.sh | bash
 irm https://aifirstprogramming.com/install.ps1 | iex
 ```
 
-The installer immediately opens guided setup, asks which book you are reading,
-creates a learning workspace, and offers to start the built-in learner. No second
-command and no AI tool are required.
+On Linux and Windows, the installer immediately opens guided setup. On macOS,
+open a new terminal and run `aifirst init` when the installer finishes; this
+temporary extra step avoids a Bun terminal-input bug. Guided setup asks which
+book you are reading, creates a learning workspace, and offers to start the
+built-in learner. No AI tool is required.
 
 Run `aifirst` later to reopen AI First Home, or `aifirst learn` to go directly to
 guided offline learning.
