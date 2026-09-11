@@ -19,6 +19,7 @@ import { emptyLog } from "../src/log/progress";
 const content = resolveContent().content;
 const duckling = content.steps.find((step) => step.id === "py-9-01")! as ReplayStep;
 const editor = content.steps.find((step) => step.id === "py-10-01")! as ReplayStep;
+const pocketCfo = content.steps.find((step) => step.id === "java-11-01")! as ReplayStep;
 const TOOLS = [
   { name: "AskUserQuestion", input_schema: { properties: { questions: { type: "array" } } } },
   { name: "Write", input_schema: { properties: { file_path: { type: "string" }, content: { type: "string" } } } },
@@ -36,12 +37,12 @@ function reply(outcome: ReturnType<typeof beginPlanning>) {
 }
 
 describe("model-free planning workflow", () => {
-  test("groups captured questions and labels the book answer", () => {
+  test("groups captured questions without rewriting source options", () => {
     const planning = state();
     const first = reply(beginPlanning(duckling, planning, TOOLS));
     expect(first.toolUse?.name).toBe("AskUserQuestion");
     expect(first.text).toBe("");
-    expect(JSON.stringify(first.toolUse?.input)).toContain("Top-down maze/exploration (Book Recommended)");
+    expect(JSON.stringify(first.toolUse?.input)).toContain("Top-down maze/exploration (Recommended)");
     expect(JSON.stringify(first.toolUse?.input)).toContain("What should make the search challenging");
     expect(JSON.stringify(first.toolUse?.input)).toContain("What visual style");
     expect(first.toolUse?.name).not.toBe("Write");
@@ -70,6 +71,107 @@ describe("model-free planning workflow", () => {
       expect(run.active.kind).toBe("canonical");
       expect(run.active.replay.operations).toHaveLength(duckling.replay!.operations.length);
     }
+  });
+
+  test("preserves captured option ordering", () => {
+    const candidate = structuredClone(duckling);
+    const question = candidate.replay!.workflow!.questions[0]!;
+    const canonical = candidate.replay!.workflow!.canonicalAnswers[question.id];
+    question.options.sort((left, right) => Number(left.id === canonical) - Number(right.id === canonical));
+    const expected = question.options.map((option) => option.label);
+
+    const first = reply(beginPlanning(candidate, state(), TOOLS));
+    const nativeQuestion = (first.toolUse?.input.questions as Array<{ options: Array<{ label: string }> }>)[0]!;
+    expect(nativeQuestion.options.map((option) => option.label)).toEqual(expected);
+  });
+
+  test("shows an immutable PocketCFO book default before exact source options", () => {
+    const first = reply(beginPlanning(pocketCfo, state(), TOOLS));
+    const nativeQuestions = first.toolUse?.input.questions as Array<{
+      options: Array<{ label: string; description: string; preview?: string }>;
+    }>;
+    const appDefault = pocketCfo.replay!.workflow!.questions[0]!.bookDefault!.text;
+
+    expect(nativeQuestions[0]?.options[0]).toEqual({
+      label: "Use book default",
+      description: appDefault,
+      preview: appDefault,
+    });
+    expect(nativeQuestions[0]?.options.slice(1).map((option) => option.label)).toEqual([
+      "Console CLI (Java 17 + Maven, matches book chapters)",
+      "Desktop GUI (JavaFx)",
+      "Not sure yet — recommend one",
+    ]);
+    expect(nativeQuestions[1]?.options[0]?.label).toBe("Use book default");
+    expect(pocketCfo.replay?.playback?.mode).toBe("compact");
+  });
+
+  test("does not let free-form Other text replace a replay book default", () => {
+    const planning = state();
+    beginPlanning(pocketCfo, planning, TOOLS);
+    const original = pocketCfo.replay!.workflow!.questions[0]!.bookDefault!.text;
+    const fallback = reply(continuePlanning(pocketCfo, planning, TOOLS, "Use a different GUI design"));
+
+    expect(fallback.text).toContain("book default is fixed in replay mode");
+    expect(planning.answers.app_interface).toBeUndefined();
+    expect(pocketCfo.replay!.workflow!.questions[0]!.bookDefault!.text).toBe(original);
+  });
+
+  test("selects the fixed PocketCFO book defaults without copying or editing their text", () => {
+    const planning = state();
+    beginPlanning(pocketCfo, planning, TOOLS);
+    const approval = reply(continuePlanning(pocketCfo, planning, TOOLS, {
+      app_interface: "Use book default",
+      data_storage: "Use book default",
+      budget_cycle: "Calendar month",
+      initial_scope: "MVP first (Recommended)",
+    }));
+
+    expect(planning.answers).toEqual(pocketCfo.replay!.workflow!.canonicalAnswers);
+    expect(approval.text).toContain("App interfac — Book default");
+    expect(approval.text).toContain(pocketCfo.replay!.workflow!.questions[0]!.bookDefault!.text);
+    expect(approval.toolUse?.input).toEqual(expect.objectContaining({ questions: expect.any(Array) }));
+  });
+
+  test("prints the full book default in the text-only picker fallback", () => {
+    const result = reply(beginPlanning(pocketCfo, state(), []));
+    expect(result.text).toContain("[BOOK DEFAULT] Use book default");
+    expect(result.text).toContain(pocketCfo.replay!.workflow!.questions[0]!.bookDefault!.text);
+  });
+
+  test("compacts a large replay into one trusted execution command", () => {
+    const candidateContent = structuredClone(content);
+    const candidate = candidateContent.steps.find((step) => step.id === "py-9-01")! as ReplayStep;
+    candidate.replay!.playback = {
+      mode: "compact",
+      phases: ["Create the project.", "Verify the final build."],
+    };
+    const planning: PlanningSession = { answers: {}, replayMode: "captured" };
+    const questions = reply(beginPlanning(candidate, planning, TOOLS));
+    const answers = Object.fromEntries(candidate.replay!.workflow!.questions.slice(0, 3).map((question) => [
+      question.id,
+      question.options.find((option) => option.id === candidate.replay!.workflow!.canonicalAnswers[question.id])!.label,
+    ]));
+    const next = continuePlanning(candidate, planning, TOOLS, answers);
+    expect(next.kind).toBe("reply");
+
+    // Skip the remaining question/interlude details; the compact behavior begins
+    // after an approved canonical path has been selected.
+    planning.answers = { ...candidate.replay!.workflow!.canonicalAnswers };
+    planning.awaiting = { kind: "approval" };
+    planning.expectedToolId = questions.toolUse?.id;
+    const result = respond({
+      messages: [{ role: "user", content: [{
+        type: "tool_result",
+        tool_use_id: questions.toolUse?.id,
+        content: '{"answers":{"Plan":"Approve and build"}}',
+      }] }],
+      tools: TOOLS,
+    }, candidateContent, emptyLog(), { planning });
+
+    expect(result.toolUse?.input.command).toContain("aifirst replay execute py-9-01 --format json");
+    expect(result.text).toContain("Create the project.");
+    expect(result.text).toContain("running verification once");
   });
 
   test("guides an unsupported choice back to the book path", () => {

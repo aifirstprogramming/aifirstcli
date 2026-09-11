@@ -77,11 +77,36 @@ export interface Choice {
   /** Short value a learner can also type, e.g. "py". */
   key: string;
   label: string;
+  description?: string;
+  preview?: string;
+  badge?: string;
 }
 
 export type ChoiceOrInput =
   | { kind: "choice"; key: string }
   | { kind: "input"; value: string };
+
+function wrapped(value: string, width: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of value.split("\n")) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push("");
+      continue;
+    }
+    let line = "";
+    for (const word of words) {
+      if (line && line.length + word.length + 1 > width) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = line ? `${line} ${word}` : word;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
 
 /**
  * Numbered single-choice picker. Accepts the number or the key.
@@ -103,8 +128,16 @@ export async function choose(question: string, choices: Choice[]): Promise<strin
     for (let attempt = 0; attempt < 3; attempt++) {
       out();
       out(`  ${bold(question)}`);
+      const textWidth = Math.max(24, (process.stdout.columns ?? 80) - 9);
       for (const [i, c] of choices.entries()) {
-        out(`    ${bold(String(i + 1))}) ${c.label}`);
+        const label = `${c.badge ? `[${c.badge}] ` : ""}${c.label}`;
+        const labelLines = wrapped(label, textWidth);
+        out(`    ${bold(String(i + 1))}) ${labelLines[0] ?? ""}`);
+        for (const line of labelLines.slice(1)) out(`       ${line}`);
+        if (c.description) for (const line of wrapped(c.description, textWidth)) out(`       ${dim(line)}`);
+        if (c.preview && c.preview !== c.description) {
+          for (const line of wrapped(c.preview, textWidth)) out(`       ${dim(line)}`);
+        }
       }
       out();
       const answer = (await rl.question("  > ")).trim().toLowerCase();

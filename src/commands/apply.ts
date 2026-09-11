@@ -1,8 +1,8 @@
 /**
  * `aifirst apply <id> [--into <file>]`.
  *
- * Writes the book's canonical response to a file, byte for byte. No model is
- * involved, so the learner's file matches the printed page exactly.
+ * Writes the book's canonical response and any required project scaffold. No
+ * model is involved, so the learner's files match the stored checkpoint.
  *
  * Deliberately does **not** record progress — see `aifirst run`, which writes and
  * then executes, and records only when the program actually runs. Marking an
@@ -13,8 +13,6 @@
  * own attempt is left alone unless they explicitly pass `--force`.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve as resolvePath } from "node:path";
 import { resolve } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
@@ -23,7 +21,7 @@ import { finalResponse } from "../exercises";
 import type { Step } from "../content/types";
 import { CliError, bold, dim, glyph, green, json, out } from "../output";
 import { defaultExercisePath } from "../workspace";
-import { GeneratedFileStore } from "../generatedFiles";
+import { prepareExerciseFiles } from "./run";
 
 
 export function apply(args: Args): void {
@@ -65,36 +63,16 @@ export function apply(args: Args): void {
     return;
   }
 
-  const path = resolvePath(target ?? defaultExercisePath(content, example, step));
-  const force = boolFlag(args, "force");
-  const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
-  const generatedFiles = new GeneratedFileStore();
-  let wrote = false;
-
-  if (existsSync(path)) {
-    if (readFileSync(path, "utf8") === body) {
-      generatedFiles.record(path);
-    } else if (force || generatedFiles.matches(path)) {
-      writeFileSync(path, body);
-      generatedFiles.record(path);
-      wrote = true;
-    } else {
-      throw new CliError(
-        `${path} already exists`,
-        "file_exists",
-        `Pass --force to overwrite, --into <file> to choose another name, or --into - to print it`,
-      );
-    }
-  } else {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, body);
-    generatedFiles.record(path);
-    wrote = true;
-  }
+  const prepared = prepareExerciseFiles(content, example, step, {
+    into: target ?? defaultExercisePath(content, example, step),
+    force: boolFlag(args, "force"),
+  });
+  const { path, wrote, scaffoldFiles } = prepared;
 
   if (format === "json") {
     json({
       applied: { exerciseId: example.id, stepId: step.id, path, bytes: step.response.length },
+      ...(scaffoldFiles.length > 0 ? { scaffold: scaffoldFiles } : {}),
       // Writing a file is not completing an exercise; `aifirst run` records.
       recorded: false,
     });
@@ -103,6 +81,7 @@ export function apply(args: Args): void {
 
   out();
   out(`  ${green(glyph.done)} ${wrote ? "wrote" : "using"} ${bold(path)}  ${dim(step.id)}`);
+  if (scaffoldFiles.length > 0) out(dim(`  also prepared ${scaffoldFiles.join(", ")}`));
   out(dim(`  ${glyph.arrow} aifirst run ${example.id}   run it and record it`));
   out();
 }

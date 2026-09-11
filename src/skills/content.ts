@@ -130,9 +130,10 @@ When the hook reports an interactive planning workflow:
    approves the plan.
 2. Follow \`questionSteps\` exactly. Ask each \`group\` in one AskUserQuestion
    call, but ask every ungrouped \`question\` separately and only after its
-   \`when\` conditions are satisfied. Never merge a conditional follow-up into
-   the preceding group. Preserve option order and display the supplied
-   \`(Book Recommended)\` suffix verbatim without adding another label.
+   \`when\` conditions are satisfied. Preserve source option labels,
+   descriptions, previews, and ordering verbatim. If \`bookDefault\` is present,
+   add a separate fixed **Use book default** choice whose description and preview
+   show its exact text; never rewrite that value.
 3. If every answer matches \`canonicalAnswers\`, present \`canonicalPlan\` verbatim.
    All replay paths are relative to the directory returned by \`${cliCommand}
    workspace\`; never mention or recreate a captured absolute path. After

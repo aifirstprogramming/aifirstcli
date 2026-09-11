@@ -2,8 +2,8 @@
  * `aifirst run <id>` — write the book's code, run it, and record it.
  *
  * This is what "done" means. Writing a file proves nothing; a learner has
- * finished an exercise when the program actually runs. So completion is recorded
- * here, on exit 0, and nowhere else automatic.
+ * finished an exercise when its authored compile, test, build, or run check
+ * succeeds. Completion is recorded here, on that verified outcome.
  *
  * stdin, in order of preference:
  *   1. the exercise's authored sample, when it reads input
@@ -14,7 +14,7 @@
  * not attach an interactive stdin), which is exactly why case 1 exists.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve as resolvePath } from "node:path";
 import { exercisePath, resolve, runCommand } from "@aifirst/content";
@@ -81,7 +81,12 @@ export const JUNIT_URL =
  * an LTS release would otherwise see "cannot find symbol" for code that is right.
  */
 export function commandsFor(example: Example, step: Step, file: string, python?: PythonRuntime): string[][] {
-  const entry = step.scaffold?.entrypoint;
+  const scaffold = step.scaffold as typeof step.scaffold & {
+    commands?: string[][];
+    outcome?: "compile" | "test" | "run" | "build";
+  };
+  if (scaffold?.commands?.length) return scaffold.commands;
+  const entry = scaffold?.entrypoint;
   if (example.language === "java") {
     if (example.kind === "test") {
       const jar = junitJar();
@@ -95,6 +100,8 @@ export function commandsFor(example: Example, step: Step, file: string, python?:
     if (mavenJavaFx) return [mavenJavaFx];
     const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
     const runFile = entry ?? file;
+    const hasMain = entry !== undefined || /static\s+void\s+main\s*\(/.test(step.response);
+    if (!hasMain) return [["javac", "-d", "out", file]];
     if (extraSources) {
       return [
         ["javac", "-d", "out", "-sourcepath", ".", runFile],
@@ -108,6 +115,24 @@ export function commandsFor(example: Example, step: Step, file: string, python?:
   const runFile = file === "-" ? "./-" : file;
   const command = entry ? ["python3", entry] : (runCommand(example.language, runFile) ?? ["python3", runFile]);
   return [python ? withPythonRuntime(command, python) : command];
+}
+
+export function executionMode(example: Example, step: Step): "compile" | "test" | "run" | "build" {
+  const authored = (step.scaffold as typeof step.scaffold & { outcome?: "compile" | "test" | "run" | "build" })?.outcome;
+  if (authored) return authored;
+  if (example.kind === "test") return "test";
+  if (example.kind === "project") return "build";
+  if (example.language === "java" && !step.scaffold?.entrypoint && !/static\s+void\s+main\s*\(/.test(step.response)) {
+    return "compile";
+  }
+  return "run";
+}
+
+export function executionSuccessText(mode: ReturnType<typeof executionMode>): string {
+  if (mode === "compile") return "compiled clean";
+  if (mode === "test") return "tests passed";
+  if (mode === "build") return "built clean";
+  return "ran clean";
 }
 
 /** Pick the step to run, honouring --step and a step-level id. */
@@ -130,6 +155,7 @@ function pickStep(args: Args, example: Example, addressed?: Step): Step {
 
 export interface PreparedExerciseFiles {
   path: string;
+  cwd: string;
   wrote: boolean;
   replaced?: string;
   scaffoldFiles: string[];
@@ -144,7 +170,43 @@ export function prepareExerciseFiles(
 ): PreparedExerciseFiles {
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
   const path = resolvePath(options.into ?? exercisePath(example, step));
+  const scaffold = step.scaffold as typeof step.scaffold & { projectRoot?: string; responsePath?: string; clean?: string[] };
+  const responseDirectory = scaffold?.responsePath ? dirname(scaffold.responsePath) : ".";
+  const projectRoot = scaffold?.projectRoot
+    ? resolvePath(dirname(path), ...responseDirectory.split(/[\\/]+/).filter((part) => part && part !== ".").map(() => ".."))
+    : dirname(path);
   const generatedFiles = options.generatedFiles ?? new GeneratedFileStore();
+  if (existsSync(path)) {
+    const existing = readFileSync(path, "utf8");
+    const previous = canonicalOwner(existing, content);
+    if (!sameCode(existing, body) && !options.force && !previous && !generatedFiles.matches(path)) {
+      throw new CliError(
+        `${path} already exists with different contents`,
+        "file_exists",
+        `That looks like your own work, so it was left alone. Replace it with ` +
+          `--force, or write this exercise somewhere else with --into <file>.`,
+      );
+    }
+  }
+
+  const cleanTargets: string[] = [];
+  for (const cleanPath of scaffold?.clean ?? []) {
+    if (cleanPath.startsWith("/") || /^[A-Za-z]:[\\/]/.test(cleanPath) || cleanPath.split(/[\\/]+/).includes("..")) {
+      throw new CliError(`Unsafe project cleanup path ${cleanPath}`, "unsafe_path");
+    }
+    const target = resolvePath(projectRoot, cleanPath);
+    if (!existsSync(target)) continue;
+    const previous = canonicalOwner(readFileSync(target, "utf8"), content);
+    if (!previous && !generatedFiles.matches(target)) {
+      throw new CliError(
+        `${target} must be removed to restore this project checkpoint`,
+        "file_exists",
+        "It does not match AI First's generated copy, so it was left alone.",
+      );
+    }
+    cleanTargets.push(target);
+  }
+  for (const target of cleanTargets) unlinkSync(target);
   let wrote = false;
   let replaced: string | undefined;
 
@@ -174,8 +236,8 @@ export function prepareExerciseFiles(
     wrote = true;
   }
 
-  const scaffoldFiles = writeScaffold(dirname(path), step, content, { generatedFiles });
-  return { path, wrote, ...(replaced ? { replaced } : {}), scaffoldFiles };
+  const scaffoldFiles = writeScaffold(projectRoot, step, content, { generatedFiles });
+  return { path, cwd: projectRoot, wrote, ...(replaced ? { replaced } : {}), scaffoldFiles };
 }
 
 export async function run(args: Args): Promise<void> {
@@ -206,10 +268,11 @@ export async function run(args: Args): Promise<void> {
     into: destination,
     force: boolFlag(args, "force"),
   });
-  const { path, wrote, replaced, scaffoldFiles } = prepared;
+  const { path, cwd, wrote, replaced, scaffoldFiles } = prepared;
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
 
   const commands = commandsFor(example, step, basename(path), dependencyReport.runtime);
+  const mode = executionMode(example, step);
   // Whatever happened above, the file about to run must hold this exercise's code.
   //
   // Recording a pass for a stale file is the one failure this command must not
@@ -233,7 +296,8 @@ export async function run(args: Args): Promise<void> {
       `The file is written at ${path}; run it yourself, then: aifirst done ${example.id}`,
     );
   }
-  if (example.kind === "test" && example.language === "java" && !existsSync(junitJar())) {
+  const usesJunitLauncher = commands.some((command) => command.includes(junitJar()));
+  if (usesJunitLauncher && !existsSync(junitJar())) {
     throw new CliError(
       `${example.id} is a JUnit test and the JUnit launcher is not installed`,
       "missing_junit",
@@ -275,7 +339,7 @@ export async function run(args: Args): Promise<void> {
     const argv = commands[n];
     const last = n === commands.length - 1;
     const proc = Bun.spawn(argv, {
-      cwd: dirname(path),
+      cwd,
       stdin:
         useTty && last
           ? "inherit"
@@ -322,6 +386,7 @@ export async function run(args: Args): Promise<void> {
       path,
       wrote,
       ran: { ok, exitCode, timedOut, stdout, stderr, commands: commands.map((c) => c.join(" ")) },
+      execution: { mode, ok, commands: commands.map((c) => c.join(" ")) },
       ...(scaffoldFiles.length > 0 ? { scaffold: scaffoldFiles } : {}),
       ...(replaced ? { replaced } : {}),
       ...(step.stdin === undefined ? {} : { stdin: step.stdin }),
@@ -359,8 +424,8 @@ export async function run(args: Args): Promise<void> {
   if (ok) {
     out(
       recorded
-        ? `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : "ran clean"} — recorded ${bold(example.id)} as done`
-        : `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : "ran clean"} — ${dim(`${example.id} was already recorded`)}`,
+        ? `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — recorded ${bold(example.id)} as done`
+        : `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — ${dim(`${example.id} was already recorded`)}`,
     );
     if (step.explanation) {
       out();

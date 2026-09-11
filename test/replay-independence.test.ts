@@ -6,7 +6,7 @@ import type { PlanningSession } from "../src/bookmode/planning";
 import { respond, type Reply } from "../src/bookmode/responder";
 import { resolveContent } from "../src/content";
 import { scaffoldFileData } from "../src/content/scaffold";
-import type { ReplayOperation, ReplayStep } from "../src/content/types";
+import type { PlanQuestion, ReplayOperation, ReplayStep } from "../src/content/types";
 import { emptyLog } from "../src/log/progress";
 import { resolveReplay } from "../src/replay/resolver";
 import { seedScaffold } from "./helpers/scaffold";
@@ -32,13 +32,21 @@ function safePath(path: string): boolean {
   return !isAbsolute(path) && !path.split(/[\\/]+/).includes("..");
 }
 
-function recommendedAnswer(reply: Reply): string {
+function recommendedAnswer(reply: Reply, step: ReplayStep): string {
   const questions = reply.toolUse?.input.questions;
   if (!Array.isArray(questions)) throw new Error(`No questions in ${reply.toolUse?.id}`);
   const answers: Record<string, string> = {};
   for (const rawQuestion of questions) {
     const question = rawQuestion as { question?: string; header?: string; options?: Array<{ label?: string }> };
-    const option = question.options?.find((candidate) => /Book Recommended|Approve and build/i.test(candidate.label ?? ""));
+    const authored = step.replay?.workflow?.questions.find(
+      (candidate) => candidate.question === question.question,
+    ) as PlanQuestion | undefined;
+    const canonical = authored ? step.replay?.workflow?.canonicalAnswers[authored.id] : undefined;
+    const wanted = authored?.bookDefault?.id === canonical
+      ? "Use book default"
+      : authored?.options.find((candidate) => candidate.id === canonical)?.label;
+    const option = question.options?.find((candidate) =>
+      candidate.label === wanted || /Approve and build/i.test(candidate.label ?? ""));
     if (!option?.label) throw new Error(`No recommended option for ${question.question ?? question.header}`);
     answers[question.question ?? question.header ?? "Question"] = option.label;
   }
@@ -58,7 +66,7 @@ function startStandalone(step: ReplayStep, planning: PlanningSession): Reply {
       messages: [{ role: "user", content: [{
         type: "tool_result",
         tool_use_id: reply.toolUse?.id,
-        content: recommendedAnswer(reply),
+        content: recommendedAnswer(reply, step),
       }] }],
       tools: TOOLS,
     }, content, emptyLog(), { planning });
@@ -127,7 +135,12 @@ describe("replay independence contracts", () => {
         const planning: PlanningSession = { answers: {} };
         const reply = startStandalone(step, planning);
         expect(reply.toolUse?.id, step.id).toBe(`aifirst_replay_standalone_${step.id}_0`);
-        expect(reply.toolUse?.name, step.id).toBe("Write");
+        if (step.replay?.playback?.mode === "compact") {
+          expect(reply.toolUse?.name, step.id).toBe("Bash");
+          expect(reply.toolUse?.input.command, step.id).toContain(`aifirst replay execute ${step.id}`);
+        } else {
+          expect(reply.toolUse?.name, step.id).toBe("Write");
+        }
         if (step.replay?.workflow) expect(planning.replayMode, step.id).toBe("standalone");
       } finally {
         process.chdir(originalCwd);

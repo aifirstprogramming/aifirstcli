@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -152,5 +152,56 @@ suite("OpenTUI learning interface", () => {
     expect(existsSync(progressPath)).toBe(true);
     const progress = JSON.parse(readFileSync(progressPath, "utf8"));
     expect(progress.exercises["py-2-01"].status).toBe("done");
+  }, 70_000);
+
+  test("wraps the complete immutable PocketCFO book default in the selected detail panel", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-tui-book-default-"));
+    const state = join(root, "state");
+    const home = join(root, "home");
+    const bin = join(root, "bin");
+    const scenario = join(root, "scenario.json");
+    mkdirSync(state);
+    mkdirSync(home);
+    mkdirSync(bin);
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    writeFileSync(scenario, JSON.stringify({
+      columns: 60,
+      rows: 32,
+      timeoutSeconds: 35,
+      actions: [
+        { wait: "Which book are you reading?", down: 1, enter: true },
+        { wait: "What would you like to do?", paste: "java-11-01", enter: true },
+        { wait: "BOOK DEFAULT", escape: true },
+        { wait: "Lesson paused", ctrlC: true },
+      ],
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", ENTRY, "learn", "--no-animation"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${bin}:/usr/bin:/bin`,
+        TERM: "xterm-256color",
+        NO_COLOR: "",
+        AIFIRST_TUI: "1",
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: home,
+        AIFIRST_LEARN_CHARS_PER_SECOND: "0",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
+    expect(stdout).toContain("BOOK DEFAULT");
+    expect(stdout).toContain("payments.");
+    expect(stdout).not.toContain("Desktop GUI (JavaFX)");
   }, 70_000);
 });

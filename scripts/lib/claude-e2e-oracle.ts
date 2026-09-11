@@ -95,18 +95,28 @@ function canonicalQuestion(
 ): Extract<CanonicalEvent, { type: "question" }> {
   const selected = workflow.canonicalAnswers[question.id];
   const answer = question.options.find((option) => option.id === selected);
-  if (!answer)
+  if (!answer && question.bookDefault?.id !== selected)
     throw new Error(`Canonical answer ${selected} is missing for ${question.id}`);
-  return {
-    type: "question",
-    question: question.question,
-    header: question.header,
-    options: question.options.map((option) => ({
+  const options = [
+    ...(question.bookDefault
+      ? [{
+          label: "Use book default",
+          description: normalize(question.bookDefault.text),
+          recommended: question.bookDefault.id === selected,
+        }]
+      : []),
+    ...question.options.map((option) => ({
       label: option.label,
       description: normalize(option.description),
       recommended: option.id === selected,
     })),
-    answer: answer.label,
+  ];
+  return {
+    type: "question",
+    question: question.question,
+    header: question.header,
+    options,
+    answer: answer?.label ?? "Use book default",
   };
 }
 
@@ -294,10 +304,11 @@ function verifyRenderedQuestion(
   expected.options.forEach((option, index) => {
     const rendered = object(options[index]);
     const label = String(rendered.label ?? "");
-    if (stripRecommended(label) !== option.label)
+    if (label !== option.label)
       throw new Error(`Rendered option differs for ${expected.question}: ${label}`);
-    if (option.recommended !== /\(Book Recommended\)$/i.test(label))
-      throw new Error(`Book recommendation differs for ${expected.question}: ${label}`);
+    const preview = String(rendered.preview ?? "");
+    if (option.recommended && !/BOOK DEFAULT/i.test(`${label} ${preview}`))
+      throw new Error(`Book default is not highlighted for ${expected.question}: ${label}`);
     if (normalize(String(rendered.description ?? "")) !== option.description)
       throw new Error(`Rendered description differs for ${expected.question}`);
   });
@@ -308,7 +319,7 @@ function verifyRenderedQuestionText(
   expected: Extract<CanonicalEvent, { type: "question" }>,
 ): void {
   for (const option of expected.options) {
-    const label = `${option.label}${option.recommended ? " (Book Recommended)" : ""}`;
+    const label = option.label;
     if (!text.includes(label) || !text.includes(option.description))
       throw new Error(`Rendered text option differs for ${expected.question}: ${label}`);
   }
@@ -368,7 +379,7 @@ export function canonicalLearnEvents(
             ({ question }) =>
               !renderedQuestions.has(question) &&
               text.includes(question.question) &&
-              text.includes("Book Recommended"),
+              (text.includes("BOOK DEFAULT") || text.includes("Use book default")),
           );
         if (fallbackQuestion) {
           const expected = canonicalQuestion(

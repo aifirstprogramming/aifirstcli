@@ -38,6 +38,23 @@ describe("graphical exercise runs", () => {
     expect(opensExternalWindow(pocketCfo)).toBe(true);
   });
 
+  test("compiles a Java class that has no main method", () => {
+    const content = resolveContent().content;
+    const thermostat = content.steps.find((step) => step.id === "java-6-01") as ReplayStep;
+    const example = content.examples.find((candidate) => candidate.id === thermostat.exampleId)!;
+
+    expect(commandsFor(example, thermostat, "Thermostat.java")).toEqual([
+      ["mvn", "-q", "-DskipTests", "compile"],
+    ]);
+    expect(commandsFor(
+      { ...example, scaffold: undefined },
+      { ...thermostat, scaffold: undefined },
+      "Thermostat.java",
+    )).toEqual([
+      ["javac", "-d", "out", "Thermostat.java"],
+    ]);
+  });
+
   test("the internal no-timeout run option disables the short watchdog", () => {
     const args = (flags: Map<string, string | boolean>): Args => ({ command: "run", positionals: ["py-9-01"], flags });
     expect(runTimeoutMs(args(new Map()))).toBe(30_000);

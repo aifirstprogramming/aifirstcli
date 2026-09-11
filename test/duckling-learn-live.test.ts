@@ -490,7 +490,7 @@ describeLive("chapter 9 duckling replay through aifirst learn", () => {
     ]);
     await proc.exited;
     expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
-    expect(stdout).toContain("Book Recommended");
+    expect(stdout).toContain("BOOK DEFAULT");
     expect(stdout).toContain("User answered Claude's questions");
     expect(existsSync(join(workspace, "main.py"))).toBe(true);
   }, 60_000);

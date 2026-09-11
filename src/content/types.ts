@@ -55,6 +55,7 @@ export type ReplayOperation =
       stdin?: string;
       timeoutMs?: number;
       expectedTimeout?: boolean;
+      graphical?: boolean;
       readOnly?: boolean;
       expectedExitCode?: number;
       expectedStdout?: string;
@@ -70,6 +71,12 @@ export interface PlanOption {
   id: string;
   label: string;
   description: string;
+  preview?: string;
+}
+
+export interface PlanBookDefault {
+  id: string;
+  text: string;
 }
 
 export interface PlanQuestion {
@@ -77,6 +84,7 @@ export interface PlanQuestion {
   question: string;
   header: string;
   options: PlanOption[];
+  bookDefault?: PlanBookDefault;
   group?: string;
   when?: Record<string, string>;
 }
@@ -111,6 +119,10 @@ export interface Replay {
   prePlanEvents?: ReplayEvent[];
   events?: ReplayEvent[];
   completionText?: string;
+  playback?: {
+    mode: "captured" | "compact";
+    phases?: string[];
+  };
   workflow?: PlanWorkflow;
   source?: {
     kind: "showtail";

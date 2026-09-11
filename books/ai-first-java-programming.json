@@ -3572,6 +3572,98 @@
           "goal": "Learn how to get AI help to write unit tests to test and verify code for correctness.",
           "examples": [
             {
+              "id": "java-6-00",
+              "title": "Create the Chapter 6 Maven project",
+              "description": "Set up the shared Maven project used by the chapter's classes and JUnit tests.",
+              "kind": "project",
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "prompt": "Create a new Maven project for the thermostat testing exercises using Java 17 and JUnit 5.",
+              "response": [
+                "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"",
+                "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">",
+                "    <modelVersion>4.0.0</modelVersion>",
+                "    <groupId>com.aifirst</groupId>",
+                "    <artifactId>chapter-6-testing</artifactId>",
+                "    <version>1.0-SNAPSHOT</version>",
+                "    <properties>",
+                "        <maven.compiler.release>17</maven.compiler.release>",
+                "        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>",
+                "        <junit.version>5.10.2</junit.version>",
+                "    </properties>",
+                "    <dependencies>",
+                "        <dependency>",
+                "            <groupId>org.junit.jupiter</groupId>",
+                "            <artifactId>junit-jupiter</artifactId>",
+                "            <version>${junit.version}</version>",
+                "            <scope>test</scope>",
+                "        </dependency>",
+                "    </dependencies>",
+                "    <build>",
+                "        <plugins>",
+                "            <plugin>",
+                "                <groupId>org.apache.maven.plugins</groupId>",
+                "                <artifactId>maven-surefire-plugin</artifactId>",
+                "                <version>3.2.5</version>",
+                "            </plugin>",
+                "        </plugins>",
+                "    </build>",
+                "</project>"
+              ],
+              "explanation": {
+                "summary": "This pom.xml creates the shared Java 17 Maven project used throughout Chapter 6 and adds JUnit 5 for the test exercises that follow.",
+                "lines": [
+                  {
+                    "code": "<maven.compiler.release>17</maven.compiler.release>",
+                    "text": "The project compiles against Java 17, matching the chapter's language level."
+                  },
+                  {
+                    "code": "<artifactId>junit-jupiter</artifactId>",
+                    "text": "JUnit Jupiter supplies the annotations, assertions, and test engine used by the chapter."
+                  }
+                ],
+                "run": "mvn -q -DskipTests package"
+              },
+              "scaffold": {
+                "files": [],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "pom.xml",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "package"
+                  ]
+                ],
+                "outcome": "build"
+              },
+              "replay": {
+                "prompt": "Create a new Maven project for the thermostat testing exercises using Java 17 and JUnit 5.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-00",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "The Maven project is ready for the reusable classes and JUnit tests in Chapter 6."
+                ]
+              }
+            },
+            {
               "id": "java-6-01",
               "title": "Smart thermostat application",
               "kind": "class",
@@ -3592,7 +3684,7 @@
                 "}"
               ],
               "explanation": {
-                "summary": "This class models a smart thermostat that stores the current temperature and reports whether the system should be heating, cooling, or sitting idle. It has no main method, so it is compiled and then used by other classes rather than run on its own.",
+                "summary": "This class models a smart thermostat that stores the current temperature and reports whether the system should be heating, cooling, or sitting idle. It has no main method, so it is compiled and then used by other classes rather than run on its own. This prompt defines a reusable class rather than an application, so this step compiles the project; the next prompt adds ThermostatApp as the runnable entry point.",
                 "lines": [
                   {
                     "code": "    private double currentTemp;",
@@ -3615,7 +3707,7 @@
                     "text": "With the two threshold checks returning early, anything that reaches this line is in the comfortable middle range, so no separate condition is needed for idle."
                   }
                 ],
-                "run": "javac -d out Thermostat.java"
+                "run": "mvn -q -DskipTests compile"
               },
               "replay": {
                 "prompt": "Create a Java class with a currentTemp variable and a method that returns \"Heating\", \"Cooling\", or \"Idle\" at certain temperatures.",
@@ -3635,6 +3727,32 @@
                 "commentary": [
                   "This class models a smart thermostat that stores the current temperature and reports whether the system should be heating, cooling, or sitting idle. It has no main method, so it is compiled and then used by other classes rather than run on its own."
                 ]
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "scaffold": {
+                "files": [
+                  {
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/Thermostat.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ]
+                ],
+                "outcome": "compile"
               }
             },
             {
@@ -3675,10 +3793,31 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "Thermostat.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/Thermostat.java",
                     "fromExercise": "java-6-01"
                   }
-                ]
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/ThermostatApp.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatApp"
+                  ]
+                ],
+                "outcome": "run"
               },
               "replay": {
                 "prompt": "Please write an intro app that uses the Thermostat class to create an object and print the status.",
@@ -3698,7 +3837,14 @@
                 "commentary": [
                   "This small app creates a Thermostat object set to 72 degrees and prints the status it reports, so you can check the class's behavior with your own eyes."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-03",
@@ -3746,9 +3892,28 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "Thermostat.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/Thermostat.java",
                     "fromExercise": "java-6-01"
                   }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/test/java/ThermostatTest.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
                 ]
               },
               "replay": {
@@ -3769,7 +3934,14 @@
                 "commentary": [
                   "This is a JUnit test class that checks one rule of the Thermostat: when the current temperature is 60 degrees, which is below the 68-degree threshold, the status should be \"Heating\". Instead of you reading the output and judging it, JUnit runs the check and reports pass or fail."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-04",
@@ -3815,11 +3987,29 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "RestaurantDemo.java",
-                    "content": "public class RestaurantDemo {\n    public static void main(String[] args) {\n        Restaurant restaurant = new Restaurant();\n\n        // Walk through every valid level.\n        for (int level = 1; level <= 5; level++) {\n            System.out.println(level + \" -> \" + restaurant.getSpiceLevel(level));\n        }\n\n        // Values outside 1-5 fall to the default branch.\n        System.out.println(\"0 -> \" + restaurant.getSpiceLevel(0));\n        System.out.println(\"6 -> \" + restaurant.getSpiceLevel(6));\n        System.out.println(\"-3 -> \" + restaurant.getSpiceLevel(-3));\n\n        // Simple hand-written checks, the same ones a unit test would make.\n        check(\"Mild\", restaurant.getSpiceLevel(1));\n        check(\"Medium-Mild\", restaurant.getSpiceLevel(2));\n        check(\"Medium\", restaurant.getSpiceLevel(3));\n        check(\"Medium-Spicy\", restaurant.getSpiceLevel(4));\n        check(\"Spicy\", restaurant.getSpiceLevel(5));\n        check(\"Invalid spice level\", restaurant.getSpiceLevel(0));\n        check(\"Invalid spice level\", restaurant.getSpiceLevel(6));\n        check(\"Invalid spice level\", restaurant.getSpiceLevel(-3));\n\n        System.out.println(\"All checks passed.\");\n    }\n\n    private static void check(String expected, String actual) {\n        if (!expected.equals(actual)) {\n            throw new AssertionError(\"Expected \\\"\" + expected + \"\\\" but got \\\"\" + actual + \"\\\"\");\n        }\n    }\n}\n"
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/test/java/RestaurantTest.java",
+                    "content": "import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.assertEquals;\n\nclass RestaurantTest {\n    @Test\n    void mapsTheFiveSpiceLevels() {\n        Restaurant restaurant = new Restaurant();\n        assertEquals(\"Mild\", restaurant.getSpiceLevel(1));\n        assertEquals(\"Spicy\", restaurant.getSpiceLevel(5));\n        assertEquals(\"Invalid spice level\", restaurant.getSpiceLevel(6));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "RestaurantDemo.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/Restaurant.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/ThermostatTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
+                ]
               },
               "replay": {
                 "prompt": "Please create a Restaurant class with a method to get the spice level for a food that accepts an int for the level. Levels can be 1-5 with 1 mild and 5 spicy. Add unit tests, as well.",
@@ -3839,7 +4029,14 @@
                 "commentary": [
                   "This Restaurant class holds a single method, getSpiceLevel, that turns a number from 1 to 5 into a readable spice description like \"Mild\" or \"Spicy\". It is a small, testable unit: give it a number, get a string back."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-05",
@@ -3901,11 +4098,31 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "ThermostatDemo.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/ThermostatDemo.java",
                     "content": "public class ThermostatDemo {\n    public static void main(String[] args) {\n        int[] readings = {64, 67, 72, 76, 80};\n\n        System.out.println(\"Temp | Normal  | Eco\");\n        for (int temp : readings) {\n            String normal = new Thermostat(temp, false).getStatus();\n            String eco = new Thermostat(temp, true).getStatus();\n            System.out.printf(\"%4d | %-7s | %s%n\", temp, normal, eco);\n        }\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "ThermostatDemo.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/Thermostat.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatDemo"
+                  ]
+                ],
+                "outcome": "run"
               },
               "replay": {
                 "prompt": "Could you add intro code for a new feature of eco mode to reduce the energy consumption by widening temperature thresholds?",
@@ -3925,7 +4142,14 @@
                 "commentary": [
                   "This is the Thermostat class updated with an eco mode setting. When eco mode is on, the thermostat waits longer before heating and longer before cooling, so it runs less often and uses less energy."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-06",
@@ -3979,9 +4203,28 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "Thermostat.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/Thermostat.java",
                     "fromExercise": "java-6-05"
                   }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/test/java/ThermostatTest.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
                 ]
               },
               "replay": {
@@ -4002,7 +4245,14 @@
                 "commentary": [
                   "This is the thermostat's JUnit test class with a second test added for the new eco mode feature. One test checks that a cold room reports \"Heating\", and the new one checks that with eco mode on, a cooler room is still considered comfortable."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-07",
@@ -4079,6 +4329,32 @@
                 "commentary": [
                   "This is the smart thermostat class, now with a method that writes its current mode to the device display. The status logic itself is unchanged: the thermostat reports Heating, Cooling, or Idle based on the current temperature and whether eco mode is on."
                 ]
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "scaffold": {
+                "files": [
+                  {
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/Thermostat.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ]
+                ],
+                "outcome": "compile"
               }
             },
             {
@@ -4145,9 +4421,28 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "Thermostat.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/Thermostat.java",
                     "fromExercise": "java-6-07"
                   }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/test/java/ThermostatTest.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
                 ]
               },
               "replay": {
@@ -4168,7 +4463,14 @@
                 "commentary": [
                   "This JUnit test checks that a thermostat's printStatusToDisplay() method writes the right text to the console. Because the method prints instead of returning a value, the test has to temporarily capture System.out into a buffer and compare that buffer's contents to the expected line."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-09",
@@ -4205,11 +4507,31 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "ThermostatDemo.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/ThermostatDemo.java",
                     "content": "public class ThermostatDemo {\n\n    static class Thermostat {\n        private int temperature;\n        private boolean ecoMode;\n\n        public Thermostat(int temperature, boolean ecoMode) {\n            this.temperature = temperature;\n            this.ecoMode = ecoMode;\n        }\n\n        public String getStatus() {\n            int threshold = ecoMode ? 65 : 70;\n            if (temperature < threshold) {\n                return \"Heating\";\n            }\n            return \"Idle\";\n        }\n\n        public String printStatusToDisplay() {\n            return \"Thermostat status: \" + getStatus();\n        }\n    }\n\n    public static void main(String[] args) {\n        Thermostat thermostat = new Thermostat(68, false);\n        System.out.println(thermostat.printStatusToDisplay());\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "ThermostatDemo.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "examples/java-6-09/Thermostat.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatDemo"
+                  ]
+                ],
+                "outcome": "run"
               },
               "replay": {
                 "prompt": "Please modify the printStatusToDisplay method to return a String instead.",
@@ -4229,7 +4551,14 @@
                 "commentary": [
                   "This is the improved version of the thermostat's display method: instead of printing the status to the console, it returns the status message as a String so the caller can decide what to do with it."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-10",
@@ -4313,9 +4642,28 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "Thermostat.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/Thermostat.java",
                     "content": "public class Thermostat {\n    private int temperature;\n    private boolean ecoMode;\n\n    public Thermostat(int temperature, boolean ecoMode) {\n        this.temperature = temperature;\n        this.ecoMode = ecoMode;\n    }\n\n    public String getStatus() {\n        int heatBelow = ecoMode ? 65 : 68;\n        int coolAbove = ecoMode ? 78 : 75;\n\n        if (temperature < heatBelow) {\n            return \"Heating\";\n        } else if (temperature > coolAbove) {\n            return \"Cooling\";\n        } else {\n            return \"Idle\";\n        }\n    }\n\n    public String printStatusToDisplay() {\n        return \"Thermostat status: \" + getStatus();\n    }\n}\n"
                   }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/test/java/ThermostatTest.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
                 ]
               },
               "replay": {
@@ -4336,7 +4684,14 @@
                 "commentary": [
                   "This is a JUnit test class for the smart thermostat, with one small test per behavior: each of the three statuses in regular mode, each of them again in eco mode, and the display string. Each test builds its own Thermostat and makes a single assertion."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-11",
@@ -4410,6 +4765,32 @@
                 "commentary": [
                   "This class models a traffic light that starts on red and cycles red \\u2192 green \\u2192 yellow \\u2192 red each time advance() is called, plus a method that reports whether traffic must stop. It is the subject under test for the badly written traffic light tests that follow."
                 ]
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "scaffold": {
+                "files": [
+                  {
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/TrafficLight.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ]
+                ],
+                "outcome": "compile"
               }
             },
             {
@@ -4515,9 +4896,28 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "TrafficLight.java",
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/TrafficLight.java",
                     "fromExercise": "java-6-11"
                   }
+                ],
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/test/java/TrafficLightTest.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/ThermostatTest.java",
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
                 ]
               },
               "replay": {
@@ -4538,7 +4938,14 @@
                 "commentary": [
                   "This is the cleaned-up JUnit test class for the TrafficLight from earlier in the chapter. Each test method now checks a single fact about the light \"Red\" \"Green\" \"Yellow\" \"Red\" \"Green\" \"Yellow\" — its starting color, one step of advancement, or whether a stop is required at a particular color."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-13",
@@ -4571,15 +4978,31 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "TemperatureSensor.java",
-                    "fromExercise": "java-6-13"
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
                   },
                   {
-                    "path": "TemperatureSensorDemo.java",
+                    "path": "src/main/java/TemperatureSensorDemo.java",
                     "content": "public class TemperatureSensorDemo {\n\n    // A stand-in sensor. Real hardware would report a live reading here.\n    static class FakeSensor implements TemperatureSensor {\n        private final int[] readings = {68, 62, 55};\n        private int index = 0;\n\n        @Override\n        public int getCurrentTemperature() {\n            int reading = readings[index];\n            index = (index + 1) % readings.length;\n            return reading;\n        }\n    }\n\n    public static void main(String[] args) {\n        TemperatureSensor sensor = new FakeSensor();\n        for (int i = 0; i < 3; i++) {\n            System.out.println(\"Sensor reports: \" + sensor.getCurrentTemperature() + \"F\");\n        }\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "TemperatureSensorDemo.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/TemperatureSensor.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "TemperatureSensorDemo"
+                  ]
+                ],
+                "outcome": "run"
               },
               "replay": {
                 "prompt": "Could we modify this with intro code to read temperature from a sensor?",
@@ -4599,13 +5022,19 @@
                 "commentary": [
                   "This declares a Java interface named TemperatureSensor, which lists one behavior any temperature sensor must provide: returning the current temperature as a whole number. It is a contract, not a working sensor."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             },
             {
               "id": "java-6-14",
               "title": "Added mockito dependency in pom.xml project file",
               "kind": "snippet",
-              "status": "retired",
               "prompt": "Please use mockito to mock the TemperatureSensor and make code updates accordingly.",
               "response": [
                 "    <dependencies>",
@@ -4643,16 +5072,64 @@
                     "text": "The test scope keeps Mockito on the classpath only while compiling and running tests, so a mocking framework never ships inside your production application."
                   }
                 ],
-                "run": "javac -d out -sourcepath . MockitoDependencyNote.java && java -cp out MockitoDependencyNote"
+                "run": "mvn -q test"
               },
               "scaffold": {
                 "files": [
                   {
-                    "path": "MockitoDependencyNote.java",
-                    "content": "public class MockitoDependencyNote {\n    public static void main(String[] args) {\n        System.out.println(\"This exercise is a pom.xml fragment, not Java source.\");\n        System.out.println(\"It declares the Mockito dependency used to mock TemperatureSensor:\");\n        System.out.println(\"  groupId    : org.mockito\");\n        System.out.println(\"  artifactId : mockito-core\");\n        System.out.println(\"  version    : 5.12.0\");\n        System.out.println(\"  scope      : test\");\n        System.out.println();\n        System.out.println(\"Maven reads this block and downloads the library for the test classpath.\");\n    }\n}\n"
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n        <dependency>\n            <groupId>org.mockito</groupId>\n            <artifactId>mockito-core</artifactId>\n            <version>5.12.0</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/main/java/TemperatureSensor.java",
+                    "fromExercise": "java-6-13"
+                  },
+                  {
+                    "path": "src/test/java/TemperatureSensorTest.java",
+                    "content": "import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.mockito.Mockito.mock;\nimport static org.mockito.Mockito.when;\n\nclass TemperatureSensorTest {\n    @Test\n    void suppliesAControlledSensorReading() {\n        TemperatureSensor sensor = mock(TemperatureSensor.class);\n        when(sensor.getCurrentTemperature()).thenReturn(64);\n        assertEquals(64, sensor.getCurrentTemperature());\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "MockitoDependencyNote.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "examples/java-6-14/pom-fragment.xml",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/ThermostatTest.java",
+                  "src/test/java/RestaurantTest.java",
+                  "src/test/java/TrafficLightTest.java"
+                ]
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "replay": {
+                "prompt": "Please use mockito to mock the TemperatureSensor and make code updates accordingly.",
+                "operations": [
+                  {
+                    "type": "command",
+                    "command": [
+                      "aifirst",
+                      "run",
+                      "java-6-14",
+                      "--force",
+                      "--format",
+                      "json"
+                    ]
+                  }
+                ],
+                "commentary": [
+                  "This is a fragment of a Maven pom.xml file, not Java code. It adds Mockito to the project so that tests can create stand-in (mock) objects for collaborators like the TemperatureSensor interface, instead of talking to real hardware."
+                ]
               }
             },
             {
@@ -4723,11 +5200,29 @@
               "scaffold": {
                 "files": [
                   {
-                    "path": "RestaurantDemo.java",
-                    "content": "import java.time.Clock;\nimport java.time.Instant;\nimport java.time.ZoneOffset;\n\npublic class RestaurantDemo {\n    public static void main(String[] args) {\n        // A clock frozen at 09:30 - before the kitchen opens.\n        Clock morning = Clock.fixed(Instant.parse(\"2024-05-01T09:30:00Z\"), ZoneOffset.UTC);\n        Restaurant tooEarly = new Restaurant(morning);\n        System.out.println(\"At 09:30 -> \" + tooEarly.placeOrder(\"Butter Chicken\"));\n\n        // A clock frozen at 12:15 - orders are open.\n        Clock lunch = Clock.fixed(Instant.parse(\"2024-05-01T12:15:00Z\"), ZoneOffset.UTC);\n        Restaurant open = new Restaurant(lunch);\n        System.out.println(\"At 12:15 -> \" + open.placeOrder(\"Butter Chicken\"));\n\n        // Exactly 11:00 counts as open, because isBefore is not inclusive.\n        Clock opening = Clock.fixed(Instant.parse(\"2024-05-01T11:00:00Z\"), ZoneOffset.UTC);\n        System.out.println(\"At 11:00 -> \" + new Restaurant(opening).placeOrder(\"Samosa\"));\n    }\n}\n"
+                    "path": "pom.xml",
+                    "content": "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.aifirst</groupId>\n    <artifactId>chapter-6-testing</artifactId>\n    <version>1.0-SNAPSHOT</version>\n    <properties>\n        <maven.compiler.release>17</maven.compiler.release>\n        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>\n        <junit.version>5.10.2</junit.version>\n    </properties>\n    <dependencies>\n        <dependency>\n            <groupId>org.junit.jupiter</groupId>\n            <artifactId>junit-jupiter</artifactId>\n            <version>${junit.version}</version>\n            <scope>test</scope>\n        </dependency>\n        <dependency>\n            <groupId>org.mockito</groupId>\n            <artifactId>mockito-core</artifactId>\n            <version>5.12.0</version>\n            <scope>test</scope>\n        </dependency>\n    </dependencies>\n    <build>\n        <plugins>\n            <plugin>\n                <groupId>org.apache.maven.plugins</groupId>\n                <artifactId>maven-surefire-plugin</artifactId>\n                <version>3.2.5</version>\n            </plugin>\n        </plugins>\n    </build>\n</project>"
+                  },
+                  {
+                    "path": "src/test/java/RestaurantTest.java",
+                    "content": "import java.time.Clock;\nimport java.time.Instant;\nimport java.time.ZoneOffset;\nimport org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.mockito.Mockito.mock;\nimport static org.mockito.Mockito.when;\n\nclass RestaurantTest {\n    @Test\n    void usesAControlledClockForOpeningTime() {\n        Clock clock = mock(Clock.class);\n        when(clock.instant()).thenReturn(Instant.parse(\"2024-05-01T12:15:00Z\"));\n        when(clock.getZone()).thenReturn(ZoneOffset.UTC);\n        assertEquals(\"Order placed for Samosa\", new Restaurant(clock).placeOrder(\"Samosa\"));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "RestaurantDemo.java"
+                "projectRoot": "chapter-6-testing",
+                "responsePath": "src/main/java/Restaurant.java",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ],
+                "outcome": "test",
+                "clean": [
+                  "src/test/java/ThermostatTest.java",
+                  "src/test/java/TrafficLightTest.java",
+                  "src/test/java/TemperatureSensorTest.java"
+                ]
               },
               "replay": {
                 "prompt": "Expand our Restaurant example for placing food orders. Orders should only be allowed at 11am or after, and tests should mock the current time.",
@@ -4747,7 +5242,14 @@
                 "commentary": [
                   "This version of the Restaurant class adds a placeOrder method that only accepts orders at 11:00 AM or later. Rather than asking the system directly what time it is, the class receives a Clock it can be told about, so tests can hand it any time they like."
                 ]
-              }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ]
             }
           ]
         },
@@ -8396,6 +8898,26 @@
                     "type": "write",
                     "path": "src/test/java/com/example/finance/TransactionRepositoryTest.java",
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n}\n"
+                  },
+                  {
+                    "type": "command",
+                    "command": [
+                      "mvn",
+                      "-q",
+                      "clean",
+                      "test"
+                    ],
+                    "expectedExitCode": 0
+                  },
+                  {
+                    "type": "command",
+                    "command": [
+                      "mvn",
+                      "-q",
+                      "javafx:run"
+                    ],
+                    "graphical": true,
+                    "expectedExitCode": 0
                   }
                 ],
                 "prePlanEvents": [
@@ -9204,14 +9726,13 @@
                           "id": "not_sure_yet_recommend_one",
                           "label": "Not sure yet — recommend one",
                           "description": "Let me pick based on what fits the feature set best and explain the tradeoff."
-                        },
-                        {
-                          "id": "i_want_the_desktop_gui_but_i_m_not_tied_to_a_spe",
-                          "label": "I want the Desktop GUI, but I'm not tied to a specific library for it. I don't want to include too many dependencies or overcomplicate, but I want the user experience to be nice. If that needs JavaFx or another lib, that's fine. But this should be more of a capstone project that will build over Chapters 11 and 12. Chapter 11 should build recording and displaying transactions, grouping them by category and comparing with targets, flagging over-budget categories and surface warnings, add savings goals and allocate what's left, build the full month summary view, and track spread expenses (annual subscriptions) and long-term contract dates/payments.",
-                          "description": "Captured learner-authored choice."
                         }
                       ],
-                      "group": "group_1"
+                      "group": "group_1",
+                      "bookDefault": {
+                        "id": "book_default",
+                        "text": "I want the Desktop GUI, but I'm not tied to a specific library for it. I don't want to include too many dependencies or overcomplicate, but I want the user experience to be nice. If that needs JavaFx or another lib, that's fine. But this should be more of a capstone project that will build over Chapters 11 and 12. Chapter 11 should build recording and displaying transactions, grouping them by category and comparing with targets, flagging over-budget categories and surface warnings, add savings goals and allocate what's left, build the full month summary view, and track spread expenses (annual subscriptions) and long-term contract dates/payments."
+                      }
                     },
                     {
                       "id": "data_storage",
@@ -9232,14 +9753,13 @@
                           "id": "not_sure_yet_recommend_one",
                           "label": "Not sure yet — recommend one",
                           "description": "Let me pick based on the analysis features you want."
-                        },
-                        {
-                          "id": "i_don_t_want_a_database_yet_i_m_good_with_whatev",
-                          "label": "I don't want a database yet. I'm good with whatever makes sense as a simple first step.",
-                          "description": "Captured learner-authored choice."
                         }
                       ],
-                      "group": "group_1"
+                      "group": "group_1",
+                      "bookDefault": {
+                        "id": "book_default",
+                        "text": "I don't want a database yet. I'm good with whatever makes sense as a simple first step."
+                      }
                     },
                     {
                       "id": "budget_cycle",
@@ -9266,7 +9786,7 @@
                       "options": [
                         {
                           "id": "mvp_first",
-                          "label": "MVP first",
+                          "label": "MVP first (Recommended)",
                           "description": "Core loop only: income, categories, expenses, leftover calculation, and moving leftover between categories. Analysis/priority features come in a follow-up round once the core feels right."
                         },
                         {
@@ -9279,8 +9799,8 @@
                     }
                   ],
                   "canonicalAnswers": {
-                    "app_interface": "i_want_the_desktop_gui_but_i_m_not_tied_to_a_spe",
-                    "data_storage": "i_don_t_want_a_database_yet_i_m_good_with_whatev",
+                    "app_interface": "book_default",
+                    "data_storage": "book_default",
                     "budget_cycle": "calendar_month",
                     "initial_scope": "mvp_first"
                   },
@@ -9292,6 +9812,16 @@
                   "generatedAt": "2026-09-01T20:35:12.438Z",
                   "turnIndex": 0,
                   "sessionId": "pocketcfo-java-11-01"
+                },
+                "playback": {
+                  "mode": "compact",
+                  "phases": [
+                    "Create the Maven and JavaFX project plus transaction entry.",
+                    "Add category targets, totals, and over-budget warnings.",
+                    "Add savings goals and leftover allocation.",
+                    "Add recurring obligations and monthly equivalents.",
+                    "Wire the complete monthly summary and verify the project."
+                  ]
                 }
               },
               "dependencies": [
@@ -9658,6 +10188,26 @@
                     "type": "write",
                     "path": "src/test/java/com/example/finance/TransactionRepositoryTest.java",
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
+                  },
+                  {
+                    "type": "command",
+                    "command": [
+                      "mvn",
+                      "-q",
+                      "clean",
+                      "test"
+                    ],
+                    "expectedExitCode": 0
+                  },
+                  {
+                    "type": "command",
+                    "command": [
+                      "mvn",
+                      "-q",
+                      "javafx:run"
+                    ],
+                    "graphical": true,
+                    "expectedExitCode": 0
                   }
                 ],
                 "events": [
@@ -12417,6 +12967,14 @@
                   "generatedAt": "2026-09-01T20:35:12.438Z",
                   "turnIndex": 0,
                   "sessionId": "pocketcfo-java-11-02"
+                },
+                "playback": {
+                  "mode": "compact",
+                  "phases": [
+                    "Apply the final update and delete behavior across repositories.",
+                    "Wire editing controls and selection handling in each JavaFX view.",
+                    "Run the complete test suite and open the finished application once."
+                  ]
                 }
               },
               "dependencies": [
@@ -13184,7 +13742,7 @@
                       "options": [
                         {
                           "id": "hand_rolled_parser",
-                          "label": "Hand-rolled parser",
+                          "label": "Hand-rolled parser (Recommended)",
                           "description": "Write a small parser that handles quoted fields, matching the codebase's existing no-dependency, hand-rolled style (e.g. TransactionRepository's pipe-delimited parsing). No pom.xml change."
                         },
                         {
@@ -13202,7 +13760,7 @@
                       "options": [
                         {
                           "id": "backend_only",
-                          "label": "Backend only",
+                          "label": "Backend only (Recommended)",
                           "description": "A CSV importer class plus repository integration and unit tests, following this repo's test-first pattern. No UI changes."
                         },
                         {
@@ -14590,7 +15148,7 @@
                       "options": [
                         {
                           "id": "one_shared_control_for_all_tabs",
-                          "label": "One shared control for all tabs",
+                          "label": "One shared control for all tabs (Recommended)",
                           "description": "A single Prev/Next month control (plus a 'Today' button) sits above the tab bar in MainApp. Switching months updates Month Summary, Transactions, and Categories together, so all three always show the same month."
                         },
                         {
@@ -14608,7 +15166,7 @@
                       "options": [
                         {
                           "id": "add_a_ytd_section_to_the_existing_month_summary_",
-                          "label": "Add a YTD section to the existing Month Summary tab",
+                          "label": "Add a YTD section to the existing Month Summary tab (Recommended)",
                           "description": "Below the current month's numbers, add a second section showing total income/expenses/leftover and a category breakdown summed from January through the currently selected month."
                         },
                         {
@@ -17147,7 +17705,7 @@
                       "options": [
                         {
                           "id": "one_table_priority_order_spend_rank_column",
-                          "label": "One table: priority order + spend rank column",
+                          "label": "One table: priority order + spend rank column (Recommended)",
                           "description": "A single table sorted by priority number, with each row also showing where that category ranks by actual spend (e.g. \"#1 Rent — spend rank #3\"). Easiest to scan per-category misalignment without cross-referencing two lists."
                         },
                         {
@@ -17165,7 +17723,7 @@
                       "options": [
                         {
                           "id": "option_1_most_important",
-                          "label": "1 = most important",
+                          "label": "1 = most important (Recommended)",
                           "description": "Matches common ranked-list convention (like a top-10 list) — rank 1 is the highest priority, larger numbers are lower priority."
                         },
                         {
@@ -17183,7 +17741,7 @@
                       "options": [
                         {
                           "id": "optional",
-                          "label": "Optional",
+                          "label": "Optional (Recommended)",
                           "description": "A category can be left unprioritized (blank). Unprioritized categories are excluded from the priority-vs-spend comparison but still work everywhere else in the app unchanged."
                         },
                         {
@@ -17201,7 +17759,7 @@
                       "options": [
                         {
                           "id": "fix_it_now",
-                          "label": "Fix it now",
+                          "label": "Fix it now (Recommended)",
                           "description": "Small, low-risk fix: have allocateLeftoverToGoal date the contribution using the given month (e.g. today's day-of-month within that month, or the 1st if today doesn't fall in it) instead of the real wall-clock date. Restores both failing tests without touching this session's actual refactor."
                         },
                         {
@@ -17910,18 +18468,21 @@
                       "options": [
                         {
                           "id": "amounts_with_arrows",
-                          "label": "Amounts with arrows",
-                          "description": "Three months' amounts connected by arrows showing direction month-to-month. Simple, precise, no extra computation beyond comparing consecutive numbers."
+                          "label": "Amounts with arrows (Recommended)",
+                          "description": "Three months' amounts connected by arrows showing direction month-to-month. Simple, precise, no extra computation beyond comparing consecutive numbers.",
+                          "preview": "Groceries:  Jun $310.00  →  Jul $340.00 ^  →  Aug $290.00 v"
                         },
                         {
                           "id": "unicode_sparkline_bars",
                           "label": "Unicode sparkline bars",
-                          "description": "A compact 3-character bar chart (low/med/high block height) plus the amounts, more visual/scannable but a bit more code to scale bar heights."
+                          "description": "A compact 3-character bar chart (low/med/high block height) plus the amounts, more visual/scannable but a bit more code to scale bar heights.",
+                          "preview": "Groceries:  ▂▅▃  ($310.00, $340.00, $290.00)"
                         },
                         {
                           "id": "bars_amounts_arrows_combined",
                           "label": "Bars + amounts + arrows combined",
-                          "description": "Sparkline bars AND arrows AND amounts together — most information-dense, but busiest and closest to \"fancy\" which you said you didn't need."
+                          "description": "Sparkline bars AND arrows AND amounts together — most information-dense, but busiest and closest to \"fancy\" which you said you didn't need.",
+                          "preview": "Groceries:  ▂▅▃  $310.00 → $340.00 ^ → $290.00 v"
                         }
                       ],
                       "group": "group_1"
@@ -17933,7 +18494,7 @@
                       "options": [
                         {
                           "id": "new_section_on_the_categories_tab",
-                          "label": "New section on the Categories tab",
+                          "label": "New section on the Categories tab (Recommended)",
                           "description": "Category management, budget-vs-actual, and now trend history all live together where category data is already managed — no new tab needed."
                         },
                         {
@@ -17956,7 +18517,7 @@
                       "options": [
                         {
                           "id": "anchored_to_the_selected_month",
-                          "label": "Anchored to the selected month",
+                          "label": "Anchored to the selected month (Recommended)",
                           "description": "The 3 months are the selected month and the two before it — consistent with how the rest of the app (YTD section, category totals) already reacts to the month nav bar."
                         },
                         {
@@ -19096,7 +19657,7 @@
                       "options": [
                         {
                           "id": "preview_only",
-                          "label": "Preview-only",
+                          "label": "Preview-only (Recommended)",
                           "description": "Shows the three projected numbers (new remaining, new goal allocation, new progress %) without changing any data. If the user likes what they see, they'd still go log it manually via the existing Categories/Savings Goals tabs."
                         },
                         {
@@ -19114,7 +19675,7 @@
                       "options": [
                         {
                           "id": "a_new_dedicated_tab",
-                          "label": "A new dedicated tab",
+                          "label": "A new dedicated tab (Recommended)",
                           "description": "Its own tab, since the tool spans a category and a savings goal and doesn't naturally belong to either existing tab."
                         },
                         {

@@ -67,9 +67,10 @@ does not receive approval prompts for replay plumbing.
 A replay may require an approved plan before any operation runs. Normal skill
 mode asks Claude to enter native plan mode, presents the authored question groups,
 and lets the model design a verified variant when the learner chooses a
-non-book answer. In normal skill mode the book choice is first and receives
-Claude's single normal **Recommended** label. Local learning labels the same
-choice **Book Recommended** because no model is choosing the recommendation.
+non-book answer. Source options retain Claude Code's exact wording and order.
+When the book used Claude's free-form Other path, replay presents a separate
+immutable **Use book default** control and shows the complete captured response
+in its wrapping description and selection preview.
 
 Both `aifirst learn` and `aifirst learn --claude` follow the same questionnaire without a model. Canonical and
 fully authored variant paths can continue to plan approval. An unsupported
@@ -77,6 +78,11 @@ choice explains that an LLM is required and offers to use the book answer,
 restart planning, or leave local learning. It never silently substitutes the
 book answer, and no mutating operation is emitted before approval; captured
 read-only inspection may run first when the original session did so.
+
+Large project replays may opt into compact playback. The learner still sees the
+authored questions, plan, and phase milestones, but approval runs one trusted
+final-checkpoint command, one verification pass, and at most one graphical
+launch instead of replaying every captured edit and intermediate smoke test.
 
 Verified LLM-generated alternatives are recorded as variants with stable
 question and option ids. Free-form learner text and generated plans are not

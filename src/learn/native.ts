@@ -1,6 +1,5 @@
 import { extname } from "node:path";
 import { emitKeypressEvents } from "node:readline";
-import { exercisePath } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag } from "../cli";
 import { resolveScope, type Scope } from "../books";
@@ -37,7 +36,7 @@ import { currentTuiSession } from "../tui/session";
 import { runWithTui, shouldUseTui } from "../tui";
 import { prepareExerciseFiles } from "../commands/run";
 import { ReplayStateGuard } from "./replayState";
-import { ensureWorkspace as resolveWorkspace } from "../workspace";
+import { defaultExercisePath, ensureWorkspace as resolveWorkspace } from "../workspace";
 import { mavenJavaFxCommand } from "../projects";
 import { GeneratedFileStore } from "../generatedFiles";
 import { writeScaffold } from "../content/scaffold";
@@ -60,7 +59,7 @@ interface ConfirmationSession {
 interface Question {
   question: string;
   header?: string;
-  options: { label: string; description?: string }[];
+  options: { label: string; description?: string; preview?: string }[];
 }
 
 interface BookSelection {
@@ -753,7 +752,7 @@ function prepareNativeExercise(stepId: string, into?: string): ToolExecutionResu
   const example = step ? content.examples.find((candidate) => candidate.id === step.exampleId) : undefined;
   if (!step || !example) return { failed: true, content: `Unknown exercise ${stepId}` };
   try {
-    const prepared = prepareExerciseFiles(content, example, step, { into: into ?? exercisePath(example, step) });
+    const prepared = prepareExerciseFiles(content, example, step, { into: into ?? defaultExercisePath(content, example, step) });
     out(`  ${green(glyph.done)} ${prepared.wrote ? "Wrote" : "Prepared"} ${prepared.path}`);
     return {
       failed: false,
@@ -783,6 +782,9 @@ export function nativeReplayOperation(
   if (operation.type !== "command") return operation;
   if (aifirstRunId(operation.command)) {
     return { ...operation, command: selfCommand(operation.command.slice(1).filter((argument) => argument !== "--force")) };
+  }
+  if (operation.command[0] === "aifirst" && operation.command[1] === "replay" && operation.command[2] === "execute") {
+    return { ...operation, command: selfCommand(operation.command.slice(1)) };
   }
   const entrypoint = step.scaffold?.entrypoint;
   const launchesGraphicalEntrypoint = Boolean(
@@ -1001,7 +1003,12 @@ async function answerQuestions(input: Record<string, unknown>): Promise<{ failed
   for (const question of questions) {
     const choices = question.options.map((option, index) => ({
       key: String(index + 1),
-      label: option.description ? `${option.label} ${dim(`- ${option.description}`)}` : option.label,
+      label: option.label,
+      description: option.description,
+      preview: option.preview,
+      ...(option.label === "Use book default" || option.preview?.startsWith("BOOK DEFAULT")
+        ? { badge: "BOOK DEFAULT" }
+        : {}),
     }));
     const picked = await choose(question.question, choices);
     if (!picked) return { failed: true, content: "(no content)" };

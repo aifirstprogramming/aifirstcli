@@ -4789,7 +4789,7 @@
                       "options": [
                         {
                           "id": "top_down_maze_exploration",
-                          "label": "Top-down maze/exploration",
+                          "label": "Top-down maze/exploration (Recommended)",
                           "description": "Duckling walks around a pond/forest map (arrow keys/WASD) navigating obstacles to reach its mother. Easiest to make feel good with simple shapes."
                         },
                         {
@@ -4812,7 +4812,7 @@
                       "options": [
                         {
                           "id": "avoid_predators",
-                          "label": "Avoid predators",
+                          "label": "Avoid predators (Recommended)",
                           "description": "Foxes/hawks patrol the map; touching one costs a life or resets the duckling's position."
                         },
                         {
@@ -4840,7 +4840,7 @@
                       "options": [
                         {
                           "id": "simple_shapes_procedural",
-                          "label": "Simple shapes/procedural",
+                          "label": "Simple shapes/procedural (Recommended)",
                           "description": "Drawn entirely with pygame primitives (circles, polygons) — no external image files needed, fastest to build and fully self-contained."
                         },
                         {
@@ -4858,7 +4858,7 @@
                       "options": [
                         {
                           "id": "generate_simple_png_sprites_programmatically",
-                          "label": "Generate simple PNG sprites programmatically",
+                          "label": "Generate simple PNG sprites programmatically (Recommended)",
                           "description": "Use a small Python/Pillow script to draw cute simple sprites (yellow duckling, mother duck, siblings, grass/water background tiles) and save them as PNG files in an assets folder, then load with pygame."
                         },
                         {
@@ -5990,7 +5990,7 @@
                       "options": [
                         {
                           "id": "brief_level_complete_screen_then_auto_advance",
-                          "label": "Brief 'Level Complete' screen, then auto-advance",
+                          "label": "Brief 'Level Complete' screen, then auto-advance (Recommended)",
                           "description": "When you reach mother with all siblings collected, a short overlay shows 'Level 1 Complete!' for ~2 seconds, then the next level loads automatically with a fresh player position, siblings, obstacles, and foxes."
                         },
                         {
@@ -6008,7 +6008,7 @@
                       "options": [
                         {
                           "id": "more_and_faster_of_the_same",
-                          "label": "More and faster of the same",
+                          "label": "More and faster of the same (Recommended)",
                           "description": "Each level adds more rocks/bushes/water tiles and more foxes patrolling horizontally, and fox speed increases slightly -- simplest, reuses all existing Fox/Obstacle logic unchanged."
                         },
                         {
@@ -6026,7 +6026,7 @@
                       "options": [
                         {
                           "id": "keep_6_siblings_every_level",
-                          "label": "Keep 6 siblings every level",
+                          "label": "Keep 6 siblings every level (Recommended)",
                           "description": "Difficulty comes from obstacles/foxes, not from more backtracking -- keeps each level's core loop consistent and levels quicker to complete as they get more hazardous."
                         },
                         {
@@ -6624,7 +6624,7 @@
                       "options": [
                         {
                           "id": "json_files",
-                          "label": "JSON files",
+                          "label": "JSON files (Recommended)",
                           "description": "Add a levels/*.json format; level.py's build_level loads LevelDef from JSON. Editor saves/loads JSON directly. Cleanest separation, lets you add levels without touching code, but requires updating level.py's loading logic."
                         },
                         {
@@ -6642,7 +6642,7 @@
                       "options": [
                         {
                           "id": "standalone_script",
-                          "label": "Standalone script",
+                          "label": "Standalone script (Recommended)",
                           "description": "New level_editor.py, a separate pygame window/app you run with `python level_editor.py`. Keeps main.py untouched and the editor's UI (toolbars, mode indicators) simple to build without interfering with gameplay states."
                         },
                         {
@@ -6660,7 +6660,7 @@
                       "options": [
                         {
                           "id": "core_grid_placement",
-                          "label": "Core grid placement",
+                          "label": "Core grid placement (Recommended)",
                           "description": "Click to place/remove obstacles (rock/bush/water), sibling spawns, mother position, player start. Keyboard/toolbar to pick current tool. This is the minimum viable editor."
                         },
                         {
@@ -7646,7 +7646,7 @@
                       "options": [
                         {
                           "id": "ignore_foxes_check_static_connectivity",
-                          "label": "Ignore foxes, check static connectivity",
+                          "label": "Ignore foxes, check static connectivity (Recommended)",
                           "description": "A level is \"beatable\" iff there's a path through non-obstacle cells connecting the player start, every sibling, and mother — matches the actual game rule that getting caught is a setback, not a permanent failure. Foxes aren't part of the algorithm at all."
                         },
                         {
@@ -7664,7 +7664,7 @@
                       "options": [
                         {
                           "id": "frontier_expansion_final_path",
-                          "label": "Frontier expansion + final path",
+                          "label": "Frontier expansion + final path (Recommended)",
                           "description": "Classic pathfinding-visualizer look: cells light up in the order the search (BFS) explores them (a growing flood-fill), then the discovered route is traced in a bold color and a marker walks along it. More visually convincing that a real search happened, slightly more code."
                         },
                         {

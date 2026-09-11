@@ -26,11 +26,24 @@ import { tuiHighlightClient } from "./highlighting";
 export interface TuiChoice {
   key: string;
   label: string;
+  description?: string;
+  preview?: string;
+  badge?: string;
 }
 
 export type TuiChoiceResult =
   | { kind: "choice"; key: string }
   | { kind: "input"; value: string };
+
+export function tuiChoiceDetail(choice: TuiChoice | undefined): string {
+  if (!choice) return "";
+  return [
+    choice.badge ? `${choice.badge}\n` : "Option details\n",
+    choice.label,
+    choice.description ? `\n${choice.description}` : "",
+    choice.preview && choice.preview !== choice.description ? `\n\n${choice.preview}` : "",
+  ].join("");
+}
 
 export interface TuiMarkdownOptions {
   charsPerSecond?: number;
@@ -661,7 +674,11 @@ export class LearnTuiSession {
   async choose(question: string, choices: TuiChoice[], inputHint?: string): Promise<TuiChoiceResult | undefined> {
     this.clearBottom();
     this.interactionActive = true;
-    const height = Math.min(Math.max(7, choices.length * 2 + (inputHint ? 5 : 4)), Math.max(7, this.renderer.height - 5));
+    const hasDetails = choices.some((choice) => Boolean(choice.description || choice.preview));
+    const availableHeight = Math.max(7, this.renderer.height - 5);
+    const height = hasDetails
+      ? availableHeight
+      : Math.min(Math.max(7, choices.length + (inputHint ? 5 : 4)), availableHeight);
     this.bottom.height = height;
     this.bottom.border = true;
     this.bottom.borderColor = this.palette.border;
@@ -683,8 +700,14 @@ export class LearnTuiSession {
 
     const select = new SelectRenderable(this.renderer, {
       width: "100%",
-      flexGrow: 1,
-      options: choices.map((choice, index) => ({ name: `${index + 1}. ${stripAnsi(choice.label)}`, description: choice.key, value: choice.key })),
+      ...(hasDetails
+        ? { height: Math.min(Math.max(3, choices.length), Math.max(3, Math.floor(height * 0.35))), flexShrink: 0 }
+        : { flexGrow: 1 }),
+      options: choices.map((choice, index) => ({
+        name: `${index + 1}. ${choice.badge ? `[${stripAnsi(choice.badge)}] ` : ""}${stripAnsi(choice.label)}`,
+        description: "",
+        value: choice.key,
+      })),
       showDescription: false,
       showSelectionIndicator: true,
       showScrollIndicator: true,
@@ -699,6 +722,24 @@ export class LearnTuiSession {
       selectedDescriptionColor: this.palette.selectedText,
     });
     this.bottom.add(select);
+    const detail = hasDetails
+      ? new TextRenderable(this.renderer, {
+          width: "100%",
+          flexGrow: 1,
+          minHeight: 4,
+          content: "",
+          wrapMode: "word",
+          fg: this.palette.text,
+          selectionBg: this.palette.selection,
+          selectionFg: this.palette.selectionText,
+          marginTop: 1,
+        })
+      : undefined;
+    const detailText = (index: number): string => stripAnsi(tuiChoiceDetail(choices[index]));
+    if (detail) {
+      detail.content = detailText(0);
+      this.bottom.add(detail);
+    }
     this.setFooter(inputHint
       ? "↑/↓ move  enter select or submit text  esc back  type to search/enter"
       : "↑/↓ or j/k move  enter select  1-9 shortcut  esc back");
@@ -713,6 +754,7 @@ export class LearnTuiSession {
         this.renderer.keyInput.off("keypress", onKey);
         this.renderer.keyInput.off("paste", onPaste);
         select.off(SelectRenderableEvents.ITEM_SELECTED, onSelect);
+        select.off(SelectRenderableEvents.SELECTION_CHANGED, onSelectionChanged);
         select.blur();
         this.interactionActive = false;
         this.clearBottom();
@@ -720,6 +762,10 @@ export class LearnTuiSession {
       };
       const onSelect = (_index: number, option: { value?: string }) => {
         finish({ kind: "choice", key: option.value ?? choices[select.getSelectedIndex()]!.key });
+      };
+      const onSelectionChanged = (index: number) => {
+        if (detail) detail.content = detailText(index);
+        this.renderer.requestRender();
       };
       const updateQuery = () => {
         queryLine.content = `${cleanInputHint}\n› ${query}`;
@@ -782,6 +828,7 @@ export class LearnTuiSession {
         updateQuery();
       };
       select.on(SelectRenderableEvents.ITEM_SELECTED, onSelect);
+      select.on(SelectRenderableEvents.SELECTION_CHANGED, onSelectionChanged);
       this.renderer.keyInput.on("keypress", onKey);
       this.renderer.keyInput.on("paste", onPaste);
     });

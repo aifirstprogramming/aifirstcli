@@ -34,7 +34,7 @@ describe("skill-mode planning hook", () => {
     expect(payload.questionSteps[0].questions?.find((question) => question.id === "challenge")?.options.map((option) => option.id)).toEqual([
       "avoid_predators", "collect_siblings", "timer_limited_energy", "just_exploration",
     ]);
-    expect(payload.questionSteps[0].questions?.find((question) => question.id === "challenge")?.options[1].label).toBe("Collect siblings (Book Recommended)");
+    expect(payload.questionSteps[0].questions?.find((question) => question.id === "challenge")?.options[0].label).toBe("Avoid predators (Recommended)");
     expect(payload.questionSteps[1]).toEqual({
       kind: "question",
       question: expect.objectContaining({

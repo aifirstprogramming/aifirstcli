@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { executeReplay, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
@@ -124,6 +124,42 @@ describe("replay execution", () => {
     expect(result.ok).toBe(true);
     expect(readFileSync(join(root, "nested/value.txt"), "utf8")).toBe("hello\n");
     expect(result.commands[0]?.stdout).toBe("hello\n");
+  });
+
+  it("stops after the first operation that fails verification", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-fail-fast-"));
+    const result = executeReplay({ operations: [
+      { type: "write", path: "before.txt", content: "before\n" },
+      { type: "command", command: [process.execPath, "-e", "process.exit(1)"], expectedExitCode: 0 },
+      { type: "write", path: "after.txt", content: "after\n" },
+    ] }, root);
+
+    expect(result.ok).toBe(false);
+    expect(existsSync(join(root, "before.txt"))).toBe(true);
+    expect(existsSync(join(root, "after.txt"))).toBe(false);
+  });
+
+  it("skips an optional graphical launch in a headless Linux session", () => {
+    if (process.platform !== "linux") return;
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-headless-"));
+    const display = process.env.DISPLAY;
+    const wayland = process.env.WAYLAND_DISPLAY;
+    delete process.env.DISPLAY;
+    delete process.env.WAYLAND_DISPLAY;
+    try {
+      const result = executeReplayOperation({
+        type: "command",
+        command: ["definitely-not-a-real-gui-command"],
+        graphical: true,
+      }, root);
+      expect(result.ok).toBe(true);
+      expect(result.command?.stdout).toContain("Skipped graphical launch");
+    } finally {
+      if (display === undefined) delete process.env.DISPLAY;
+      else process.env.DISPLAY = display;
+      if (wayland === undefined) delete process.env.WAYLAND_DISPLAY;
+      else process.env.WAYLAND_DISPLAY = wayland;
+    }
   });
 
   it("does not permit a replay to escape its workspace", () => {

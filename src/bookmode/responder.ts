@@ -299,8 +299,26 @@ interface ReplaySegment {
   operation: ReplayOperation;
 }
 
-function replaySegments(replay: Replay | undefined): ReplaySegment[] {
+function replaySegments(replay: Replay | undefined, stepId?: string): ReplaySegment[] {
   if (!replay) return [];
+  if (replay.playback?.mode === "compact" && stepId) {
+    const phases = replay.playback.phases ?? [];
+    const text = [
+      ...(phases.length > 0
+        ? ["## Build phases", "", ...phases.map((phase, index) => `${index + 1}. ${phase}`), ""]
+        : []),
+      "Applying the final trusted checkpoint and running verification once.",
+    ].join("\n");
+    return [{
+      text,
+      blocks: [{ kind: "text", text }],
+      operation: {
+        type: "command",
+        command: ["aifirst", "replay", "execute", stepId, "--format", "json"],
+        expectedExitCode: 0,
+      },
+    }];
+  }
   if (!replay.events) {
     return replay.operations.map((operation, index) => {
       const text = replay.commentary?.[index] ?? "";
@@ -387,7 +405,7 @@ function replayToolUse(
   phase: "replay" | "preplan" = "replay",
   standalone = false,
 ): Reply["toolUse"] | undefined {
-  const operation = (phase === "preplan" ? prePlanSegments(replay) : replaySegments(replay))[operationIndex]?.operation;
+  const operation = (phase === "preplan" ? prePlanSegments(replay) : replaySegments(replay, step.id))[operationIndex]?.operation;
   if (!operation) return undefined;
   const id = phase === "preplan"
     ? prePlanToolId(step.id, operationIndex)
@@ -656,7 +674,7 @@ function replayResultMatches(
   replay: Replay | undefined = step.replay,
   relaxCommandOutput = false,
 ): boolean {
-  const operation = replaySegments(replay)[operationIndex]?.operation;
+  const operation = replaySegments(replay, step.id)[operationIndex]?.operation;
   return operation ? operationResultMatches(operation, result, relaxCommandOutput) : false;
 }
 
@@ -692,8 +710,8 @@ function replayPrelude(step: ReplayStep, content: Content): string {
 }
 
 function replayTurn(step: ReplayStep, operationIndex: number, replay: Replay | undefined = step.replay): string {
-  const commentary = replaySegments(replay)[operationIndex]?.text;
-  if (replay?.events) return commentary ?? "";
+  const commentary = replaySegments(replay, step.id)[operationIndex]?.text;
+  if (replay?.events || replay?.playback?.mode === "compact") return commentary ?? "";
   return commentary
     ? `### Turn ${operationIndex + 1}\n\n${commentary}`
     : `### Turn ${operationIndex + 1}`;
@@ -716,7 +734,10 @@ function nativeReplayReply(
     };
   }
   if (replay?.events) {
-    return { text: replayTurn(step, operationIndex, replay), nativeBlocks: replaySegments(replay)[operationIndex]?.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
+    return { text: replayTurn(step, operationIndex, replay), nativeBlocks: replaySegments(replay, step.id)[operationIndex]?.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
+  }
+  if (replay?.playback?.mode === "compact") {
+    return { text: replayTurn(step, operationIndex, replay), nativeBlocks: replaySegments(replay, step.id)[operationIndex]?.blocks, toolUse, stopReason: "tool_use", exerciseId: step.id };
   }
   const header = operationIndex === 0 ? replayPrelude(step, content) : "## AI First Replay (continued)";
   return { text: `${header}\n\n${replayTurn(step, operationIndex, replay)}`, toolUse, stopReason: "tool_use", exerciseId: step.id };
@@ -947,6 +968,14 @@ function replayCompletion(
     });
   }
   if (!recordProgress) {
+    if (step.replay?.playback?.mode === "compact") {
+      const explanation = example ? renderBookEnvelope(example, step, "complete") : "AI First replay completed.";
+      return {
+        text: replayTrailingText(active?.replay ?? step.replay) || explanation,
+        stopReason: "end_turn",
+        exerciseId: step.id,
+      };
+    }
     return {
       text: "Build and verification finished. The program is ready for you to run.",
       stopReason: "end_turn",
@@ -1564,7 +1593,7 @@ export function respond(
       };
     }
     const next = replayResult.operationIndex + 1;
-    if (next < replaySegments(replay).length) {
+    if (next < replaySegments(replay, step.id).length) {
       return nativeReplayReply(step, content, request.tools, next, replay, replayResult.standalone);
     }
     const completed = replayCompletion(

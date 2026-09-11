@@ -135,7 +135,7 @@ synthetic child-only `ANTHROPIC_AUTH_TOKEN`, `IS_DEMO=1`, and an ephemeral
 5. With pygame-ce/Pillow absent from the selected Python user site, start `py-9-01`. Confirm the native
    dependency question appears before any replay operation, accept it, and verify
    `python3 -c "import pygame, PIL"` succeeds afterward. Repeat once and confirm there is no second prompt.
-6. Start `py-9-01`, answer each planning question with the **Book Recommended** option, and confirm no
+6. Start `py-9-01`, answer each planning question with the highlighted **BOOK DEFAULT** choice, and confirm no
    Write or Bash action occurs before approving the displayed plan. Confirm cached plan and replay text
    renders progressively rather than appearing all at once, and each tool call waits for its text.
 7. Repeat `py-9-01` with a non-book gameplay choice. Confirm local learning explains that an LLM is

@@ -190,7 +190,7 @@ function questions(toolUse: NonNullable<Reply["toolUse"]>): Array<Record<string,
 
 function optionLabel(question: Record<string, unknown>, wanted: RegExp, fallbackIndex = 0): string {
   const options = Array.isArray(question.options) ? question.options as Array<Record<string, unknown>> : [];
-  const match = options.find((option) => wanted.test(String(option.label ?? ""))) ?? options[fallbackIndex];
+  const match = options.find((option) => wanted.test(`${String(option.label ?? "")} ${String(option.preview ?? "")}`)) ?? options[fallbackIndex];
   return String(match?.label ?? "Other");
 }
 
@@ -200,7 +200,10 @@ function validToolResult(toolUse: NonNullable<Reply["toolUse"]>): ContentBlock {
   }
   const answers: Record<string, string> = {};
   for (const question of questions(toolUse)) {
-    answers[String(question.question ?? question.header ?? "Question")] = optionLabel(question, /Book Recommended|Run this replay|Approve and build/i);
+    answers[String(question.question ?? question.header ?? "Question")] = optionLabel(
+      question,
+      /Use book default|BOOK DEFAULT|Run this replay|Approve and build/i,
+    );
   }
   return { type: "tool_result", tool_use_id: toolUse.id, content: JSON.stringify({ answers }) };
 }

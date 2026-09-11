@@ -112,6 +112,46 @@ describe("run", () => {
     expect(readFileSync(log, "utf8").trim()).toBe("javafx:run");
   });
 
+  shellTest("compiles the Chapter 6 Thermostat class without trying to launch it", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+
+    const result = await aifirst(["run", "java-6-01", "--yes", "--format", "json"], {
+      PATH: `${bin}:${process.env.PATH ?? ""}`,
+    });
+    const output = JSON.parse(result.stdout);
+
+    expect(result.code, result.stderr).toBe(0);
+    expect(output.execution).toEqual({
+      mode: "compile",
+      ok: true,
+      commands: ["mvn -q -DskipTests compile"],
+    });
+    expect(output.path).toEndWith("chapter-6-testing/src/main/java/Thermostat.java");
+    expect(output.ran.stderr).not.toContain("Main method not found");
+  });
+
+  shellTest("removes only unchanged generated tests when restoring an earlier Chapter 6 checkpoint", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
+
+    expect((await aifirst(["run", "java-6-14", "--yes", "--format", "json"], env)).code).toBe(0);
+    const project = join(sandbox, "home", "aifirst", "java", "chapter-6-testing");
+    const futureTest = join(project, "src", "test", "java", "TemperatureSensorTest.java");
+    expect(existsSync(futureTest)).toBe(true);
+
+    expect((await aifirst(["run", "java-6-03", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(futureTest)).toBe(false);
+    expect(existsSync(join(project, "src", "test", "java", "ThermostatTest.java"))).toBe(true);
+  });
+
   it("reports missing dependencies before writing or recording anything", async () => {
     const dir = join(sandbox, "dependency-pack", "books");
     mkdirSync(dir, { recursive: true });

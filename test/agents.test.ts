@@ -82,11 +82,11 @@ describe("skill markdown", () => {
     expect(md).toContain("Do not write the code yourself");
   });
 
-  it("keeps grouped and conditional questions separate with explicit book labels", () => {
+  it("keeps source questions exact and book defaults immutable", () => {
     expect(md).toContain("Follow `questionSteps` exactly");
-    expect(md).toContain("Never merge a conditional follow-up");
-    expect(md).toContain("Preserve option order");
-    expect(md).toContain("`(Book Recommended)` suffix verbatim");
+    expect(md).toContain("Preserve source option labels");
+    expect(md).toContain("If `bookDefault` is present");
+    expect(md).toContain("never rewrite that value");
     expect(md).toContain("relative to the directory returned by `aifirst");
     expect(md).toContain("workspace <exercise-id-or-book-tag> --format json");
     expect(md).toContain("never mention or");

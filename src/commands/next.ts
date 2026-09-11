@@ -15,8 +15,8 @@
  * `run` stays explicit write/run/record.
  */
 
+import { existsSync } from "node:fs";
 import { basename, dirname } from "node:path";
-import { runCommand } from "@aifirst/content";
 import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { bookChoices, resolveScope } from "../books";
@@ -25,11 +25,9 @@ import { finalResponse, report, resume } from "../exercises";
 import { which } from "../agents/util";
 import { read, markIfNew } from "../log/progress";
 import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
-import { withPythonRuntime } from "../dependencies";
 import { preflightDependencies } from "./dependencies";
 import { defaultExercisePath } from "../workspace";
-import { mavenJavaFxCommand } from "../projects";
-import { prepareExerciseFiles } from "./run";
+import { commandsFor, executionMode, executionSuccessText, junitJar, prepareExerciseFiles } from "./run";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -138,7 +136,7 @@ export async function next(args: Args): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  const { path, wrote } = prepared;
+  const { path, cwd, wrote } = prepared;
 
   // Run the exercise.
   const TIMEOUT_MS = 30_000;
@@ -146,29 +144,21 @@ export async function next(args: Args): Promise<void> {
   const interactive = step.interactive;
   const useTty = interactive && step.stdin === undefined && hasTty;
 
-  // Figure out the run command. Use the shared @aifirst/content command builder so
-  // next and run never drift on how a language is invoked, and basename() instead
-  // of a hard-coded "/" split so this works on Windows paths too.
-  const entry = step.scaffold?.entrypoint;
+  // Use the same command planner as `run`; a class may only compile, while a
+  // scaffolded program can require a separate compile and launch command.
   const fileName = basename(path);
-  let runCmd: string[];
-  if (ex.language === "java") {
-    const mavenJavaFx = mavenJavaFxCommand(step);
-    if (mavenJavaFx) {
-      runCmd = mavenJavaFx;
-    } else {
-      const runFile = entry ?? fileName;
-      const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
-      runCmd = extraSources
-        ? ["java", "-cp", "out", runFile.replace(/\.java$/, "")]
-        : (runCommand("java", runFile) ?? ["java", runFile]);
-    }
-  } else if (entry) {
-    runCmd = runCommand(ex.language, entry) ?? ["python3", entry];
-  } else {
-    runCmd = runCommand(ex.language, fileName) ?? ["python3", fileName];
+  const commands = commandsFor(ex, step, fileName, dependencyReport.runtime);
+  const mode = executionMode(ex, step);
+  const runCmd = commands[0]!;
+
+  const usesJunitLauncher = commands.some((command) => command.includes(junitJar()));
+  if (usesJunitLauncher && !existsSync(junitJar())) {
+    throw new CliError(
+      `${ex.id} is a JUnit test and the JUnit launcher is not installed`,
+      "missing_junit",
+      `Install it with \`aifirst doctor\`, then run this exercise again.`,
+    );
   }
-  if (dependencyReport.runtime) runCmd = withPythonRuntime(runCmd, dependencyReport.runtime);
 
   if (!which(runCmd[0])) {
     const message = `${runCmd[0]} is not installed`;
@@ -179,22 +169,31 @@ export async function next(args: Args): Promise<void> {
     throw new CliError(message, "missing_runtime", hint);
   }
 
-  const proc = Bun.spawn(runCmd, {
-    cwd: dirname(path),
-    stdin: useTty ? "inherit" : step.stdin === undefined ? "ignore" : new TextEncoder().encode(step.stdin),
-    stdout: useTty ? "inherit" : "pipe",
-    stderr: useTty ? "inherit" : "pipe",
-  });
-
-  const timer = setTimeout(() => proc.kill(), TIMEOUT_MS);
-  const [stdout, stderr] = useTty
-    ? ["", ""]
-    : await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-  await proc.exited;
-  clearTimeout(timer);
-
-  const exitCode = proc.exitCode ?? 1;
-  const timedOut = proc.exitCode === null;
+  let stdout = "";
+  let stderr = "";
+  let exitCode = 0;
+  let timedOut = false;
+  for (let index = 0; index < commands.length; index++) {
+    const command = commands[index]!;
+    const last = index === commands.length - 1;
+    const proc = Bun.spawn(command, {
+      cwd,
+      stdin: useTty && last ? "inherit" : step.stdin === undefined || !last ? "ignore" : new TextEncoder().encode(step.stdin),
+      stdout: useTty && last ? "inherit" : "pipe",
+      stderr: useTty && last ? "inherit" : "pipe",
+    });
+    const timer = setTimeout(() => proc.kill(), TIMEOUT_MS);
+    const [commandStdout, commandStderr] = useTty && last
+      ? ["", ""]
+      : await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
+    await proc.exited;
+    clearTimeout(timer);
+    stdout += commandStdout;
+    stderr += commandStderr;
+    exitCode = proc.exitCode ?? 1;
+    timedOut = proc.exitCode === null;
+    if (exitCode !== 0) break;
+  }
   const output = `${stdout}${stderr}`.replace(/\n$/, "");
 
   // Some exercises teach error handling by throwing on purpose.
@@ -221,8 +220,9 @@ export async function next(args: Args): Promise<void> {
       path,
       wrote,
       ran: ok
-        ? { ok: true, exitCode: 0, timedOut: false, stdout, stderr }
-        : { ok: false, exitCode, timedOut, stdout, stderr },
+        ? { ok: true, exitCode: 0, timedOut: false, stdout, stderr, commands: commands.map((command) => command.join(" ")) }
+        : { ok: false, exitCode, timedOut, stdout, stderr, commands: commands.map((command) => command.join(" ")) },
+      execution: { mode, ok, commands: commands.map((command) => command.join(" ")) },
       recorded: recorded !== null,
       dependencies: dependencyReport.dependencies,
       next: nextJson,
@@ -264,8 +264,8 @@ export async function next(args: Args): Promise<void> {
   if (ok) {
     out(
       recorded
-        ? `  ${green(glyph.done)} ran clean, recorded ${bold(ex.id)} as done`
-        : `  ${green(glyph.done)} ran clean, ${dim(`${ex.id} was already recorded`)}`,
+        ? `  ${green(glyph.done)} ${executionSuccessText(mode)}, recorded ${bold(ex.id)} as done`
+        : `  ${green(glyph.done)} ${executionSuccessText(mode)}, ${dim(`${ex.id} was already recorded`)}`,
     );
   } else {
     out(

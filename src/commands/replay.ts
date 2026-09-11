@@ -28,13 +28,7 @@ function sanitizeCapturedText(value: string): string {
 export function workflowContext(step: ReplayStep, root: string): string {
   const replay = step.replay!;
   const workflow = replay.workflow!;
-  const questions = workflow.questions.map((question) => ({
-    ...question,
-    options: question.options.map((option) => ({
-      ...option,
-      label: `${option.label}${workflow.canonicalAnswers[question.id] === option.id ? " (Book Recommended)" : ""}`,
-    })),
-  }));
+  const questions = workflow.questions;
   const questionSteps: Array<Record<string, unknown>> = [];
   for (let index = 0; index < questions.length;) {
     const question = questions[index];
@@ -50,10 +44,10 @@ export function workflowContext(step: ReplayStep, root: string): string {
   return [
     `AI First planning workflow for ${step.id}.`,
     "Enter Claude Code native plan mode before asking questions. If native plan mode is unavailable, emulate it and do not write files or run commands before approval.",
-    "Follow `questionSteps` exactly. For a `group`, ask only that step's questions together in one AskUserQuestion call. For a `question`, ask it separately and only after its `when` conditions are satisfied by earlier answers. Never merge an ungrouped or conditional question into the preceding group. Preserve option order and display the supplied `(Book Recommended)` suffix verbatim; do not add another recommendation label.",
+    "Follow `questionSteps` exactly. Preserve every source option label, description, preview, and its order verbatim. When a question has `bookDefault`, present a separate fixed `Use book default` choice before the source options and show its exact text as the description and preview. Never let a replay edit or replace that value.",
     "If all answers match `canonicalAnswers`, present `canonicalPlan` and, after approval, execute `canonicalReplay` exactly and verify every result.",
     `Treat every replay path as relative to the current working directory (${root}). Never mention, recreate, or apologize for a captured absolute path.`,
-    "If any answer differs, explicitly identify the differences, create a tailored plan, obtain approval, implement and verify that adaptive variant, then record it with `aifirst done <id> --via agent --agent claude --variant-json <json> --format json`.",
+    "In deterministic local replay, reject free-form Other input. In model-backed skill mode, Other starts an adaptive path and never edits the stored book default. If any answer differs, explicitly identify the differences, create a tailored plan, obtain approval, implement and verify that adaptive variant, then record it with `aifirst done <id> --via agent --agent claude --variant-json <json> --format json`.",
     "The variant JSON must be `{\"kind\":\"adaptive\",\"answers\":{...}}` and contain only stable question and option ids. Do not store free-form user text.",
     "Never claim completion until the selected implementation has run successfully.",
     JSON.stringify({
@@ -63,6 +57,7 @@ export function workflowContext(step: ReplayStep, root: string): string {
       canonicalPlan: sanitizeCapturedText(workflow.canonicalPlan),
       canonicalReplay: {
         command: `aifirst replay execute ${step.id} --format json`,
+        phases: replay.playback?.phases,
         capturedCommentary: replay.events
           ?.filter((event) => event.type !== "operation")
           .map((event) => sanitizeCapturedText(event.text)),

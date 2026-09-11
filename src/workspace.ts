@@ -30,7 +30,12 @@ export function workspaceForExample(content: Content, example: Example): Workspa
 }
 
 export function defaultExercisePath(content: Content, example: Example, step: Step): string {
-  return join(workspaceForExample(content, example).path, exercisePath(example, step));
+  const workspace = workspaceForExample(content, example).path;
+  const scaffold = step.scaffold as typeof step.scaffold & { projectRoot?: string; responsePath?: string };
+  if (scaffold?.projectRoot && scaffold.responsePath) {
+    return join(workspace, scaffold.projectRoot, scaffold.responsePath);
+  }
+  return join(workspace, exercisePath(example, step));
 }
 
 export function resolveWorkspace(content: Content, selector?: string): WorkspaceResolution {

@@ -1,4 +1,4 @@
-import type { PlanQuestion, PlanVariant, Replay, ReplayEvent, ReplayStep } from "../content/types";
+import type { PlanQuestion, PlanVariant, PlanWorkflow, Replay, ReplayEvent, ReplayStep } from "../content/types";
 
 interface ContentBlock {
   type?: string;
@@ -52,6 +52,7 @@ export type PlanningOutcome =
   | { kind: "run"; active: ActivePlanPath };
 
 const BOOK_SUFFIX = " (Book Recommended)";
+const BOOK_DEFAULT_LABEL = "Use book default";
 
 function questionTool(tools: ToolDefinition[] | undefined): string | undefined {
   return (tools ?? []).find((tool) => tool.name?.toLowerCase() === "askuserquestion")?.name;
@@ -64,7 +65,11 @@ function newToolId(stepId: string, kind: "question" | "fallback" | "approval", i
 }
 
 function normalized(value: string): string {
-  return value.toLowerCase().replace(BOOK_SUFFIX.toLowerCase(), "").replace(/[^a-z0-9]+/g, " ").trim();
+  return value.toLowerCase()
+    .replace(BOOK_SUFFIX.toLowerCase(), "")
+    .replace(/\((?:book\s+)?recommended\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function resultText(block: ContentBlock): string {
@@ -156,6 +161,12 @@ function applies(question: PlanQuestion, answers: Record<string, string>): boole
 
 function selectedOption(question: PlanQuestion, answer: string): string | undefined {
   const wanted = normalized(answer);
+  if (
+    question.bookDefault &&
+    [normalized(BOOK_DEFAULT_LABEL), normalized(question.bookDefault.id), normalized(question.bookDefault.text)].includes(wanted)
+  ) {
+    return question.bookDefault.id;
+  }
   return question.options.find((option) => normalized(option.id) === wanted || normalized(option.label) === wanted)?.id;
 }
 
@@ -213,9 +224,28 @@ function exactPath(step: ReplayStep, answers: Record<string, string>): ActivePla
 }
 
 function optionLabel(step: ReplayStep, question: PlanQuestion, optionId: string): string {
+  if (question.bookDefault?.id === optionId) return BOOK_DEFAULT_LABEL;
   const option = question.options.find((candidate) => candidate.id === optionId);
-  const recommended = step.replay?.workflow?.canonicalAnswers[question.id] === optionId;
-  return `${option?.label ?? optionId}${recommended ? BOOK_SUFFIX : ""}`;
+  return option?.label ?? optionId;
+}
+
+function presentedOptions(question: PlanQuestion, canonical: string | undefined) {
+  return [
+    ...(question.bookDefault
+      ? [{
+          id: question.bookDefault.id,
+          label: BOOK_DEFAULT_LABEL,
+          description: question.bookDefault.text,
+          preview: question.bookDefault.text,
+        }]
+      : []),
+    ...question.options.map((option) => option.id === canonical
+      ? {
+          ...option,
+          preview: ["BOOK DEFAULT", option.preview].filter(Boolean).join("\n\n"),
+        }
+      : option),
+  ];
 }
 
 function askQuestions(
@@ -230,9 +260,10 @@ function askQuestions(
   const nativeQuestions = questions.map((question) => ({
     question: question.question,
     header: question.header,
-    options: question.options.map((option) => ({
-      label: optionLabel(step, question, option.id),
+    options: presentedOptions(question, step.replay?.workflow?.canonicalAnswers[question.id]).map((option) => ({
+      label: option.label,
       description: option.description,
+      ...(option.preview ? { preview: option.preview } : {}),
     })),
     multiSelect: false,
   }));
@@ -243,8 +274,10 @@ function askQuestions(
       kind: "reply",
       reply: {
         text: `${questions.map((question) => {
-          const options = nativeQuestions.find((candidate) => candidate.question === question.question)!.options;
-          return `${question.question}\n\n${options.map((option) => `- ${option.label}: ${option.description}`).join("\n")}`;
+          const canonical = step.replay?.workflow?.canonicalAnswers[question.id];
+          const options = presentedOptions(question, canonical);
+          return `${question.question}\n\n${options.map((option) =>
+            `- ${option.id === canonical ? "[BOOK DEFAULT] " : ""}${option.label}: ${option.description}`).join("\n")}`;
         }).join("\n\n")}\n\nReply with one option per question.`,
         stopReason: "end_turn",
         exerciseId: step.id,
@@ -283,11 +316,18 @@ function askFallback(
   const text = [
     "## This choice needs an LLM",
     "",
-    `You selected **${choice}**. That changes the design beyond the deterministic paths stored in local learning.`,
+    question.bookDefault
+      ? `The book default is fixed in replay mode. **${choice}** cannot edit or replace it.`
+      : `You selected **${choice}**. That changes the design beyond the deterministic paths stored in local learning.`,
     "The built-in learner cannot invent and verify new code because no model is running.",
   ].join("\n");
   const options = [
-    { label: "Use book-recommended answer", description: `Continue with ${optionLabel(step, question, canonical)}.` },
+    {
+      label: question.bookDefault?.id === canonical ? BOOK_DEFAULT_LABEL : "Use book-recommended answer",
+      description: question.bookDefault?.id === canonical
+        ? "Continue with the exact immutable response captured for the book."
+        : `Continue with ${optionLabel(step, question, canonical)}.`,
+    },
     { label: "Restart planning", description: "Clear all answers and start the questionnaire again." },
     { label: "Use an AI assistant", description: "Leave built-in learning and connect a supported AI tool from AI First Home." },
   ];
@@ -324,12 +364,18 @@ function askApproval(
   reuseToolId?: string,
 ): PlanningOutcome {
   state.awaiting = { kind: "approval" };
-  const workflow = step.replay!.workflow!;
+  const workflow = step.replay!.workflow! as PlanWorkflow;
   const variant = active.kind === "authored" ? workflow.variants?.find((candidate) => candidate.id === active.variantId) : undefined;
   const plan = variant?.plan ?? workflow.canonicalPlan;
   const answers = workflow.questions
     .filter((question) => applies(question, active.answers))
-    .map((question) => `- **${question.header}:** ${optionLabel(step, question, active.answers[question.id])}`)
+    .map((question) => {
+      const answer = active.answers[question.id];
+      if (question.bookDefault?.id === answer) {
+        return `- **${question.header} — Book default:**\n\n  ${question.bookDefault.text}`;
+      }
+      return `- **${question.header}:** ${optionLabel(step, question, answer)}`;
+    })
     .join("\n");
   const text = [
     "## Proposed plan",
@@ -441,7 +487,7 @@ export function continuePlanning(
 
   if (awaiting.kind === "fallback") {
     const answer = normalized(typeof rawAnswer === "string" ? rawAnswer : Object.values(rawAnswer)[0] ?? "");
-    if (["yes", "book", "recommended", normalized("Use book-recommended answer")].includes(answer)) {
+    if (["yes", "book", "recommended", normalized("Use book-recommended answer"), normalized(BOOK_DEFAULT_LABEL)].includes(answer)) {
       state.answers[awaiting.questionId] = workflow.canonicalAnswers[awaiting.questionId];
       state.awaiting = undefined;
       return advance(step, state, tools);

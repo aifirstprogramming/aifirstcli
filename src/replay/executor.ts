@@ -87,6 +87,16 @@ function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, ro
   try {
     const command = materializeReplayCommand(operation)
       .map((argument) => argument.replaceAll("<workspace>", "."));
+    if (operation.graphical && process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+      return {
+        command,
+        exitCode: 0,
+        stdout: "Skipped graphical launch because no display is available.\n",
+        stderr: "",
+        timedOut: false,
+        matchesExpected: true,
+      };
+    }
     if (command[0] === "<python>") {
       return { command, exitCode: 127, stdout: "", stderr: "Python 3 is unavailable.", timedOut: false, matchesExpected: false };
     }
@@ -211,7 +221,10 @@ export async function executeReplayAsync(
     const result = await executeReplayOperationAsync(executable, root);
     files.push(...result.files);
     if (result.command) commands.push(result.command);
-    if (!result.ok) ok = false;
+    if (!result.ok) {
+      ok = false;
+      break;
+    }
     if (guard && result.ok && (operation.type === "write" || operation.type === "edit")) {
       guard.record(result.files[0]!);
     }
@@ -246,7 +259,10 @@ export function executeReplay(replay: Replay, root = process.cwd(), guard?: Repl
     const result = executeReplayOperation(executable, root);
     files.push(...result.files);
     if (result.command) commands.push(result.command);
-    if (!result.ok) ok = false;
+    if (!result.ok) {
+      ok = false;
+      break;
+    }
     if (guard && result.ok && (operation.type === "write" || operation.type === "edit")) {
       guard.record(result.files[0]!);
     }
