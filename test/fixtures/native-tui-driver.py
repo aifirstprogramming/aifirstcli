@@ -26,13 +26,16 @@ def main() -> int:
     scenario_path = sys.argv[1]
     command = sys.argv[2:]
     scenario = json.loads(open(scenario_path, encoding="utf-8").read())
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execvpe(command[0], command, os.environ)
-
     rows = int(scenario.get("rows", 30))
     columns = int(scenario.get("columns", 100))
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
+    window_size = struct.pack("HHHH", rows, columns, 0, 0)
+    pid, fd = pty.fork()
+    if pid == 0:
+        # Set the requested geometry before the TUI can observe the new PTY.
+        fcntl.ioctl(sys.stdout.fileno(), termios.TIOCSWINSZ, window_size)
+        os.execvpe(command[0], command, os.environ)
+
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, window_size)
     output = bytearray()
     action_index = 0
     search_offset = 0
@@ -108,16 +111,36 @@ def main() -> int:
             except OSError:
                 pass
             try:
-                os.kill(pid, signal.SIGTERM)
+                os.killpg(pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
-            try:
-                os.waitpid(pid, 0)
-            except ChildProcessError:
-                pass
+            stop_deadline = time.monotonic() + 2.0
+            while time.monotonic() < stop_deadline:
+                try:
+                    finished, _ = os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    finished = pid
+                if finished:
+                    child_done = True
+                    break
+                time.sleep(0.05)
+            if not child_done:
+                try:
+                    os.killpg(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                try:
+                    os.waitpid(pid, 0)
+                except ChildProcessError:
+                    pass
 
     sys.stdout.buffer.write(output)
-    sys.stderr.write(json.dumps({"completedActions": action_index, "totalActions": len(scenario["actions"])}) + "\n")
+    pending = scenario["actions"][action_index].get("wait") if action_index < len(scenario["actions"]) else None
+    sys.stderr.write(json.dumps({
+        "completedActions": action_index,
+        "totalActions": len(scenario["actions"]),
+        "pendingWait": pending,
+    }) + "\n")
     return 0 if action_index == len(scenario["actions"]) else 2
 
 
