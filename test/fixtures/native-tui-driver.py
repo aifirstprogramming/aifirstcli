@@ -111,7 +111,7 @@ def main() -> int:
             except OSError:
                 pass
             try:
-                os.killpg(pid, signal.SIGTERM)
+                os.kill(pid, signal.SIGTERM)
             except ProcessLookupError:
                 pass
             stop_deadline = time.monotonic() + 2.0
@@ -126,11 +126,11 @@ def main() -> int:
                 time.sleep(0.05)
             if not child_done:
                 try:
-                    os.killpg(pid, signal.SIGKILL)
+                    os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
                 try:
-                    os.waitpid(pid, 0)
+                    os.waitpid(pid, os.WNOHANG)
                 except ChildProcessError:
                     pass
 
