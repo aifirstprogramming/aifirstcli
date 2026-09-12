@@ -92,11 +92,20 @@ export async function replay(args: Args): Promise<void> {
   if (action === "execute") {
     const id = args.positionals[1];
     if (!id) throw new CliError("Usage: aifirst replay execute <exercise-id> [--format json]", "bad_option");
+    const relaxOutput = boolFlag(args, "relax-output");
+    if (relaxOutput && process.env.AIFIRST_BOOK_WALK !== "1") {
+      throw new CliError("--relax-output is reserved for the full-book verification harness", "bad_option");
+    }
     const { content } = resolveContent();
     const step = content.steps.find((candidate) => candidate.id === id) as ReplayStep | undefined;
     if (!step?.replay) throw new CliError(`No replay found for ${id}`, "unknown_exercise");
     const root = process.cwd();
-    const result = await executeReplayAsync(step.replay, root, new ReplayStateGuard(content, step));
+    const result = await executeReplayAsync(
+      step.replay,
+      root,
+      new ReplayStateGuard(content, step),
+      { relaxOutput },
+    );
     if (result.ok) markIfNew(step.exampleId, { via: "agent", agent: "claude" });
     const response = {
       exerciseId: step.id,
@@ -108,6 +117,14 @@ export async function replay(args: Args): Promise<void> {
         executable: command.command[0],
         exitCode: command.exitCode,
         matchesExpected: command.matchesExpected,
+        ...(!command.matchesExpected
+          ? {
+              command: command.command,
+              timedOut: command.timedOut ?? false,
+              stdout: command.stdout,
+              stderr: command.stderr,
+            }
+          : {}),
       })),
       completionText: step.replay.completionText ? sanitizeCapturedText(step.replay.completionText) : undefined,
     };

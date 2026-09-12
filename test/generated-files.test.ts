@@ -66,6 +66,25 @@ describe("generated file ownership", () => {
     expect(store.matches(second)).toBe(true);
   });
 
+  test("enumerates and forgets only valid records inside one managed project", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-generated-project-"));
+    const project = join(root, "project");
+    const inside = join(project, "src", "Main.java");
+    const outside = join(root, "other", "Other.java");
+    const store = new GeneratedFileStore(join(root, "state"));
+    mkdirSync(join(project, "src"), { recursive: true });
+    mkdirSync(join(root, "other"), { recursive: true });
+    writeFileSync(inside, "class Main {}\n");
+    writeFileSync(outside, "class Other {}\n");
+    store.record(inside);
+    store.record(outside);
+
+    expect(store.recordsUnder(project).map((record) => record.path)).toEqual([inside]);
+    store.forget(inside);
+    expect(store.recordsUnder(project)).toEqual([]);
+    expect(store.matches(outside)).toBe(true);
+  });
+
   test("reports ownership persistence failures with the generated file path", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-generated-error-"));
     const file = join(root, "main.py");

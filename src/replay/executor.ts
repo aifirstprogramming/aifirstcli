@@ -76,14 +76,19 @@ function commandMatches(
   stdout: string,
   stderr: string,
   timedOut: boolean,
+  relaxOutput = false,
 ): boolean {
   return (operation.expectedTimeout === true ? timedOut : !timedOut) &&
     (operation.expectedExitCode === undefined || operation.expectedExitCode === exitCode) &&
-    (operation.expectedStdout === undefined || operation.expectedStdout === stdout.replace(/\r\n/g, "\n")) &&
-    (operation.expectedStderr === undefined || operation.expectedStderr === stderr.replace(/\r\n/g, "\n"));
+    (relaxOutput || operation.expectedStdout === undefined || operation.expectedStdout === stdout.replace(/\r\n/g, "\n")) &&
+    (relaxOutput || operation.expectedStderr === undefined || operation.expectedStderr === stderr.replace(/\r\n/g, "\n"));
 }
 
-function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, root: string): ReplayCommandResult {
+function runCommand(
+  operation: Extract<ReplayOperation, { type: "command" }>,
+  root: string,
+  relaxOutput = false,
+): ReplayCommandResult {
   try {
     const command = materializeReplayCommand(operation)
       .map((argument) => argument.replaceAll("<workspace>", "."));
@@ -117,7 +122,7 @@ function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, ro
     const stderr = result.error ? `${result.stderr ?? ""}${result.error.message}` : result.stderr ?? "";
     const timedOut = (result.error as NodeJS.ErrnoException | undefined)?.code === "ETIMEDOUT";
     const exitCode = result.status ?? (timedOut ? 124 : 127);
-    return { command, exitCode, stdout, stderr, timedOut, matchesExpected: commandMatches(operation, exitCode, stdout, stderr, timedOut) };
+    return { command, exitCode, stdout, stderr, timedOut, matchesExpected: commandMatches(operation, exitCode, stdout, stderr, timedOut, relaxOutput) };
   } catch (error) {
     return { command: operation.command, exitCode: 127, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
   }
@@ -126,9 +131,10 @@ function runCommand(operation: Extract<ReplayOperation, { type: "command" }>, ro
 async function runCommandAsync(
   operation: Extract<ReplayOperation, { type: "command" }>,
   root: string,
+  relaxOutput = false,
 ): Promise<ReplayCommandResult> {
   const source = operation.portableCommand ?? operation.command;
-  if (source[0] !== "<shell>") return runCommand(operation, root);
+  if (source[0] !== "<shell>") return runCommand(operation, root, relaxOutput);
   const runtime = resolvePythonRuntime();
   if (source[1]?.includes("<python>") && !runtime) {
     return { command: source, exitCode: 127, stdout: "", stderr: "Python 3 is unavailable.", timedOut: false, matchesExpected: false };
@@ -145,7 +151,7 @@ async function runCommandAsync(
         stdout: "",
         stderr: "",
         timedOut: false,
-        matchesExpected: commandMatches(operation, 0, "", "", false),
+        matchesExpected: commandMatches(operation, 0, "", "", false, relaxOutput),
       };
     } catch (error) {
       return { command: ["<shell>", script], exitCode: 1, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
@@ -171,7 +177,7 @@ async function runCommandAsync(
       stdout,
       stderr,
       timedOut: false,
-      matchesExpected: commandMatches(operation, result.exitCode, stdout, stderr, false),
+      matchesExpected: commandMatches(operation, result.exitCode, stdout, stderr, false, relaxOutput),
     };
   } catch (error) {
     return { command: ["<shell>", script], exitCode: 127, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
@@ -179,9 +185,8 @@ async function runCommandAsync(
 }
 
 function simpleRemoveArgument(script: string): string | undefined {
-  const trimmed = script.trim();
-  if (!trimmed.startsWith("rm ")) return undefined;
-  const argument = trimmed.slice(3).trim().replace(/^['"]|['"]$/g, "").replaceAll("\\", "/");
+  const match = script.trim().match(/^rm\s+(?:"([^"]+)"|'([^']+)'|([^\s'"\\]+))\s*$/);
+  const argument = (match?.[1] ?? match?.[2] ?? match?.[3])?.replaceAll("\\", "/");
   if (!argument || /[;&|`$]/.test(argument)) return undefined;
   return argument;
 }
@@ -195,6 +200,7 @@ export async function executeReplayAsync(
   replay: Replay,
   root = process.cwd(),
   guard?: ReplayFileGuard,
+  options: { relaxOutput?: boolean } = {},
 ): Promise<ReplayExecution> {
   const files: string[] = [];
   const commands: ReplayCommandResult[] = [];
@@ -218,7 +224,7 @@ export async function executeReplayAsync(
         executable = { type: "write", path: operation.path, content: decision.content };
       }
     }
-    const result = await executeReplayOperationAsync(executable, root);
+    const result = await executeReplayOperationAsync(executable, root, options);
     files.push(...result.files);
     if (result.command) commands.push(result.command);
     if (!result.ok) {
@@ -313,9 +319,10 @@ export function executeReplayOperation(
 export async function executeReplayOperationAsync(
   operation: ReplayOperation,
   root = process.cwd(),
+  options: { relaxOutput?: boolean } = {},
 ): Promise<ReplayOperationExecution> {
   if (operation.type !== "command") return executeReplayOperation(operation, root);
-  const command = await runCommandAsync(operation, root);
+  const command = await runCommandAsync(operation, root, options.relaxOutput);
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n").trim();
   const text = [
     `$ ${operation.display?.command ?? command.command.join(" ")}`,

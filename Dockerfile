@@ -13,7 +13,8 @@ RUN bun scripts/build.ts --target "$BUN_TARGET"
 # Test target keeps Bun and adds the book runtimes needed by live Claude tests.
 FROM build AS test
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y default-jdk-headless maven python3 python3-pil python3-pygame \
+    && apt-get install --no-install-recommends -y \
+        default-jdk-headless libgtk-3-0 maven python3 python3-pil python3-pygame xauth xdotool xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 # Keep the manual-test image independent of Bun and the source checkout at runtime.

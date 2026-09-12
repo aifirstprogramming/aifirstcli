@@ -173,6 +173,37 @@ export function prepareExerciseFiles(
     ? resolvePath(dirname(path), ...responseDirectory.split(/[\\/]+/).filter((part) => part && part !== ".").map(() => ".."))
     : dirname(path);
   const generatedFiles = options.generatedFiles ?? new GeneratedFileStore();
+
+  if (scaffold?.projectRoot) {
+    const desired = new Set([
+      resolvePath(path),
+      ...(scaffold.files ?? [])
+        .filter((file) => !file.path.startsWith("/") && !/^[A-Za-z]:[\\/]/.test(file.path) && !file.path.split(/[\\/]+/).includes(".."))
+        .map((file) => resolvePath(projectRoot, file.path)),
+    ]);
+    const missingRecords: string[] = [];
+    const obsoleteFiles: string[] = [];
+    for (const record of generatedFiles.recordsUnder(projectRoot)) {
+      if (desired.has(record.path)) continue;
+      if (!existsSync(record.path)) {
+        missingRecords.push(record.path);
+      } else if (generatedFiles.matches(record.path)) {
+        obsoleteFiles.push(record.path);
+      } else {
+        throw new CliError(
+          `${record.path} belongs to an earlier project checkpoint but now contains your changes`,
+          "checkpoint_conflict",
+          "It was left alone. Move it outside the project or restore the AI First version, then run this exercise again.",
+        );
+      }
+    }
+    for (const record of missingRecords) generatedFiles.forget(record);
+    for (const obsolete of obsoleteFiles) {
+      unlinkSync(obsolete);
+      generatedFiles.forget(obsolete);
+    }
+  }
+
   if (existsSync(path)) {
     const existing = readFileSync(path, "utf8");
     const previous = canonicalOwner(existing, content);
@@ -203,7 +234,10 @@ export function prepareExerciseFiles(
     }
     cleanTargets.push(target);
   }
-  for (const target of cleanTargets) unlinkSync(target);
+  for (const target of cleanTargets) {
+    unlinkSync(target);
+    generatedFiles.forget(target);
+  }
   let wrote = false;
   let replaced: string | undefined;
 

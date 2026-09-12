@@ -101,6 +101,12 @@ describe("trusted replay execution", () => {
     }]);
     expect(readFileSync(join(sandbox, "hello.py"), "utf8")).toBe('print("Hello, World!")\n');
   });
+
+  it("keeps relaxed output matching private to the full-book harness", async () => {
+    const r = await aifirst(["replay", "execute", "py-1-01", "--relax-output", "--format", "json"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("reserved for the full-book verification harness");
+  });
 });
 
 describe("show", () => {

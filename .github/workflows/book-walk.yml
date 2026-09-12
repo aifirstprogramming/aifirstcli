@@ -1,0 +1,46 @@
+name: Full book walk
+
+on:
+  workflow_call:
+
+jobs:
+  book-walk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install book runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libgtk-3-0 maven xauth xdotool xvfb
+          python -m pip install pygame-ce Pillow
+          mkdir -p ~/.aifirst-toolcache
+          curl -sSLo ~/.aifirst-toolcache/junit-console.jar \
+            https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.10.2/junit-platform-console-standalone-1.10.2.jar
+
+      - name: Build the learner binary
+        run: bun scripts/build.ts --local
+
+      - name: Walk every authored step and smoke graphical launches
+        run: xvfb-run -a bun scripts/walk-books.ts --binary bin/aifirst-linux-x64
+
+      - name: Upload book walk report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: book-walk-report
+          path: test-results/book-walk/report.json
+          if-no-files-found: error
+          retention-days: 14

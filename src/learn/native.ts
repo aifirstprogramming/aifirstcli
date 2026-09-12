@@ -526,6 +526,7 @@ async function runOrFinishExercise(
     if (result.failed) {
       failed = true;
       out(`  ${red(glyph.todo)} The program did not run cleanly.`);
+      renderExecutionFailure("Program failure", result.content);
       continue;
     }
     await renderExerciseExplanation(step, renderOptions);
@@ -942,12 +943,17 @@ function renderToolCall(
 function renderToolResult(action: NativeLearnAction | undefined, result: ToolExecutionResult): void {
   const operation = action?.kind === "replay-operation" ? action.operation : undefined;
   const label = operation?.type === "command" ? "Command result" : operation ? `${operation.type} result` : "Tool result";
+  if (result.failed) renderExecutionFailure(label, result.content);
+  else currentTuiSession()?.appendToolCard(label, result.content || "Completed", true);
+}
+
+function renderExecutionFailure(label: string, detail: string): void {
+  const content = detail || "Failed";
   const tui = currentTuiSession();
-  if (tui) {
-    tui.appendToolCard(label, result.content || (result.failed ? "Failed" : "Completed"), !result.failed);
-  } else if (result.failed) {
+  if (tui) tui.appendToolCard(label, content, false);
+  else {
     out(`  ${red(glyph.todo)} ${bold(label)}`);
-    for (const line of result.content.split("\n")) out(`  ${line}`);
+    for (const line of content.split("\n")) out(`  ${line}`);
   }
 }
 

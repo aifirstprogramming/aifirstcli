@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeReplay, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
+import { executeReplay, executeReplayAsync, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
 import { resolveReplay } from "../src/replay/resolver";
 import { clearPendingReplay, confirmationAnswer, readPendingReplay, replaySelection, savePendingReplay } from "../src/replay/pending";
 import type { Content, ReplayStep } from "../src/content/types";
@@ -113,6 +113,22 @@ describe("replay execution", () => {
     expect(result.command?.stdout.replace(/\r\n/g, "\n")).toBe("portable\n");
   });
 
+  it("lets the portable shell remove more than one file", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-remove-many-"));
+    writeFileSync(join(root, "one.txt"), "one\n");
+    writeFileSync(join(root, "two.txt"), "two\n");
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: ["bash", "-lc", "rm one.txt two.txt"],
+      portableCommand: ["<shell>", "rm one.txt two.txt"],
+      expectedExitCode: 0,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(existsSync(join(root, "one.txt"))).toBe(false);
+    expect(existsSync(join(root, "two.txt"))).toBe(false);
+  });
+
   it("materializes privacy-safe workspace placeholders before executing commands", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-replay-workspace-"));
     const result = executeReplayOperation({
@@ -135,6 +151,23 @@ describe("replay execution", () => {
     expect(result.ok).toBe(true);
     expect(readFileSync(join(root, "nested/value.txt"), "utf8")).toBe("hello\n");
     expect(result.commands[0]?.stdout).toBe("hello\n");
+  });
+
+  it("can relax captured output while still requiring the captured exit code", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-relaxed-"));
+    const replay = { operations: [{
+      type: "command" as const,
+      command: [process.execPath, "-e", "console.log('current output')"],
+      expectedExitCode: 0,
+      expectedStdout: "captured output\n",
+    }] };
+
+    expect((await executeReplayAsync(replay, root)).ok).toBe(false);
+    expect((await executeReplayAsync(replay, root, undefined, { relaxOutput: true })).ok).toBe(true);
+    expect((await executeReplayAsync({ operations: [{
+      ...replay.operations[0],
+      command: [process.execPath, "-e", "process.exit(2)"],
+    }] }, root, undefined, { relaxOutput: true })).ok).toBe(false);
   });
 
   it("stops after the first operation that fails verification", () => {

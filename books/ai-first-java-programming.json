@@ -4044,7 +4044,10 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/Thermostat.java"
+                "responsePath": "src/main/java/Thermostat.java",
+                "clean": [
+                  "src/main/java/ThermostatApp.java"
+                ]
               },
               "replay": {
                 "prompt": "Could you add intro code for a new feature of eco mode to reduce the energy consumption by widening temperature thresholds?",

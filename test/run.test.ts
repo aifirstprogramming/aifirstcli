@@ -118,6 +118,9 @@ describe("run", () => {
     const mvn = join(bin, "mvn");
     writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
     chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
 
     const result = await aifirst(["run", "java-6-01", "--yes", "--format", "json"], {
       PATH: `${bin}:${process.env.PATH ?? ""}`,
@@ -140,6 +143,9 @@ describe("run", () => {
     const mvn = join(bin, "mvn");
     writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
     chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
     const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
 
     expect((await aifirst(["run", "java-6-14", "--yes", "--format", "json"], env)).code).toBe(0);
@@ -150,6 +156,52 @@ describe("run", () => {
     expect((await aifirst(["run", "java-6-03", "--yes", "--format", "json"], env)).code).toBe(0);
     expect(existsSync(futureTest)).toBe(false);
     expect(existsSync(join(project, "src", "test", "java", "ThermostatTest.java"))).toBe(true);
+  });
+
+  shellTest("reconciles Chapter 6 launchers across forward and reverse checkpoints", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
+    const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
+    const project = join(sandbox, "home", "aifirst", "java", "chapter-6-testing", "src", "main", "java");
+
+    expect((await aifirst(["run", "java-6-02", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatApp.java"))).toBe(true);
+
+    expect((await aifirst(["run", "java-6-05", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatApp.java"))).toBe(false);
+    expect(existsSync(join(project, "ThermostatDemo.java"))).toBe(true);
+
+    expect((await aifirst(["run", "java-6-01", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatDemo.java"))).toBe(false);
+    expect(existsSync(join(project, "Thermostat.java"))).toBe(true);
+  });
+
+  shellTest("refuses to remove a learner-modified file from an earlier project checkpoint", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
+    const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
+
+    expect((await aifirst(["run", "java-6-02", "--yes", "--format", "json"], env)).code).toBe(0);
+    const project = join(sandbox, "home", "aifirst", "java", "chapter-6-testing", "src", "main", "java");
+    const app = join(project, "ThermostatApp.java");
+    writeFileSync(app, "// learner change\n" + readFileSync(app, "utf8"));
+
+    const result = await aifirst(["run", "java-6-05", "--yes", "--format", "json"], env);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("belongs to an earlier project checkpoint but now contains your changes");
+    expect(readFileSync(app, "utf8")).toStartWith("// learner change");
   });
 
   it("reports missing dependencies before writing or recording anything", async () => {
