@@ -5,7 +5,7 @@
     "": {
       "name": "aifirst",
       "dependencies": {
-        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#3556da9ed14d0cfea4ad4b4037d88ad98915dc18",
+        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v2.0.0",
         "@opentui/core": "0.5.10",
         "diff": "9.0.0",
         "highlight.js": "11.12.0",
@@ -30,7 +30,7 @@
     },
   },
   "packages": {
-    "@aifirst/content": ["@aifirst/content@github:aifirstprogramming/aifirstcontent#3556da9", {}, "aifirstprogramming-aifirstcontent-3556da9", "sha512-4pbIjGtEe1+pf39YExzEx32utvEjgmuFpesvyRh+30LQG2AluMs5rGlsHfy7/LlDzbJJHczYpzEl94B8gR30Tw=="],
+    "@aifirst/content": ["@aifirst/content@github:aifirstprogramming/aifirstcontent#40f4826", {}, "aifirstprogramming-aifirstcontent-40f4826", "sha512-5ovYT9eHEpzuc55kD/4PBqB2GArOHXkOYAJ8BNtC5ufk6V0DQUTKnk2+BpiH4j7OyqmQMFH8rHY4Ymo3O+3pbw=="],
 
     "@opentui/core": ["@opentui/core@0.5.10", "", { "dependencies": { "bun-ffi-structs": "0.3.1", "diff": "9.0.0", "marked": "17.0.1", "string-width": "7.2.0", "strip-ansi": "7.1.2" }, "optionalDependencies": { "@opentui/core-darwin-arm64": "0.5.10", "@opentui/core-darwin-x64": "0.5.10", "@opentui/core-linux-arm64": "0.5.10", "@opentui/core-linux-arm64-musl": "0.5.10", "@opentui/core-linux-x64": "0.5.10", "@opentui/core-linux-x64-musl": "0.5.10", "@opentui/core-win32-arm64": "0.5.10", "@opentui/core-win32-x64": "0.5.10" }, "peerDependencies": { "web-tree-sitter": "0.25.10" } }, "sha512-C3a2UbmefeAjIxAgm4BqjuSxKT4oqutfvYFwVvUgMxmGRHkNbBc/s7sukV0JgwcxFcV3uMFrXxo+E+BQtvuOiw=="],
 
