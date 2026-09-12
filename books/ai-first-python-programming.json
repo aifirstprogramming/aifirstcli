@@ -576,6 +576,11 @@
               "id": "py-2-12",
               "title": "Math",
               "kind": "program",
+              "scaffold": {
+                "files": [],
+                "projectRoot": "py-2-12",
+                "responsePath": "math.py"
+              },
               "prompt": "Write a Python program that adds up the number of feet for a penguin, a panda, and a hippo.",
               "response": [
                 "# Define the number of feet for each animal",
