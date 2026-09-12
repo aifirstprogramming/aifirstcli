@@ -5,7 +5,7 @@
     "": {
       "name": "aifirst",
       "dependencies": {
-        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#3556da9",
+        "@aifirst/content": "github:aifirstprogramming/aifirstcontent#3556da9ed14d0cfea4ad4b4037d88ad98915dc18",
         "@opentui/core": "0.5.10",
         "diff": "9.0.0",
         "highlight.js": "11.12.0",
