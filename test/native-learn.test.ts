@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveContent } from "../src/content";
@@ -491,6 +491,107 @@ suite("built-in learning", () => {
     expect(stdout).toContain("Your program is ready");
     expect(stdout).toContain("Run the program");
     expect(stdout).toContain("Running py-1-01");
+  }, 35_000);
+
+  test("prepares the Chapter 6 Maven prerequisite and compiles without a launch prompt", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-native-java-compile-"));
+    const state = join(root, "state");
+    const workspace = join(root, "workspace");
+    const bin = join(root, "bin");
+    const mavenLog = join(root, "maven.log");
+    mkdirSync(state, { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$AIFIRST_MAVEN_LOG\"\n");
+    chmodSync(mvn, 0o755);
+    const book = resolveContent().content.books.find((candidate) => candidate.tag === "java")!;
+    writeFileSync(join(state, "config.json"), JSON.stringify({
+      version: 1,
+      book: book.id,
+      workspaces: { java: workspace },
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, process.execPath, "run", ENTRY, "learn", "--plain"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        AIFIRST_MAVEN_LOG: mavenLog,
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: join(root, "home"),
+        AIFIRST_LEARN_CHARS_PER_SECOND: "0",
+        AIFIRST_LEARN_TEST_ANSWERS: JSON.stringify(["java-6-01", "exit"]),
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, stderr).toBe(0);
+    expect(stdout).toContain("Prepared prerequisite chapter-6-testing/pom.xml");
+    expect(stdout).not.toContain("Your program is ready");
+    expect(stdout).not.toContain("Run the program");
+    expect(stdout).not.toContain("Build and verification finished");
+    expect(readFileSync(mavenLog, "utf8").trim()).toBe("-q -DskipTests compile");
+    const progress = JSON.parse(readFileSync(join(state, "progress.json"), "utf8"));
+    expect(progress.exercises["java-6-01"].status).toBe("done");
+  }, 35_000);
+
+  test("shows bounded Maven failure details and leaves compilation unrecorded", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-native-java-failure-"));
+    const state = join(root, "state");
+    const workspace = join(root, "workspace");
+    const bin = join(root, "bin");
+    mkdirSync(state, { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(
+      mvn,
+      "#!/bin/sh\ni=1\nwhile [ \"$i\" -le 45 ]; do echo \"noise $i\" >&2; i=$((i + 1)); done\necho \"maven exploded\" >&2\nexit 7\n",
+    );
+    chmodSync(mvn, 0o755);
+    const book = resolveContent().content.books.find((candidate) => candidate.tag === "java")!;
+    writeFileSync(join(state, "config.json"), JSON.stringify({
+      version: 1,
+      book: book.id,
+      workspaces: { java: workspace },
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, process.execPath, "run", ENTRY, "learn", "--plain"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: join(root, "home"),
+        AIFIRST_LEARN_CHARS_PER_SECOND: "0",
+        AIFIRST_LEARN_TEST_ANSWERS: JSON.stringify(["java-6-01", "exit"]),
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, stderr).toBe(0);
+    expect(stdout).toContain("compile exited 7");
+    expect(stdout).toContain("Command: mvn -q -DskipTests compile");
+    expect(stdout).toContain("... 6 earlier lines omitted ...");
+    expect(stdout).toContain("maven exploded");
+    expect(stdout).not.toContain("noise 1\n");
+    const progress = JSON.parse(readFileSync(join(state, "progress.json"), "utf8"));
+    expect(progress.exercises["java-6-01"]).toBeUndefined();
   }, 35_000);
 
   test("finishes and records a lesson when the learner skips the final run", async () => {

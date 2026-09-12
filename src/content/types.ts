@@ -7,6 +7,8 @@ export type {
   Book,
   Chapter,
   Content,
+  Execution,
+  ExecutionMode,
   Example,
   Explanation,
   Language,

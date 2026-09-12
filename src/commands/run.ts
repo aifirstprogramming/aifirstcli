@@ -24,7 +24,7 @@ import type { Args } from "../cli";
 import { boolFlag, formatFlag, numberFlag, stringFlag } from "../cli";
 import { resolveContent } from "../content";
 import { writeScaffold } from "../content/scaffold";
-import type { Example, Step } from "../content/types";
+import type { Example, Execution, ExecutionMode, Step } from "../content/types";
 import { GeneratedFileStore } from "../generatedFiles";
 import { preflightDependencies } from "./dependencies";
 import type { PythonRuntime } from "../dependencies";
@@ -33,12 +33,22 @@ import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { defaultExercisePath } from "../workspace";
-import { mavenJavaFxCommand } from "../projects";
 
-const TIMEOUT_MS = 30_000;
+const PROGRAM_TIMEOUT_MS = 30_000;
+const VERIFICATION_TIMEOUT_MS = 180_000;
 
-export function runTimeoutMs(args: Args): number | undefined {
-  return boolFlag(args, "no-timeout") ? undefined : TIMEOUT_MS;
+export function runTimeoutMs(
+  args: Args,
+  execution?: Execution,
+  commandIndex = 0,
+  commandCount = 1,
+): number | undefined {
+  if (boolFlag(args, "no-timeout")) return undefined;
+  const finalLaunch = execution?.launch && commandIndex === commandCount - 1
+    ? execution.launch
+    : undefined;
+  if (finalLaunch?.surface === "external") return undefined;
+  return finalLaunch ? PROGRAM_TIMEOUT_MS : execution ? VERIFICATION_TIMEOUT_MS : PROGRAM_TIMEOUT_MS;
 }
 
 /** Trailing-newline differences are not a difference in the code. */
@@ -81,12 +91,8 @@ export const JUNIT_URL =
  * an LTS release would otherwise see "cannot find symbol" for code that is right.
  */
 export function commandsFor(example: Example, step: Step, file: string, python?: PythonRuntime): string[][] {
-  const scaffold = step.scaffold as typeof step.scaffold & {
-    commands?: string[][];
-    outcome?: "compile" | "test" | "run" | "build";
-  };
-  if (scaffold?.commands?.length) return scaffold.commands;
-  const entry = scaffold?.entrypoint;
+  if (step.execution.commands?.length) return step.execution.commands;
+  const entry = step.execution.entrypoint;
   if (example.language === "java") {
     if (example.kind === "test") {
       const jar = junitJar();
@@ -96,8 +102,6 @@ export function commandsFor(example: Example, step: Step, file: string, python?:
         ["java", "-jar", jar, "execute", "-cp", "out", "--select-class", cls, "--details=summary"],
       ];
     }
-    const mavenJavaFx = mavenJavaFxCommand(step);
-    if (mavenJavaFx) return [mavenJavaFx];
     const extraSources = (step.scaffold?.files ?? []).some((f) => f.path.endsWith(".java"));
     const runFile = entry ?? file;
     const hasMain = entry !== undefined || /static\s+void\s+main\s*\(/.test(step.response);
@@ -117,15 +121,8 @@ export function commandsFor(example: Example, step: Step, file: string, python?:
   return [python ? withPythonRuntime(command, python) : command];
 }
 
-export function executionMode(example: Example, step: Step): "compile" | "test" | "run" | "build" {
-  const authored = (step.scaffold as typeof step.scaffold & { outcome?: "compile" | "test" | "run" | "build" })?.outcome;
-  if (authored) return authored;
-  if (example.kind === "test") return "test";
-  if (example.kind === "project") return "build";
-  if (example.language === "java" && !step.scaffold?.entrypoint && !/static\s+void\s+main\s*\(/.test(step.response)) {
-    return "compile";
-  }
-  return "run";
+export function executionMode(_example: Example, step: Step): ExecutionMode {
+  return step.execution.mode;
 }
 
 export function executionSuccessText(mode: ReturnType<typeof executionMode>): string {
@@ -333,6 +330,7 @@ export async function run(args: Args): Promise<void> {
   let stderr = "";
   let exitCode: number | null = 0;
   let timedOut = false;
+  let timedOutAfterMs: number | undefined;
   let ranProgram = false;
 
   for (let n = 0; n < commands.length; n++) {
@@ -350,7 +348,7 @@ export async function run(args: Args): Promise<void> {
       stderr: useTty && last ? "inherit" : "pipe",
     });
 
-    const timeoutMs = runTimeoutMs(args);
+    const timeoutMs = runTimeoutMs(args, step.execution, n, commands.length);
     const timer = timeoutMs === undefined ? undefined : setTimeout(() => proc.kill(), timeoutMs);
     const [o, e] =
       useTty && last
@@ -363,6 +361,7 @@ export async function run(args: Args): Promise<void> {
     stderr += e;
     exitCode = proc.exitCode;
     timedOut = proc.exitCode === null;
+    if (timedOut) timedOutAfterMs = timeoutMs;
     ranProgram = last;
     if (proc.exitCode !== 0) break;
   }
@@ -386,7 +385,12 @@ export async function run(args: Args): Promise<void> {
       path,
       wrote,
       ran: { ok, exitCode, timedOut, stdout, stderr, commands: commands.map((c) => c.join(" ")) },
-      execution: { mode, ok, commands: commands.map((c) => c.join(" ")) },
+      execution: {
+        mode,
+        ok,
+        commands: commands.map((c) => c.join(" ")),
+        ...(step.execution.launch ? { launch: step.execution.launch } : {}),
+      },
       ...(scaffoldFiles.length > 0 ? { scaffold: scaffoldFiles } : {}),
       ...(replaced ? { replaced } : {}),
       ...(step.stdin === undefined ? {} : { stdin: step.stdin }),
@@ -437,7 +441,7 @@ export async function run(args: Args): Promise<void> {
 
   out(
     `  ${red(glyph.todo)} ${
-      timedOut ? `still running after ${TIMEOUT_MS / 1000}s` : `exited ${exitCode}`
+      timedOut ? `still running after ${(timedOutAfterMs ?? PROGRAM_TIMEOUT_MS) / 1000}s` : `exited ${exitCode}`
     } — not recorded`,
   );
   out(dim(`  ${cyan(glyph.arrow)} fix it and run again, or: aifirst done ${example.id}`));

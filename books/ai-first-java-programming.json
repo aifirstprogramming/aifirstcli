@@ -2792,8 +2792,7 @@
                     "path": "HouseBuilder.java",
                     "fromExercise": "java-5-02"
                   }
-                ],
-                "entrypoint": "HouseBuilder.java"
+                ]
               },
               "replay": {
                 "prompt": "Please update the House class to include a toString method that returns a string representation of the house object.",
@@ -2813,6 +2812,13 @@
                 "commentary": [
                   "This is the finished House domain class: it stores an address, bedroom count, and bathroom count privately, exposes them through getters and setters, and now overrides toString() so printing a House shows its actual values instead of a cryptic memory reference."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "HouseBuilder.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3198,8 +3204,7 @@
                     "path": "CookieDemo.java",
                     "content": "public class CookieDemo {\n    public static void main(String[] args) {\n        Cookie chocolateChip = new Cookie(\"chocolate chip\");\n        Cookie oatmeal = new Cookie(\"oatmeal raisin\");\n\n        System.out.println(chocolateChip.describe());\n        System.out.println(oatmeal.describe());\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "CookieDemo.java"
+                ]
               },
               "replay": {
                 "prompt": "Please create an intro example with Java class for a cookie with a flavor field and a describe method.",
@@ -3219,6 +3224,13 @@
                 "commentary": [
                   "This is the bakery's cookie template: a domain class that stores one cookie's flavor and can hand back a sentence describing it for the menu. It has no main method, so it is meant to be compiled and used by other classes rather than run on its own."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "CookieDemo.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3451,8 +3463,7 @@
                     "path": "Main.java",
                     "content": "public class Main {\n    public static void main(String[] args) {\n        GiftCookie cookie = new GiftCookie(\"chocolate chip\");\n        String result = cookie.packageCookie(\"Happy Birthday!\");\n        System.out.println(result);\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "Main.java"
+                ]
               },
               "replay": {
                 "prompt": "Please create example GiftCookie code that extends Cookie and has simple methods for packaging cookies.",
@@ -3472,6 +3483,13 @@
                 "commentary": [
                   "GiftCookie is a subclass of Cookie that adds gift-wrapping behaviour: one public method walks through the whole packaging routine by calling three small private helper methods, each responsible for a single step."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "Main.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3572,98 +3590,6 @@
           "goal": "Learn how to get AI help to write unit tests to test and verify code for correctness.",
           "examples": [
             {
-              "id": "java-6-00",
-              "title": "Create the Chapter 6 Maven project",
-              "description": "Set up the shared Maven project used by the chapter's classes and JUnit tests.",
-              "kind": "project",
-              "dependencies": [
-                {
-                  "kind": "system-command",
-                  "package": "Maven",
-                  "command": "mvn"
-                }
-              ],
-              "prompt": "Create a new Maven project for the thermostat testing exercises using Java 17 and JUnit 5.",
-              "response": [
-                "<project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"",
-                "         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd\">",
-                "    <modelVersion>4.0.0</modelVersion>",
-                "    <groupId>com.aifirst</groupId>",
-                "    <artifactId>chapter-6-testing</artifactId>",
-                "    <version>1.0-SNAPSHOT</version>",
-                "    <properties>",
-                "        <maven.compiler.release>17</maven.compiler.release>",
-                "        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>",
-                "        <junit.version>5.10.2</junit.version>",
-                "    </properties>",
-                "    <dependencies>",
-                "        <dependency>",
-                "            <groupId>org.junit.jupiter</groupId>",
-                "            <artifactId>junit-jupiter</artifactId>",
-                "            <version>${junit.version}</version>",
-                "            <scope>test</scope>",
-                "        </dependency>",
-                "    </dependencies>",
-                "    <build>",
-                "        <plugins>",
-                "            <plugin>",
-                "                <groupId>org.apache.maven.plugins</groupId>",
-                "                <artifactId>maven-surefire-plugin</artifactId>",
-                "                <version>3.2.5</version>",
-                "            </plugin>",
-                "        </plugins>",
-                "    </build>",
-                "</project>"
-              ],
-              "explanation": {
-                "summary": "This pom.xml creates the shared Java 17 Maven project used throughout Chapter 6 and adds JUnit 5 for the test exercises that follow.",
-                "lines": [
-                  {
-                    "code": "<maven.compiler.release>17</maven.compiler.release>",
-                    "text": "The project compiles against Java 17, matching the chapter's language level."
-                  },
-                  {
-                    "code": "<artifactId>junit-jupiter</artifactId>",
-                    "text": "JUnit Jupiter supplies the annotations, assertions, and test engine used by the chapter."
-                  }
-                ],
-                "run": "mvn -q -DskipTests package"
-              },
-              "scaffold": {
-                "files": [],
-                "projectRoot": "chapter-6-testing",
-                "responsePath": "pom.xml",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "-DskipTests",
-                    "package"
-                  ]
-                ],
-                "outcome": "build"
-              },
-              "replay": {
-                "prompt": "Create a new Maven project for the thermostat testing exercises using Java 17 and JUnit 5.",
-                "operations": [
-                  {
-                    "type": "command",
-                    "command": [
-                      "aifirst",
-                      "run",
-                      "java-6-00",
-                      "--force",
-                      "--format",
-                      "json"
-                    ]
-                  }
-                ],
-                "commentary": [
-                  "The Maven project is ready for the reusable classes and JUnit tests in Chapter 6."
-                ]
-              }
-            },
-            {
               "id": "java-6-01",
               "title": "Smart thermostat application",
               "kind": "class",
@@ -3743,7 +3669,10 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/Thermostat.java",
+                "responsePath": "src/main/java/Thermostat.java"
+              },
+              "execution": {
+                "mode": "compile",
                 "commands": [
                   [
                     "mvn",
@@ -3751,8 +3680,7 @@
                     "-DskipTests",
                     "compile"
                   ]
-                ],
-                "outcome": "compile"
+                ]
               }
             },
             {
@@ -3802,22 +3730,7 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/ThermostatApp.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "-DskipTests",
-                    "compile"
-                  ],
-                  [
-                    "java",
-                    "-cp",
-                    "target/classes",
-                    "ThermostatApp"
-                  ]
-                ],
-                "outcome": "run"
+                "responsePath": "src/main/java/ThermostatApp.java"
               },
               "replay": {
                 "prompt": "Please write an intro app that uses the Thermostat class to create an object and print the status.",
@@ -3844,7 +3757,27 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatApp"
+                  ]
+                ],
+                "launch": {
+                  "surface": "terminal"
+                }
+              }
             },
             {
               "id": "java-6-03",
@@ -3902,14 +3835,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/test/java/ThermostatTest.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/RestaurantTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -3941,7 +3866,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-04",
@@ -3997,14 +3932,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/main/java/Restaurant.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/ThermostatTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -4036,7 +3963,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-05",
@@ -4107,22 +4044,7 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/Thermostat.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "-DskipTests",
-                    "compile"
-                  ],
-                  [
-                    "java",
-                    "-cp",
-                    "target/classes",
-                    "ThermostatDemo"
-                  ]
-                ],
-                "outcome": "run"
+                "responsePath": "src/main/java/Thermostat.java"
               },
               "replay": {
                 "prompt": "Could you add intro code for a new feature of eco mode to reduce the energy consumption by widening temperature thresholds?",
@@ -4149,7 +4071,27 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatDemo"
+                  ]
+                ],
+                "launch": {
+                  "surface": "terminal"
+                }
+              }
             },
             {
               "id": "java-6-06",
@@ -4213,14 +4155,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/test/java/ThermostatTest.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/RestaurantTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -4252,7 +4186,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-07",
@@ -4345,7 +4289,10 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/Thermostat.java",
+                "responsePath": "src/main/java/Thermostat.java"
+              },
+              "execution": {
+                "mode": "compile",
                 "commands": [
                   [
                     "mvn",
@@ -4353,8 +4300,7 @@
                     "-DskipTests",
                     "compile"
                   ]
-                ],
-                "outcome": "compile"
+                ]
               }
             },
             {
@@ -4431,14 +4377,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/test/java/ThermostatTest.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/RestaurantTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -4470,7 +4408,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-09",
@@ -4516,22 +4464,7 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "examples/java-6-09/Thermostat.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "-DskipTests",
-                    "compile"
-                  ],
-                  [
-                    "java",
-                    "-cp",
-                    "target/classes",
-                    "ThermostatDemo"
-                  ]
-                ],
-                "outcome": "run"
+                "responsePath": "examples/java-6-09/Thermostat.java"
               },
               "replay": {
                 "prompt": "Please modify the printStatusToDisplay method to return a String instead.",
@@ -4558,7 +4491,27 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "ThermostatDemo"
+                  ]
+                ],
+                "launch": {
+                  "surface": "terminal"
+                }
+              }
             },
             {
               "id": "java-6-10",
@@ -4652,14 +4605,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/test/java/ThermostatTest.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/RestaurantTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -4691,7 +4636,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-11",
@@ -4781,7 +4736,10 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/TrafficLight.java",
+                "responsePath": "src/main/java/TrafficLight.java"
+              },
+              "execution": {
+                "mode": "compile",
                 "commands": [
                   [
                     "mvn",
@@ -4789,8 +4747,7 @@
                     "-DskipTests",
                     "compile"
                   ]
-                ],
-                "outcome": "compile"
+                ]
               }
             },
             {
@@ -4906,14 +4863,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/test/java/TrafficLightTest.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/ThermostatTest.java",
                   "src/test/java/RestaurantTest.java",
@@ -4945,7 +4894,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             },
             {
               "id": "java-6-13",
@@ -4987,22 +4946,7 @@
                   }
                 ],
                 "projectRoot": "chapter-6-testing",
-                "responsePath": "src/main/java/TemperatureSensor.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "-DskipTests",
-                    "compile"
-                  ],
-                  [
-                    "java",
-                    "-cp",
-                    "target/classes",
-                    "TemperatureSensorDemo"
-                  ]
-                ],
-                "outcome": "run"
+                "responsePath": "src/main/java/TemperatureSensor.java"
               },
               "replay": {
                 "prompt": "Could we modify this with intro code to read temperature from a sensor?",
@@ -5029,7 +4973,27 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "-DskipTests",
+                    "compile"
+                  ],
+                  [
+                    "java",
+                    "-cp",
+                    "target/classes",
+                    "TemperatureSensorDemo"
+                  ]
+                ],
+                "launch": {
+                  "surface": "terminal"
+                }
+              }
             },
             {
               "id": "java-6-14",
@@ -5091,14 +5055,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "examples/java-6-14/pom-fragment.xml",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/ThermostatTest.java",
                   "src/test/java/RestaurantTest.java",
@@ -5129,6 +5085,16 @@
                 ],
                 "commentary": [
                   "This is a fragment of a Maven pom.xml file, not Java code. It adds Mockito to the project so that tests can create stand-in (mock) objects for collaborators like the TemperatureSensor interface, instead of talking to real hardware."
+                ]
+              },
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
                 ]
               }
             },
@@ -5210,14 +5176,6 @@
                 ],
                 "projectRoot": "chapter-6-testing",
                 "responsePath": "src/main/java/Restaurant.java",
-                "commands": [
-                  [
-                    "mvn",
-                    "-q",
-                    "test"
-                  ]
-                ],
-                "outcome": "test",
                 "clean": [
                   "src/test/java/ThermostatTest.java",
                   "src/test/java/TrafficLightTest.java",
@@ -5249,7 +5207,17 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "test",
+                "commands": [
+                  [
+                    "mvn",
+                    "-q",
+                    "test"
+                  ]
+                ]
+              }
             }
           ]
         },
@@ -5292,8 +5260,14 @@
                     "path": "Library.java",
                     "content": "import java.util.ArrayList;\nimport java.util.List;\n\npublic class Library {\n    public static void main(String[] args) {\n        List<String> books = new ArrayList<>();\n        books.add(\"The Adventures of Sherlock Holmes\");\n        books.add(\"Pride and Prejudice\");\n        books.add(\"The Hobbit\");\n\n        for (String title : books) {\n            System.out.println(title);\n        }\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "Library.java"
+                ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "Library.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -6372,8 +6346,7 @@
                     "path": "PlaylistApp.java",
                     "content": "import java.util.ArrayList;\nimport java.util.List;\n\npublic class PlaylistApp {\n    public static void main(String[] args) {\n        List<Song> playlist = new ArrayList<>();\n\n        playlist.add(new Song(\"Midnight City\", \"M83\", \"Electronic\", 8));\n        playlist.add(new Song(\"Weightless\", \"Marconi Union\", \"Ambient\", 2));\n        playlist.add(new Song(\"Thunderstruck\", \"AC/DC\", \"Rock\", 10));\n\n        System.out.println(\"Playlist (\" + playlist.size() + \" songs):\");\n        for (Song song : playlist) {\n            System.out.println(\"  \" + song);\n        }\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "PlaylistApp.java"
+                ]
               },
               "replay": {
                 "prompt": "Please create a subfolder with a small Maven Java app that includes JUnit as a dependency. Create two Java files: Song.java with fields for title, artist, genre, and energy level, and PlaylistApp.java with a main() method that stores Song objects in a list.",
@@ -6393,6 +6366,13 @@
                 "commentary": [
                   "This defines the Song class, the building block for the playlist we will build throughout the chapter. Each Song object carries a title, artist, genre, and energy level, and knows how to describe itself as a line of text."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "PlaylistApp.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -6681,8 +6661,7 @@
                     "path": "Main.java",
                     "content": "public class Main {\n    public static void main(String[] args) {\n        PlaylistApp.main(args);\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "Main.java"
+                ]
               },
               "replay": {
                 "prompt": "Could you write an example to compare my playlist and a friend's playlist sets and find the intersection, union, and difference?",
@@ -6702,6 +6681,13 @@
                 "commentary": [
                   "This program builds two sets of song titles \\u2014 yours and a friend's \\u2014 and uses Java's Set operations to work out which songs you share, what a combined playlist would look like, and which songs are yours alone."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "Main.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -7392,8 +7378,7 @@
                     "path": "EnergyPlaylistDemo.java",
                     "content": "import java.util.ArrayList;\nimport java.util.Comparator;\nimport java.util.List;\nimport java.util.PriorityQueue;\n\n// Runnable harness: supplies the playlist that the printed snippet assumes\n// has already been built earlier in PlaylistApp.\npublic class EnergyPlaylistDemo {\n\n    static class Song {\n        private final String title;\n        private final String artist;\n        private final int energyLevel;\n\n        Song(String title, String artist, int energyLevel) {\n            this.title = title;\n            this.artist = artist;\n            this.energyLevel = energyLevel;\n        }\n\n        public int getEnergyLevel() {\n            return energyLevel;\n        }\n\n        @Override\n        public String toString() {\n            return title + \" by \" + artist + \" (energy \" + energyLevel + \")\";\n        }\n    }\n\n    public static void main(String[] args) {\n        List<Song> playlist = new ArrayList<>();\n        playlist.add(new Song(\"Bohemian Rhapsody\", \"Queen\", 7));\n        playlist.add(new Song(\"Blinding Lights\", \"The Weeknd\", 9));\n        playlist.add(new Song(\"Someone Like You\", \"Adele\", 3));\n        playlist.add(new Song(\"Uptown Funk\", \"Bruno Mars\", 10));\n        playlist.add(new Song(\"Fix You\", \"Coldplay\", 4));\n\n        System.out.println(\"\\n--- Priority Playlist (Songs by Energy, High \\u2192 Low) ---\");\n        PriorityQueue<Song> energyQueue = new PriorityQueue<>(\n                Comparator.comparingInt(Song::getEnergyLevel).reversed());\n        energyQueue.addAll(playlist);\n\n        System.out.println(\"Processing by energy with poll():\");\n        while (!energyQueue.isEmpty()) {\n            Song nextSong = energyQueue.poll();\n            System.out.println(\"Playing: \" + nextSong);\n        }\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "EnergyPlaylistDemo.java"
+                ]
               },
               "replay": {
                 "prompt": "Please change the playlist app's PriorityQueue to Song objects compared by energyLevel. Process it with poll and display each one.",
@@ -7413,6 +7398,13 @@
                 "commentary": [
                   "This snippet swaps the playlist's PriorityQueue from plain strings to Song objects, ordering them by their energyLevel from highest to lowest. Draining the queue with poll() plays the most energetic song first, no matter what order the songs were added in."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "EnergyPlaylistDemo.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -7639,8 +7631,7 @@
                     "path": "FarmersMarketApp.java",
                     "content": "import java.util.ArrayList;\nimport java.util.List;\n\npublic class FarmersMarketApp {\n    public static void main(String[] args) {\n        List<MarketProduct> products = new ArrayList<>();\n        products.add(new MarketProduct(\"Heirloom Tomatoes\", \"Sunny Acres\", 4.50, \"Vegetables\", \"Summer\", true));\n        products.add(new MarketProduct(\"Sweet Corn\", \"Riverbend Farm\", 3.25, \"Vegetables\", \"Summer\", false));\n        products.add(new MarketProduct(\"Honeycrisp Apples\", \"Hilltop Orchard\", 5.00, \"Fruit\", \"Fall\", true));\n        products.add(new MarketProduct(\"Goat Cheese\", \"Clover Dairy\", 8.75, \"Dairy\", \"Year-round\", false));\n        products.add(new MarketProduct(\"Wildflower Honey\", \"Beeline Apiary\", 12.00, \"Pantry\", \"Year-round\", true));\n\n        System.out.println(\"All products at the market:\");\n        for (MarketProduct product : products) {\n            System.out.println(\"  \" + product);\n        }\n\n        System.out.println(\"\\nOrganic products only:\");\n        for (MarketProduct product : products) {\n            if (product.isOrganic()) {\n                System.out.println(\"  \" + product.getName() + \" from \" + product.getVendor());\n            }\n        }\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "FarmersMarketApp.java"
+                ]
               },
               "replay": {
                 "prompt": "Please create a subfolder with a small Maven Java app that includes JUnit as a dependency. Create two Java files: MarketProduct.java with fields for name, vendor, price (double), category, season, and organic (boolean). Also create a FarmersMarketApp.java with a main() method that stores various MarketProduct objects in a list.",
@@ -7660,6 +7651,13 @@
                 "commentary": [
                   "This defines the MarketProduct class, the domain object for the farmers' market application: a single item on a vendor's table, described by its name, vendor, price, category, season, and whether it is organic. Every stream exercise in this chapter processes lists of these objects."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "FarmersMarketApp.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -7981,8 +7979,7 @@
                     "path": "MarketDemo.java",
                     "content": "import java.util.List;\n\n// Driver for the exercise. The printed listing leaves the product list as a\n// comment, so this file supplies a small list of items and runs the same two\n// stream pipelines against it.\npublic class MarketDemo {\n\n    static class Item {\n        private final String name;\n        private final double price;\n        private final boolean organic;\n\n        Item(String name, double price, boolean organic) {\n            this.name = name;\n            this.price = price;\n            this.organic = organic;\n        }\n\n        public String getName() { return name; }\n        public double getPrice() { return price; }\n        public boolean isOrganic() { return organic; }\n    }\n\n    public static void main(String[] args) {\n        List<Item> products = List.of(\n                new Item(\"Heirloom Tomatoes\", 4.50, true),\n                new Item(\"Sweet Corn\", 3.25, false),\n                new Item(\"Goat Cheese\", 8.00, true),\n                new Item(\"Apple Cider\", 6.75, false),\n                new Item(\"Kale\", 2.95, true));\n\n        double totalSum = getTotalPriceSum(products);\n        System.out.println(\"\\nTotal inventory value: $\" + String.format(\"%.2f\", totalSum));\n\n        double avgOrganic = getAverageOrganicPrice(products);\n        System.out.println(\"Average price (organic items): $\" + String.format(\"%.2f\", avgOrganic));\n    }\n\n    // 4) Sum all prices using mapToDouble\n    public static double getTotalPriceSum(List<Item> products) {\n        return products.stream()\n                .mapToDouble(Item::getPrice)\n                .sum();\n    }\n\n    // 5) Average price of organic items\n    public static double getAverageOrganicPrice(List<Item> products) {\n        return products.stream()\n                .filter(Item::isOrganic)\n                .mapToDouble(Item::getPrice)\n                .average()\n                .orElse(0.0);\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "MarketDemo.java"
+                ]
               },
               "replay": {
                 "prompt": "Please write two more streams that 1. Sum all prices using mapToDouble, and 2. Average price of organic items.",
@@ -8002,6 +7999,13 @@
                 "commentary": [
                   "This listing adds two number-crunching helper methods to the farmers' market app: one that converts each product's price into a stream of doubles and totals them, and one that keeps only the organic products before averaging their prices."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "MarketDemo.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -8075,8 +8079,7 @@
                     "path": "WeatherApp.java",
                     "content": "import java.util.List;\n\npublic class WeatherApp {\n    public static void main(String[] args) {\n        List<WeatherEntry> week = List.of(\n                new WeatherEntry(\"2026-07-01\", 22.5, \"Sunny\"),\n                new WeatherEntry(\"2026-07-02\", 19.0, \"Rainy\"),\n                new WeatherEntry(\"2026-07-03\", 25.5, \"Sunny\"),\n                new WeatherEntry(\"2026-07-04\", 17.5, \"Cloudy\"),\n                new WeatherEntry(\"2026-07-05\", 16.0, \"Rainy\"),\n                new WeatherEntry(\"2026-07-06\", 28.0, \"Sunny\"),\n                new WeatherEntry(\"2026-07-07\", 21.0, \"Cloudy\"),\n                new WeatherEntry(\"2026-07-08\", 14.5, \"Rainy\"),\n                new WeatherEntry(\"2026-07-09\", 30.5, \"Sunny\"),\n                new WeatherEntry(\"2026-07-10\", 18.5, \"Windy\"));\n\n        System.out.println(\"Rainy days:\");\n        week.stream()\n            .filter(entry -> entry.getCondition().equals(\"Rainy\"))\n            .forEach(System.out::println);\n\n        System.out.println();\n        System.out.println(\"Temperatures in Fahrenheit:\");\n        week.stream()\n            .map(entry -> entry.getCelsius() * 9 / 5 + 32)\n            .forEach(f -> System.out.printf(\"%.1f F%n\", f));\n\n        System.out.println();\n        double average = week.stream()\n                             .limit(7)\n                             .mapToDouble(WeatherEntry::getCelsius)\n                             .average()\n                             .orElse(0.0);\n        System.out.printf(\"Average for the first week: %.2f C%n\", average);\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "WeatherApp.java"
+                ]
               },
               "replay": {
                 "prompt": "Create a new file for a weather app and a WeatherEntry class with a date (String), Celsius temperature, and condition. Add ten weather entries across different conditions and temperatures in the app, then write 3 stream pipelines that: 1. Find all rainy days, 2. Convert temperatures from Celsius to Fahrenheit, 3. Find average Celsius temperature for a week.",
@@ -8096,6 +8099,13 @@
                 "commentary": [
                   "This is the domain class for the weather app: a small, read-only record of one day's weather, holding the date, the temperature in Celsius, and the condition. The stream pipelines in the app filter, map, and average collections of these objects."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "WeatherApp.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -8205,8 +8215,7 @@
                     "path": "FarmersMarketAppRunner.java",
                     "content": "import java.util.ArrayList;\nimport java.util.Comparator;\nimport java.util.List;\nimport java.util.stream.Collectors;\n\n// Runnable driver for the pipelines shown in FarmersMarketApp. It carries a small\n// stand-in product class and sample data so the sorted, distinct, and limit steps\n// can be executed and their output compared.\npublic class FarmersMarketAppRunner {\n\n    static class Product {\n        private final String name;\n        private final double price;\n        private final boolean organic;\n        private final String season;\n        private final String vendor;\n\n        Product(String name, double price, boolean organic, String season, String vendor) {\n            this.name = name;\n            this.price = price;\n            this.organic = organic;\n            this.season = season;\n            this.vendor = vendor;\n        }\n\n        public String getName() { return name; }\n        public double getPrice() { return price; }\n        public boolean isOrganic() { return organic; }\n        public String getSeason() { return season; }\n        public String getVendor() { return vendor; }\n    }\n\n    public static void main(String[] args) {\n        List<Product> products = new ArrayList<>();\n        products.add(new Product(\"Heirloom Tomatoes\", 4.50, true, \"Summer\", \"Green Acres\"));\n        products.add(new Product(\"Sweet Corn\", 3.25, true, \"Summer\", \"Green Acres\"));\n        products.add(new Product(\"Sourdough Loaf\", 6.00, false, \"All\", \"Baker's Lane\"));\n        products.add(new Product(\"Blueberry Scone\", 3.75, false, \"Summer\", \"Baker's Lane\"));\n        products.add(new Product(\"Cinnamon Roll\", 4.25, false, \"All\", \"Baker's Lane\"));\n        products.add(new Product(\"Apple Turnover\", 3.95, false, \"Fall\", \"Baker's Lane\"));\n        products.add(new Product(\"Goat Cheese\", 7.50, true, \"Summer\", \"Hillside Dairy\"));\n\n        List<String> organicSummerNames = products.stream()\n                .filter(p -> p.isOrganic() && p.getSeason() != null && p.getSeason().toLowerCase().contains(\"summer\"))\n                .sorted(Comparator.comparingDouble(Product::getPrice))\n                .map(Product::getName)\n                .collect(Collectors.toList());\n        System.out.println(\"\\nOrganic summer items by price: \" + organicSummerNames);\n\n        List<String> vendors = products.stream()\n                .map(Product::getVendor)\n                .filter(v -> v != null && !v.isBlank())\n                .distinct()\n                .sorted()\n                .collect(Collectors.toList());\n        System.out.println(\"\\nVendors (sorted): \" + vendors);\n\n        String vendor = \"Baker's Lane\";\n        List<String> menu = products.stream()\n                .filter(p -> p.getVendor() != null && p.getVendor().equalsIgnoreCase(vendor))\n                .map(p -> p.getName() + \" - $\" + String.format(\"%.2f\", p.getPrice()))\n                .limit(3)\n                .collect(Collectors.toList());\n        System.out.println(\"\\n\" + vendor + \" menu:\");\n        menu.forEach(System.out::println);\n\n        List<Double> discountedPrices = products.stream()\n                .filter(p -> p.getVendor() != null && p.getVendor().equalsIgnoreCase(vendor))\n                .map(p -> Math.round(p.getPrice() * 0.90 * 100) / 100.0)\n                .collect(Collectors.toList());\n        System.out.println(\"\\nDiscounted prices for \" + vendor + \": \" + discountedPrices);\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "FarmersMarketAppRunner.java"
+                ]
               },
               "replay": {
                 "prompt": "Could you please make the following changes to the FarmersMarketApp streams? 1. getVendorSet should be a list that is sorted alphabetically. 2. getVendorMenu needs to limit to 3 results.",
@@ -8226,6 +8235,13 @@
                 "commentary": [
                   "This is the farmers' market app with two stream pipelines updated: the vendor list is now deduplicated and alphabetized inside the pipeline, and the vendor menu is cut off after three items. It shows how sorting, deduplicating, and limiting are each just another step added to a stream."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "FarmersMarketAppRunner.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -8432,8 +8448,7 @@
                     "path": "TeamStatsApp.java",
                     "content": "import java.util.Comparator;\nimport java.util.List;\nimport java.util.Map;\nimport java.util.Optional;\nimport java.util.stream.Collectors;\n\npublic class TeamStatsApp {\n    public static void main(String[] args) {\n        List<Player> squad = List.of(\n                new Player(\"Amara\", \"Forward\", 18),\n                new Player(\"Bruno\", \"Forward\", 12),\n                new Player(\"Chen\", \"Forward\", 21),\n                new Player(\"Diego\", \"Midfielder\", 9),\n                new Player(\"Elif\", \"Midfielder\", 14),\n                new Player(\"Farid\", \"Midfielder\", 5),\n                new Player(\"Greta\", \"Defender\", 3),\n                new Player(\"Hugo\", \"Defender\", 6),\n                new Player(\"Ines\", \"Defender\", 1),\n                new Player(\"Jonas\", \"Goalkeeper\", 0));\n\n        Map<String, List<Player>> byPosition = squad.stream()\n                .collect(Collectors.groupingBy(Player::getPosition));\n        System.out.println(\"Players grouped by position:\");\n        byPosition.forEach((position, players) -> System.out.println(\"  \" + position + \" -> \" + players));\n\n        Optional<Player> topScorer = squad.stream()\n                .max(Comparator.comparingInt(Player::getGoals));\n        System.out.println(\"\\nTop scorer overall: \" + topScorer.orElse(null));\n\n        Map<String, Optional<Player>> topByPosition = squad.stream()\n                .collect(Collectors.groupingBy(Player::getPosition,\n                        Collectors.maxBy(Comparator.comparingInt(Player::getGoals))));\n        System.out.println(\"\\nTop scorer in each position:\");\n        topByPosition.forEach((position, player) ->\n                System.out.println(\"  \" + position + \" -> \" + player.map(Player::getName).orElse(\"none\")));\n    }\n}\n"
                   }
-                ],
-                "entrypoint": "TeamStatsApp.java"
+                ]
               },
               "replay": {
                 "prompt": "Create a new file for a sports team stats app and a Player class with a name (String), position (String, e.g. Forward, Midfielder, Defender, Goalkeeper), and goals scored (int). Add ten player entries across different positions in the app, then write 3 stream pipelines that: 1. Group players by position, 2. Find the top scorer overall, 3. Find the top scorer in each position.",
@@ -8453,6 +8468,13 @@
                 "commentary": [
                   "This is the domain class for the sports team stats app: each Player object holds a name, a position, and the number of goals scored, along with getters and a toString method. It carries no logic of its own — it exists so the stream pipelines in the main app have objects to group, sort, and summarize."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "TeamStatsApp.java",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -8749,7 +8771,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/Transaction.java"
+                "responseFile": "Transaction.java"
               },
               "replay": {
                 "prompt": "I want to build a personal finance application that is custom to my needs because others are missing features I'd really like to have. Zero-based budgeting tools assign each dollar a task, but I cannot easily see how much is leftover from income-expenses. They also don't seem to have good ways to divert leftover funds from one category to another. Spreadsheet templates are transaction-heavy and don't feel detailed enough on category spending or high-level analysis. I prefer to understand where money is going, where to move leftovers, and how to adjust (awareness budgeting). The app shouldn't be reactive, though. I want to make informed decisions on where to cut back, refocus/align spending to priorities, and understand my lifestyle.",
@@ -9830,7 +9852,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             },
             {
               "id": "java-11-02",
@@ -10011,7 +10045,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/TransactionRepository.java"
+                "responseFile": "TransactionRepository.java"
               },
               "replay": {
                 "prompt": "I'd like to be able to update or delete categories, transactions, savings goals, and obligations. Could we add that?",
@@ -12983,7 +13017,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             }
           ]
         },
@@ -13177,7 +13223,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "pom.xml"
+                "responseFile": "pom.xml"
               },
               "replay": {
                 "prompt": "I want to be able to load a CSV of transactions. The file format changes a bit, depending on vendor. Common fields include Date/Transaction Date,Description,Category,Amount/Debit/Credit. Handle errors gracefully.",
@@ -13820,7 +13866,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             },
             {
               "id": "java-12-02",
@@ -14012,7 +14070,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "sample-data/sample-transactions.csv"
+                "responseFile": "sample-transactions.csv"
               },
               "replay": {
                 "prompt": "Could you create a sample .csv file for us to test loading into the application?",
@@ -14294,6 +14352,25 @@
                   "turnIndex": 0,
                   "sessionId": "pocketcfo-java-12-02"
                 }
+              },
+              "dependencies": [
+                {
+                  "kind": "system-command",
+                  "package": "Maven",
+                  "command": "mvn"
+                }
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             },
             {
@@ -14491,7 +14568,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/BudgetService.java"
+                "responseFile": "BudgetService.java"
               },
               "replay": {
                 "prompt": "The application should be able to handle and navigate multiple months that can roll up into a year-to-date, as well. Could we add that to the application?",
@@ -15226,7 +15303,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             },
             {
               "id": "java-12-04",
@@ -15473,7 +15562,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/Category.java"
+                "responseFile": "Category.java"
               },
               "replay": {
                 "prompt": "I want to be able to prioritize spending categories and have the application analyze actual spending against the prioritized categories to see where they match or are misaligned. There should be two separate lists. The first should be ordered category priorities (number and category name), and the second should be ordered categories by actual spending (number, category name, actual spend amount).",
@@ -17817,7 +17906,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             },
             {
               "id": "java-12-05",
@@ -18057,7 +18158,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/CategoryTrendService.java"
+                "responseFile": "CategoryTrendService.java"
               },
               "replay": {
                 "prompt": "We would like to add a text-based trend visualization for each category for the last 3 months. This will help the user see when one category increases or decreases continuously and help them make decisions on whether to adjust. We don't need fancy analysis, just a trend display for each of last 3 months for each category. Since there are several categories, perhaps we can select a few at a time to view, instead of everything in one visualization.",
@@ -18550,7 +18651,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             },
             {
               "id": "java-12-06",
@@ -18807,7 +18920,7 @@
                     "content": "package com.example.finance;\n\nimport org.junit.jupiter.api.Test;\nimport org.junit.jupiter.api.io.TempDir;\n\nimport java.math.BigDecimal;\nimport java.nio.file.Files;\nimport java.nio.file.Path;\nimport java.time.LocalDate;\nimport java.util.List;\n\nimport static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;\n\nclass TransactionRepositoryTest {\n\n    @Test\n    void savesAndReloadsTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.INCOME, \"Salary\",\n                new BigDecimal(\"2500.00\"), \"August paycheck\");\n        repository.add(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"64.32\"), \"Weekly shop\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n\n        assertEquals(2, transactions.size());\n        assertEquals(\"Salary\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"2500.00\"), transactions.get(0).getAmount());\n        assertEquals(TransactionType.EXPENSE, transactions.get(1).getType());\n        assertEquals(\"Weekly shop\", transactions.get(1).getDescription());\n    }\n\n    @Test\n    void skipsMalformedLinesWithoutLosingOtherEntries(@TempDir Path tempDir) throws Exception {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        Files.createDirectories(tempDir);\n        Files.writeString(dataPaths.transactionsFile(), String.join(\"\\n\",\n                \"# id|date|type|categoryName|amount|description\",\n                \"1|2026-08-01|INCOME|Salary|2500.00|August paycheck\",\n                \"not-a-valid-line\",\n                \"2|2026-08-03|EXPENSE|Groceries|64.32|Weekly shop\") + \"\\n\");\n\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = repository.findAll();\n\n        assertEquals(2, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Salary\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n\n    @Test\n    void continuesIdSequenceAfterReload(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        Transaction second = reloaded.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        assertEquals(2, second.getId());\n    }\n\n    @Test\n    void addAllAssignsSequentialIdsAndPersistsInOneCall(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        List<Transaction> added = repository.addAll(List.of(\n                new TransactionDraft(LocalDate.of(2026, 8, 2), TransactionType.INCOME, \"Salary\",\n                        new BigDecimal(\"2500.00\"), \"August paycheck\"),\n                new TransactionDraft(LocalDate.of(2026, 8, 3), TransactionType.EXPENSE, \"Dining\",\n                        new BigDecimal(\"15.00\"), \"Lunch\")));\n\n        assertEquals(2, added.get(0).getId());\n        assertEquals(3, added.get(1).getId());\n\n        TransactionRepository reloaded = new TransactionRepository(dataPaths);\n        List<Transaction> transactions = reloaded.findAll();\n        assertEquals(3, transactions.size());\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"August paycheck\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getDescription().equals(\"Lunch\")));\n    }\n\n    @Test\n    void updateReplacesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction original = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n\n        repository.update(original.getId(), LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"15.00\"), \"corrected\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"Dining\", transactions.get(0).getCategoryName());\n        assertEquals(new BigDecimal(\"15.00\"), transactions.get(0).getAmount());\n        assertEquals(\"corrected\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void removeDeletesTheMatchingTransaction(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        Transaction toDelete = repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"20.00\"), \"second\");\n\n        repository.remove(toDelete.getId());\n\n        List<Transaction> transactions = repository.findAll();\n        assertEquals(1, transactions.size());\n        assertEquals(\"second\", transactions.get(0).getDescription());\n    }\n\n    @Test\n    void renameCategoryUpdatesAllMatchingTransactions(@TempDir Path tempDir) {\n        DataPaths dataPaths = new DataPaths(tempDir);\n        TransactionRepository repository = new TransactionRepository(dataPaths);\n        repository.add(LocalDate.of(2026, 8, 1), TransactionType.EXPENSE, \"Groceries\",\n                new BigDecimal(\"10.00\"), \"first\");\n        repository.add(LocalDate.of(2026, 8, 2), TransactionType.EXPENSE, \"Dining\",\n                new BigDecimal(\"20.00\"), \"unrelated\");\n\n        repository.renameCategory(\"Groceries\", \"Food\");\n\n        List<Transaction> transactions = repository.findAll();\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Food\")));\n        assertTrue(transactions.stream().anyMatch(t -> t.getCategoryName().equals(\"Dining\")));\n        assertTrue(transactions.stream().noneMatch(t -> t.getCategoryName().equals(\"Groceries\")));\n    }\n}\n"
                   }
                 ],
-                "entrypoint": "src/main/java/com/example/finance/ReallocationService.java"
+                "responseFile": "ReallocationService.java"
               },
               "replay": {
                 "prompt": "We want a reallocation feature that allows users to see how a change could impact their budget and goals. A user should be able to specify a category to reduce spending, the amount of the reduction, and a savings goal or obligation to redirect that amount. The projection should show the old and new target in the reduced category, old and new allocation to the goal/obligation, and old with updated goal progress percentage.",
@@ -19712,7 +19825,19 @@
                   "package": "Maven",
                   "command": "mvn"
                 }
-              ]
+              ],
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "mvn",
+                    "javafx:run"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
+              }
             }
           ]
         }

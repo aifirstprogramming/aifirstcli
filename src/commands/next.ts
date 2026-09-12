@@ -27,7 +27,7 @@ import { read, markIfNew } from "../log/progress";
 import { CliError, bold, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { preflightDependencies } from "./dependencies";
 import { defaultExercisePath } from "../workspace";
-import { commandsFor, executionMode, executionSuccessText, junitJar, prepareExerciseFiles } from "./run";
+import { commandsFor, executionMode, executionSuccessText, junitJar, prepareExerciseFiles, runTimeoutMs } from "./run";
 
 export async function next(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
@@ -139,7 +139,6 @@ export async function next(args: Args): Promise<void> {
   const { path, cwd, wrote } = prepared;
 
   // Run the exercise.
-  const TIMEOUT_MS = 30_000;
   const hasTty = Boolean(process.stdin.isTTY);
   const interactive = step.interactive;
   const useTty = interactive && step.stdin === undefined && hasTty;
@@ -173,6 +172,7 @@ export async function next(args: Args): Promise<void> {
   let stderr = "";
   let exitCode = 0;
   let timedOut = false;
+  let timedOutAfterMs: number | undefined;
   for (let index = 0; index < commands.length; index++) {
     const command = commands[index]!;
     const last = index === commands.length - 1;
@@ -182,16 +182,18 @@ export async function next(args: Args): Promise<void> {
       stdout: useTty && last ? "inherit" : "pipe",
       stderr: useTty && last ? "inherit" : "pipe",
     });
-    const timer = setTimeout(() => proc.kill(), TIMEOUT_MS);
+    const timeoutMs = runTimeoutMs(args, step.execution, index, commands.length);
+    const timer = timeoutMs === undefined ? undefined : setTimeout(() => proc.kill(), timeoutMs);
     const [commandStdout, commandStderr] = useTty && last
       ? ["", ""]
       : await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
     await proc.exited;
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
     stdout += commandStdout;
     stderr += commandStderr;
     exitCode = proc.exitCode ?? 1;
     timedOut = proc.exitCode === null;
+    if (timedOut) timedOutAfterMs = timeoutMs;
     if (exitCode !== 0) break;
   }
   const output = `${stdout}${stderr}`.replace(/\n$/, "");
@@ -222,7 +224,12 @@ export async function next(args: Args): Promise<void> {
       ran: ok
         ? { ok: true, exitCode: 0, timedOut: false, stdout, stderr, commands: commands.map((command) => command.join(" ")) }
         : { ok: false, exitCode, timedOut, stdout, stderr, commands: commands.map((command) => command.join(" ")) },
-      execution: { mode, ok, commands: commands.map((command) => command.join(" ")) },
+      execution: {
+        mode,
+        ok,
+        commands: commands.map((command) => command.join(" ")),
+        ...(step.execution.launch ? { launch: step.execution.launch } : {}),
+      },
       recorded: recorded !== null,
       dependencies: dependencyReport.dependencies,
       next: nextJson,
@@ -269,7 +276,7 @@ export async function next(args: Args): Promise<void> {
     );
   } else {
     out(
-      `  ${red(glyph.todo)} ${timedOut ? `still running after ${TIMEOUT_MS / 1000}s` : `exited ${exitCode}`}` +
+      `  ${red(glyph.todo)} ${timedOut ? `still running after ${(timedOutAfterMs ?? 30_000) / 1000}s` : `exited ${exitCode}`}` +
         `, not recorded`,
     );
   }

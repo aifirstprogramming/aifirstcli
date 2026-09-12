@@ -249,6 +249,10 @@ describe("chapter 10 level-editor replays", () => {
   });
 
   test("runs the pathfinding project through the interactive editor", () => {
-    expect(step("py-10-03").scaffold?.entrypoint).toBe("level_editor.py");
+    expect(step("py-10-03").execution).toEqual({
+      mode: "run",
+      commands: [["python3", "level_editor.py"]],
+      launch: { surface: "external" },
+    });
   });
 });

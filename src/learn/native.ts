@@ -37,7 +37,6 @@ import { runWithTui, shouldUseTui } from "../tui";
 import { prepareExerciseFiles } from "../commands/run";
 import { ReplayStateGuard } from "./replayState";
 import { defaultExercisePath, ensureWorkspace as resolveWorkspace } from "../workspace";
-import { mavenJavaFxCommand } from "../projects";
 import { GeneratedFileStore } from "../generatedFiles";
 import { writeScaffold } from "../content/scaffold";
 
@@ -682,7 +681,14 @@ async function executeTool(
     if (action.kind === "replay-operation") {
       if (action.operation.type === "command") {
         const run = aifirstRunCommand(action.operation.command);
-        if (run) return prepareNativeExercise(run.id, run.into);
+        if (run) {
+          const { content } = resolveContent();
+          const runStep = content.steps.find((candidate) => candidate.id === run.id);
+          if (!runStep) return { failed: true, content: `Unknown exercise ${run.id}` };
+          return runStep.execution.launch
+            ? prepareNativeExercise(run.id, run.into)
+            : runExercise(run.id, run.into);
+        }
       }
       if (action.operation.type === "write" || action.operation.type === "edit") {
         const decision = replayState.decide(action.operation, process.cwd());
@@ -786,7 +792,7 @@ export function nativeReplayOperation(
   if (operation.command[0] === "aifirst" && operation.command[1] === "replay" && operation.command[2] === "execute") {
     return { ...operation, command: selfCommand(operation.command.slice(1)) };
   }
-  const entrypoint = step.scaffold?.entrypoint;
+  const entrypoint = step.execution.entrypoint ?? step.execution.commands?.at(-1)?.at(-1);
   const launchesGraphicalEntrypoint = Boolean(
     entrypoint &&
     opensExternalWindow(step) &&
@@ -936,7 +942,13 @@ function renderToolCall(
 function renderToolResult(action: NativeLearnAction | undefined, result: ToolExecutionResult): void {
   const operation = action?.kind === "replay-operation" ? action.operation : undefined;
   const label = operation?.type === "command" ? "Command result" : operation ? `${operation.type} result` : "Tool result";
-  currentTuiSession()?.appendToolCard(label, result.content || (result.failed ? "Failed" : "Completed"), !result.failed);
+  const tui = currentTuiSession();
+  if (tui) {
+    tui.appendToolCard(label, result.content || (result.failed ? "Failed" : "Completed"), !result.failed);
+  } else if (result.failed) {
+    out(`  ${red(glyph.todo)} ${bold(label)}`);
+    for (const line of result.content.split("\n")) out(`  ${line}`);
+  }
 }
 
 function summarizeToolInput(operation: ReplayOperation | undefined, input: Record<string, unknown>): string {
@@ -1018,12 +1030,43 @@ async function answerQuestions(input: Record<string, unknown>): Promise<{ failed
 }
 
 export function opensExternalWindow(step: ReplayStep): boolean {
-  return Boolean(
-    mavenJavaFxCommand(step) || (
-      step.scaffold?.entrypoint &&
-      step.dependencies?.some((dependency) => dependency.kind === "python-package" && dependency.module === "pygame")
-    ),
-  );
+  return step.execution.launch?.surface === "external";
+}
+
+function boundedCommandOutput(value: string, limit = 40): string {
+  const lines = value.split(/\r?\n/).filter((line) => line.trim() !== "");
+  const shown = lines.slice(-limit);
+  return [
+    ...(lines.length > limit ? [`... ${lines.length - limit} earlier lines omitted ...`] : []),
+    ...shown,
+  ].join("\n");
+}
+
+function nestedRunFailure(stdout: string, stderr: string, exitCode: number | null): string {
+  try {
+    const result = JSON.parse(stdout) as {
+      ran?: {
+        exitCode?: number | null;
+        timedOut?: boolean;
+        stdout?: string;
+        stderr?: string;
+        commands?: string[];
+      };
+      execution?: { mode?: string };
+    };
+    const ran = result.ran;
+    const output = boundedCommandOutput(`${ran?.stdout ?? ""}${ran?.stderr ?? ""}`);
+    const reason = ran?.timedOut
+      ? `${result.execution?.mode ?? "Verification"} timed out.`
+      : `${result.execution?.mode ?? "Command"} exited ${ran?.exitCode ?? exitCode ?? 1}.`;
+    return [
+      reason,
+      ...(ran?.commands?.length ? [`Command: ${ran.commands.at(-1)}`] : []),
+      ...(output ? ["", output] : []),
+    ].join("\n");
+  } catch {
+    return boundedCommandOutput(`${stdout}${stderr}`) || `Command exited ${exitCode ?? 1}.`;
+  }
 }
 
 async function runExercise(
@@ -1119,21 +1162,33 @@ async function runExercise(
   signal?.removeEventListener("abort", stopProgram);
   const detail = `${stdout}${stderr}`.trim();
   if (signal?.aborted) return { failed: true, content: detail || "Program stopped by the learner." };
+  let parsed: {
+    path?: string;
+    scaffold?: string[];
+    ran?: { stdout?: string; stderr?: string };
+  } | undefined;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    // Failure reporting below still includes raw output from future JSON shapes.
+  }
   if (proc.exitCode === 0) {
-    try {
-      const result = JSON.parse(stdout) as { ran?: { stdout?: string; stderr?: string }; path?: string };
-      if (result.path) out(`  ${green(glyph.done)} wrote ${result.path}`);
-      const programOutput = `${result.ran?.stdout ?? ""}${result.ran?.stderr ?? ""}`.trim();
-      if (programOutput) {
-        out();
-        out(`  ${cyan("Output")}`);
-        for (const line of programOutput.split("\n")) out(`  ${line}`);
-      }
-    } catch {
-      // The responder still receives the raw result if a future JSON shape changes.
+    if (parsed?.path) out(`  ${green(glyph.done)} wrote ${parsed.path}`);
+    for (const file of parsed?.scaffold ?? []) {
+      const projectRoot = step.scaffold?.projectRoot;
+      const relativePath = projectRoot ? `${projectRoot}/${file}` : file;
+      out(`  ${green(glyph.done)} Prepared prerequisite ${relativePath}`);
+    }
+    const programOutput = `${parsed?.ran?.stdout ?? ""}${parsed?.ran?.stderr ?? ""}`.trim();
+    if (programOutput) {
+      out();
+      out(`  ${cyan("Output")}`);
+      for (const line of programOutput.split("\n")) out(`  ${line}`);
     }
   }
-  return { failed: proc.exitCode !== 0, content: detail || `exit code ${proc.exitCode ?? 1}` };
+  return proc.exitCode === 0
+    ? { failed: false, content: detail || "Completed" }
+    : { failed: true, content: nestedRunFailure(stdout, stderr, proc.exitCode) };
 }
 
 function selfCommand(args: string[]): string[] {

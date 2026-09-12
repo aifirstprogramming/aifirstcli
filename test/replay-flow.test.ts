@@ -13,7 +13,18 @@ function content(...steps: ReplayStep[]): Content {
 }
 
 function step(id: string, prompt: string): ReplayStep {
-  return { id, prompt, response: "", language: "python", index: 1, total: 1, exampleId: id, interactive: false, replay: { prompt, operations: [] } };
+  return {
+    id,
+    prompt,
+    response: "",
+    language: "python",
+    index: 1,
+    total: 1,
+    exampleId: id,
+    interactive: false,
+    execution: { mode: "run", launch: { surface: "terminal" } },
+    replay: { prompt, operations: [] },
+  };
 }
 
 let root: string;

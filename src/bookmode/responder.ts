@@ -976,8 +976,16 @@ function replayCompletion(
         exerciseId: step.id,
       };
     }
+    if (!step.execution.launch) {
+      const explanation = example ? renderBookEnvelope(example, step, "complete") : "AI First verification completed.";
+      return {
+        text: replayTrailingText(active?.replay ?? step.replay) || explanation,
+        stopReason: "end_turn",
+        exerciseId: step.id,
+      };
+    }
     return {
-      text: "Build and verification finished. The program is ready for you to run.",
+      text: "The exercise files are ready. Run the program when you are ready.",
       stopReason: "end_turn",
       exerciseId: step.id,
       nativeReady: true,

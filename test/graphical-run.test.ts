@@ -48,7 +48,7 @@ describe("graphical exercise runs", () => {
     ]);
     expect(commandsFor(
       { ...example, scaffold: undefined },
-      { ...thermostat, scaffold: undefined },
+      { ...thermostat, scaffold: undefined, execution: { mode: "compile" } },
       "Thermostat.java",
     )).toEqual([
       ["javac", "-d", "out", "Thermostat.java"],
@@ -58,6 +58,11 @@ describe("graphical exercise runs", () => {
   test("the internal no-timeout run option disables the short watchdog", () => {
     const args = (flags: Map<string, string | boolean>): Args => ({ command: "run", positionals: ["py-9-01"], flags });
     expect(runTimeoutMs(args(new Map()))).toBe(30_000);
+    expect(runTimeoutMs(args(new Map()), { mode: "compile" })).toBe(180_000);
+    expect(runTimeoutMs(args(new Map()), {
+      mode: "run",
+      launch: { surface: "external" },
+    })).toBeUndefined();
     expect(runTimeoutMs(args(new Map([["no-timeout", true]])))).toBeUndefined();
   });
 

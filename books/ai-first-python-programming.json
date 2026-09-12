@@ -675,8 +675,14 @@
                     "path": "main.py",
                     "content": "dog = int(input(\"Enter number of balls dog retrieved: \"))\ncat = int(input(\"Enter number of balls cat retrieved: \"))\nlost = int(input(\"Enter number of balls never retrieved: \"))\ntotal = dog + cat + lost\nprint(\"Total balls thrown:\", total)\n"
                   }
-                ],
-                "entrypoint": "main.py"
+                ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "main.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             }
           ]
@@ -1435,8 +1441,7 @@
                     "path": "feed_parrot.py",
                     "fromExercise": "py-3-08"
                   }
-                ],
-                "entrypoint": "feed_parrot.py"
+                ]
               },
               "replay": {
                 "prompt": "Parrot needs 10 seeds to be full.",
@@ -1456,6 +1461,13 @@
                 "commentary": [
                   "This is the heart of the parrot-feeding program: a while loop that keeps asking you for seeds until the total the parrot has eaten reaches its capacity of 10."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "feed_parrot.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3069,8 +3081,7 @@
                     "path": "run_shelter.py",
                     "content": "\"\"\"Sets up the robot pet classes from the previous section, then runs this program.\"\"\"\nimport builtins\nimport contextlib\nimport io\nimport os\nimport runpy\n\n# Load the pet classes quietly, so only the shelter program's output is shown.\nwith contextlib.redirect_stdout(io.StringIO()):\n    pets = runpy.run_path(\"robot_pets.py\")\n\nfor name in (\"RobotPet\", \"RobotCat\", \"RobotBird\", \"RobotDog\"):\n    setattr(builtins, name, pets[name])\n\nhere = os.path.dirname(os.path.abspath(__file__))\nfor filename in sorted(os.listdir(here)):\n    if filename.endswith(\".py\") and filename not in (\"run_shelter.py\", \"robot_pets.py\"):\n        runpy.run_path(os.path.join(here, filename), run_name=\"__main__\")\n        break\n"
                   }
-                ],
-                "entrypoint": "run_shelter.py"
+                ]
               },
               "replay": {
                 "prompt": "Create a RobotPetShelter class that stores robot pet objects in a list that is encapsulated. Add methods to add a pet, show all pets, and find a pet by name. Then create some pets.",
@@ -3090,6 +3101,13 @@
                 "commentary": [
                   "This program builds a RobotPetShelter class that keeps its robot pets in a private list, with methods to add a pet, list every pet, and look one up by name. Three pets from the previous section are created, added to the shelter, and then Rex is found by name so his talent can be shown."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "run_shelter.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             }
           ]
@@ -3440,8 +3458,7 @@
                     "path": "test_robot_pet.py",
                     "content": "import glob\nimport unittest\n\n# Load the RobotPet class from the exercise file printed in the book.\nfor path in sorted(glob.glob(\"*.py\")):\n    source = open(path).read()\n    if \"class RobotPet\" in source and \"unittest\" not in source:\n        exec(compile(source, path, \"exec\"))\n        break\n\n\nclass TestRobotPet(unittest.TestCase):\n    def test_name_is_stored(self):\n        pet = RobotPet(\"Bolt\", 100, \"happy\")\n        self.assertEqual(pet.name, \"Bolt\")\n\n    def test_battery_is_stored(self):\n        pet = RobotPet(\"Bolt\", 100, \"happy\")\n        self.assertEqual(pet.battery, 100)\n\n    def test_mood_is_stored(self):\n        pet = RobotPet(\"Bolt\", 100, \"happy\")\n        self.assertEqual(pet.mood, \"happy\")\n\n    def test_show_talent(self):\n        pet = RobotPet(\"Bolt\", 100, \"happy\")\n        self.assertEqual(pet.show_talent(), \"performs a generic trick!\")\n\n\nif __name__ == \"__main__\":\n    unittest.main(verbosity=2)\n"
                   }
-                ],
-                "entrypoint": "test_robot_pet.py"
+                ]
               },
               "replay": {
                 "prompt": "Ran 4 tests in 0.000s",
@@ -3461,6 +3478,13 @@
                 "commentary": [
                   "This is a deliberately broken version of the RobotPet class: its show_talent method now returns one fixed sentence instead of a talent built from the pet's own name and mood. Running the tests against it shows which tests catch the change."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "test_robot_pet.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3602,8 +3626,7 @@
                     "path": "run_tests.py",
                     "content": "import unittest\n\nfrom robot_pet import RobotPet\n\n\ndef make_pet():\n    \"\"\"Create a RobotPet, whatever arguments its constructor happens to take.\"\"\"\n    for args in ((\"Robo\", \"Dog\"), (\"Robo\",), (), (\"Robo\", \"Dog\", 100)):\n        try:\n            return RobotPet(*args)\n        except TypeError:\n            continue\n    return RobotPet.__new__(RobotPet)\n\n\nwith open(\"unit_tests_that_change_state.py\") as source_file:\n    printed_tests = source_file.read()\n\nclass_source = (\n    \"class TestRobotPet(unittest.TestCase):\\n\"\n    \"    def setUp(self):\\n\"\n    \"        self.pet = make_pet()\\n\\n\" + printed_tests\n)\n\nnamespace = {\"unittest\": unittest, \"make_pet\": make_pet}\nexec(class_source, namespace)\nTestRobotPet = namespace[\"TestRobotPet\"]\n\nif __name__ == \"__main__\":\n    unittest.main(argv=[\"run_tests.py\"], verbosity=2)\n"
                   }
-                ],
-                "entrypoint": "run_tests.py"
+                ]
               },
               "replay": {
                 "prompt": "Write a unit test to test the charge method",
@@ -3623,6 +3646,13 @@
                 "commentary": [
                   "These four test methods check the RobotPet charge method. Each one sets the battery to a known starting value, charges it by some amount, then asserts the battery ended up where it should."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "run_tests.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -3831,8 +3861,7 @@
                     "path": "run_tests.py",
                     "content": "import unittest\n\nFILENAME = \"implementing_a_new_feature_and_testing_it.py\"\n\n# The printed test file uses \"...\" to stand for the tests shown earlier in the\n# chapter. Swap that placeholder for a real statement so the file can be run.\nwith open(FILENAME, encoding=\"utf-8\") as handle:\n    source = handle.read().replace(\"\\u2026\", \"pass\")\n\nnamespace = {\"__name__\": \"printed_tests\", \"__file__\": FILENAME}\nexec(compile(source, FILENAME, \"exec\"), namespace)\n\nloader = unittest.TestLoader()\nsuite = unittest.TestSuite()\nfor value in list(namespace.values()):\n    if isinstance(value, type) and issubclass(value, unittest.TestCase):\n        suite.addTests(loader.loadTestsFromTestCase(value))\n\nunittest.TextTestRunner(verbosity=2).run(suite)\n"
                   }
-                ],
-                "entrypoint": "run_tests.py"
+                ]
               },
               "replay": {
                 "prompt": "Create unit tests for the battery and robot pet subclasses",
@@ -3852,6 +3881,13 @@
                 "commentary": [
                   "This is the unit test file the AI wrote to cover the robot pet subclasses: two tests confirm a new pet's battery is clamped into the 0–100 range, and then one test class per pet type checks that a cat, bird, and dog are created correctly, perform their own talent, and can still be charged."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "run_tests.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -4103,8 +4139,7 @@
                     "path": "pet_talents.py",
                     "content": "class RobotPet:\n    def __init__(self, name, battery=100, mood=\"neutral\"):\n        self.name = name\n        self.battery = battery\n        self.mood = mood\n\n    def speak(self):\n        if self.battery < 30:\n            return f\"{self.name} mumbles: I need a recharge.\"\n        if self.mood == \"happy\":\n            return f\"{self.name} says: I am so happy to see you!\"\n        return f\"Hello, I am {self.name}.\"\n\n\nclass RobotCat(RobotPet):\n    def speak(self):\n        if self.battery < 30:\n            return f\"{self.name} is too tired to purr.\"\n        if self.mood == \"happy\":\n            return f\"{self.name} is one happy kitty!\"\n        return f\"Meow! I am {self.name}.\"\n\n\nclass RobotBird(RobotPet):\n    def speak(self):\n        if self.battery < 30:\n            return f\"{self.name} peeps: my battery is low.\"\n        if self.mood == \"happy\":\n            return f\"{self.name} sings a lovely song!\"\n        return f\"Chirp! I am {self.name}.\"\n\n\nclass RobotDog(RobotPet):\n    def speak(self):\n        if self.battery < 30:\n            return f\"{self.name} whines: I need to charge.\"\n        if self.mood == \"happy\":\n            return f\"Best day ever, barks {self.name}!\"\n        return f\"Woof! I am {self.name}.\"\n\n\nif __name__ == \"__main__\":\n    pets = [RobotPet(\"Robo\"), RobotCat(\"Whiskers\"),\n            RobotBird(\"Tweety\"), RobotDog(\"Rex\")]\n    for pet in pets:\n        pet.battery = 50\n        pet.mood = \"neutral\"\n        print(pet.speak())\n        pet.mood = \"happy\"\n        print(pet.speak())\n        pet.battery = 10\n        print(pet.speak())\n"
                   }
-                ],
-                "entrypoint": "pet_talents.py"
+                ]
               },
               "replay": {
                 "prompt": "Write unit tests to cover the new speak method",
@@ -4124,6 +4159,13 @@
                 "commentary": [
                   "This is the test file that covers the new speak method on each robot pet. For every pet type it checks the three messages speak can produce — low battery, happy mood, and the plain neutral greeting — plus a check that the pet's own name always appears in what it says."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "pet_talents.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             },
             {
@@ -4235,8 +4277,7 @@
                     "path": "main.py",
                     "content": "# Runs the expanded speak methods from the book listing.\n# The listing writes \"\\u2026\" where the unchanged parts of RobotPet were left out,\n# so we fill that placeholder in with the constructor before running the file.\n\nSOURCE_FILE = \"implementing_a_new_feature_and_testing_it.py\"\n\nCONSTRUCTOR = '''    def __init__(self, name, battery=100, mood=\"happy\"):\n        self.name = name\n        self.battery = battery\n        self.mood = mood\n\n'''\n\nwith open(SOURCE_FILE, encoding=\"utf-8\") as source:\n    lines = source.readlines()\n\nfilled = \"\".join(\n    CONSTRUCTOR if line.strip() == \"\\u2026\" else line for line in lines\n)\n\nnamespace = {}\nexec(compile(filled, SOURCE_FILE, \"exec\"), namespace)\n\nRobotCat = namespace[\"RobotCat\"]\nRobotBird = namespace[\"RobotBird\"]\nRobotDog = namespace[\"RobotDog\"]\n\npets = [\n    RobotCat(\"Whiskers\", battery=100, mood=\"happy\"),\n    RobotBird(\"Tweety\", battery=70, mood=\"excited\"),\n    RobotDog(\"Rex\", battery=55, mood=\"sad\"),\n    RobotDog(\"Buddy\", battery=20, mood=\"happy\"),\n    RobotCat(\"Shadow\", battery=80, mood=\"sleepy\"),\n]\n\nfor pet in pets:\n    print(pet.speak())\n    print(pet.show_talent())\n"
                   }
-                ],
-                "entrypoint": "main.py"
+                ]
               },
               "replay": {
                 "prompt": "Expand the speak function to handle more cases",
@@ -4256,6 +4297,13 @@
                 "commentary": [
                   "This listing rewrites the speak method so a robot pet's message reflects both its battery level and its mood, and gives each subclass — cat, bird, and dog — its own set of phrases for the same situations."
                 ]
+              },
+              "execution": {
+                "mode": "run",
+                "entrypoint": "main.py",
+                "launch": {
+                  "surface": "terminal"
+                }
               }
             }
           ]
@@ -4377,8 +4425,7 @@
                     "path": "main.py",
                     "content": "from enum import Enum\n\nimport pygame\n\nfrom assets_gen import ensure_assets, EXPECTED_FILES\nfrom constants import (\n    ASSET_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, FPS,\n    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,\n)\nimport level\n\n\nclass GameState(Enum):\n    PLAYING = 1\n    WIN = 2\n\n\ndef load_images():\n    images = {}\n    for filename in EXPECTED_FILES:\n        name = filename[:-4]  # strip \".png\"\n        images[name] = pygame.image.load(ASSET_DIR / filename).convert_alpha()\n    return images\n\n\ndef main():\n    ensure_assets()\n\n    pygame.init()\n    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))\n    pygame.display.set_caption(\"Save the Duckling\")\n    clock = pygame.time.Clock()\n\n    images = load_images()\n    background = level.build_background(images)\n    player, obstacles, siblings, mother = level.build_level(images)\n\n    font_hud = pygame.font.SysFont(None, 28)\n    font_win = pygame.font.SysFont(None, 56)\n    font_win_sub = pygame.font.SysFont(None, 28)\n\n    state = GameState.PLAYING\n    collected = 0\n\n    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)\n    overlay.fill(WIN_OVERLAY_COLOR)\n\n    running = True\n    while running:\n        dt = clock.tick(FPS) / 1000\n\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                running = False\n            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:\n                running = False\n\n        if state == GameState.PLAYING:\n            keys = pygame.key.get_pressed()\n            player.handle_input(keys)\n            player.update(dt, obstacles)\n\n            newly_collected = pygame.sprite.spritecollide(player, siblings, dokill=True)\n            collected += len(newly_collected)\n\n            if player.rect.colliderect(mother.rect) and collected >= level.TOTAL_SIBLINGS:\n                state = GameState.WIN\n\n        screen.blit(background, (0, 0))\n        obstacles.draw(screen)\n        screen.blit(mother.image, mother.rect)\n        siblings.draw(screen)\n        screen.blit(player.image, player.rect)\n\n        hud_text = font_hud.render(\n            f\"Siblings found: {collected}/{level.TOTAL_SIBLINGS}\", True, HUD_COLOR\n        )\n        screen.blit(hud_text, (10, 10))\n        hint_text = font_hud.render(\"Arrows / WASD to move\", True, HUD_COLOR)\n        screen.blit(hint_text, (10, SCREEN_HEIGHT - 30))\n\n        if state == GameState.WIN:\n            screen.blit(overlay, (0, 0))\n            win_text = font_win.render(\"You found your family!\", True, WIN_TEXT_COLOR)\n            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(win_text, win_rect)\n            sub_text = font_win_sub.render(\"Press ESC to quit\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        pygame.display.flip()\n\n    pygame.quit()\n\n\nif __name__ == \"__main__\":\n    main()\n"
                   }
-                ],
-                "entrypoint": "main.py"
+                ]
               },
               "replay": {
                 "prompt": "Make a game about a baby duckling who is trying to find its mother using pygame.",
@@ -4934,6 +4981,18 @@
                   "turnIndex": 0,
                   "sessionId": "d861f3ac-3626-4d9b-b5ef-1a5765793ef3"
                 }
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "main.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             },
             {
@@ -5039,8 +5098,7 @@
                     "path": "main.py",
                     "content": "from enum import Enum\n\nimport pygame\n\nfrom assets_gen import ensure_assets, EXPECTED_FILES\nfrom constants import (\n    ASSET_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, FPS,\n    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,\n    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION,\n)\nimport level\n\n\nclass GameState(Enum):\n    PLAYING = 1\n    WIN = 2\n\n\ndef load_images():\n    images = {}\n    for filename in EXPECTED_FILES:\n        name = filename[:-4]  # strip \".png\"\n        images[name] = pygame.image.load(ASSET_DIR / filename).convert_alpha()\n    return images\n\n\ndef main():\n    ensure_assets()\n\n    pygame.init()\n    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))\n    pygame.display.set_caption(\"Save the Duckling\")\n    clock = pygame.time.Clock()\n\n    images = load_images()\n    background = level.build_background(images)\n    player, obstacles, siblings, mother, foxes = level.build_level(images)\n\n    font_hud = pygame.font.SysFont(None, 28)\n    font_win = pygame.font.SysFont(None, 56)\n    font_win_sub = pygame.font.SysFont(None, 28)\n\n    state = GameState.PLAYING\n    collected = 0\n    caught_flash = 0.0\n    player_start_px = level.grid_to_px(*level.PLAYER_START)\n\n    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)\n    overlay.fill(WIN_OVERLAY_COLOR)\n\n    running = True\n    while running:\n        dt = clock.tick(FPS) / 1000\n\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                running = False\n            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:\n                running = False\n\n        if state == GameState.PLAYING:\n            keys = pygame.key.get_pressed()\n            player.handle_input(keys)\n            player.update(dt, obstacles)\n            foxes.update(dt)\n\n            newly_collected = pygame.sprite.spritecollide(player, siblings, dokill=True)\n            collected += len(newly_collected)\n\n            if pygame.sprite.spritecollideany(player, foxes):\n                player.reset_to(*player_start_px)\n                caught_flash = CAUGHT_MESSAGE_DURATION\n\n            if player.rect.colliderect(mother.rect) and collected >= level.TOTAL_SIBLINGS:\n                state = GameState.WIN\n\n        if caught_flash > 0:\n            caught_flash = max(0.0, caught_flash - dt)\n\n        screen.blit(background, (0, 0))\n        obstacles.draw(screen)\n        screen.blit(mother.image, mother.rect)\n        siblings.draw(screen)\n        foxes.draw(screen)\n        screen.blit(player.image, player.rect)\n\n        hud_text = font_hud.render(\n            f\"Siblings found: {collected}/{level.TOTAL_SIBLINGS}\", True, HUD_COLOR\n        )\n        screen.blit(hud_text, (10, 10))\n        hint_text = font_hud.render(\"Arrows / WASD to move\", True, HUD_COLOR)\n        screen.blit(hint_text, (10, SCREEN_HEIGHT - 30))\n\n        if caught_flash > 0:\n            caught_text = font_hud.render(\"The fox caught you! Back to start.\", True, CAUGHT_TEXT_COLOR)\n            caught_rect = caught_text.get_rect(center=(SCREEN_WIDTH // 2, 20))\n            screen.blit(caught_text, caught_rect)\n\n        if state == GameState.WIN:\n            screen.blit(overlay, (0, 0))\n            win_text = font_win.render(\"You found your family!\", True, WIN_TEXT_COLOR)\n            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(win_text, win_rect)\n            sub_text = font_win_sub.render(\"Press ESC to quit\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        pygame.display.flip()\n\n    pygame.quit()\n\n\nif __name__ == \"__main__\":\n    main()\n"
                   }
-                ],
-                "entrypoint": "main.py"
+                ]
               },
               "replay": {
                 "prompt": "The game currently has no enemies. Add a fox to the game.",
@@ -5468,6 +5526,18 @@
                   "turnIndex": 0,
                   "sessionId": "d861f3ac-3626-4d9b-b5ef-1a5765793ef3"
                 }
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "main.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             },
             {
@@ -5573,8 +5643,7 @@
                     "path": "main.py",
                     "content": "from enum import Enum\n\nimport pygame\n\nfrom assets_gen import ensure_assets, EXPECTED_FILES\nfrom constants import (\n    ASSET_DIR, SCREEN_WIDTH, SCREEN_HEIGHT, FPS,\n    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,\n    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION, LEVEL_COMPLETE_DURATION,\n)\nimport level\n\n\nclass GameState(Enum):\n    PLAYING = 1\n    LEVEL_COMPLETE = 3\n    WIN = 2\n\n\ndef load_level(images, level_index):\n    player, obstacles, siblings, mother, foxes = level.build_level(images, level_index)\n    player_start_px = level.grid_to_px(*level.LEVELS[level_index].player_start)\n    total_siblings = len(siblings)\n    return player, obstacles, siblings, mother, foxes, player_start_px, total_siblings\n\n\ndef load_images():\n    images = {}\n    for filename in EXPECTED_FILES:\n        name = filename[:-4]  # strip \".png\"\n        images[name] = pygame.image.load(ASSET_DIR / filename).convert_alpha()\n    return images\n\n\ndef main():\n    ensure_assets()\n\n    pygame.init()\n    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))\n    pygame.display.set_caption(\"Save the Duckling\")\n    clock = pygame.time.Clock()\n\n    images = load_images()\n    background = level.build_background(images)\n\n    current_level = 0\n    (player, obstacles, siblings, mother, foxes,\n     player_start_px, total_siblings) = load_level(images, current_level)\n\n    font_hud = pygame.font.SysFont(None, 28)\n    font_win = pygame.font.SysFont(None, 56)\n    font_win_sub = pygame.font.SysFont(None, 28)\n\n    state = GameState.PLAYING\n    collected = 0\n    caught_flash = 0.0\n    level_complete_timer = 0.0\n\n    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)\n    overlay.fill(WIN_OVERLAY_COLOR)\n\n    running = True\n    while running:\n        dt = clock.tick(FPS) / 1000\n\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                running = False\n            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:\n                running = False\n\n        if state == GameState.PLAYING:\n            keys = pygame.key.get_pressed()\n            player.handle_input(keys)\n            player.update(dt, obstacles)\n            foxes.update(dt)\n\n            newly_collected = pygame.sprite.spritecollide(player, siblings, dokill=True)\n            collected += len(newly_collected)\n\n            if pygame.sprite.spritecollideany(player, foxes):\n                player.reset_to(*player_start_px)\n                caught_flash = CAUGHT_MESSAGE_DURATION\n\n            if player.rect.colliderect(mother.rect) and collected >= total_siblings:\n                if current_level + 1 < len(level.LEVELS):\n                    state = GameState.LEVEL_COMPLETE\n                    level_complete_timer = LEVEL_COMPLETE_DURATION\n                else:\n                    state = GameState.WIN\n\n        elif state == GameState.LEVEL_COMPLETE:\n            level_complete_timer -= dt\n            if level_complete_timer <= 0:\n                current_level += 1\n                (player, obstacles, siblings, mother, foxes,\n                 player_start_px, total_siblings) = load_level(images, current_level)\n                collected = 0\n                caught_flash = 0.0\n                state = GameState.PLAYING\n\n        if caught_flash > 0:\n            caught_flash = max(0.0, caught_flash - dt)\n\n        screen.blit(background, (0, 0))\n        obstacles.draw(screen)\n        screen.blit(mother.image, mother.rect)\n        siblings.draw(screen)\n        foxes.draw(screen)\n        screen.blit(player.image, player.rect)\n\n        hud_text = font_hud.render(\n            f\"Level {current_level + 1}/{len(level.LEVELS)}   \"\n            f\"Siblings found: {collected}/{total_siblings}\",\n            True, HUD_COLOR,\n        )\n        screen.blit(hud_text, (10, 10))\n        hint_text = font_hud.render(\"Arrows / WASD to move\", True, HUD_COLOR)\n        screen.blit(hint_text, (10, SCREEN_HEIGHT - 30))\n\n        if caught_flash > 0:\n            caught_text = font_hud.render(\"The fox caught you! Back to start.\", True, CAUGHT_TEXT_COLOR)\n            caught_rect = caught_text.get_rect(center=(SCREEN_WIDTH // 2, 20))\n            screen.blit(caught_text, caught_rect)\n\n        if state == GameState.LEVEL_COMPLETE:\n            screen.blit(overlay, (0, 0))\n            complete_text = font_win.render(\n                f\"Level {current_level + 1} Complete!\", True, WIN_TEXT_COLOR\n            )\n            complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(complete_text, complete_rect)\n            sub_text = font_win_sub.render(\"Get ready...\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        if state == GameState.WIN:\n            screen.blit(overlay, (0, 0))\n            win_text = font_win.render(\"You found your family!\", True, WIN_TEXT_COLOR)\n            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(win_text, win_rect)\n            sub_text = font_win_sub.render(\"Press ESC to quit\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        pygame.display.flip()\n\n    pygame.quit()\n\n\nif __name__ == \"__main__\":\n    main()\n"
                   }
-                ],
-                "entrypoint": "main.py"
+                ]
               },
               "replay": {
                 "prompt": "Make two more levels for the game. Each level should get harder with more obstacles and enemies.",
@@ -6122,6 +6191,18 @@
                   "generatedAt": "2026-08-21T21:52:13.401Z",
                   "turnIndex": 0,
                   "sessionId": "d861f3ac-3626-4d9b-b5ef-1a5765793ef3"
+                }
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "main.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
                 }
               }
             }
@@ -6790,8 +6871,7 @@
                     "path": "main.py",
                     "content": "from enum import Enum\n\nimport pygame\n\nfrom assets_gen import ensure_assets, load_images\nfrom constants import (\n    SCREEN_WIDTH, SCREEN_HEIGHT, FPS,\n    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,\n    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION, LEVEL_COMPLETE_DURATION,\n)\nimport level\n\n\nclass GameState(Enum):\n    PLAYING = 1\n    LEVEL_COMPLETE = 3\n    WIN = 2\n\n\ndef load_level(images, level_index):\n    player, obstacles, siblings, mother, foxes = level.build_level(images, level_index)\n    player_start_px = level.grid_to_px(*level.LEVELS[level_index].player_start)\n    total_siblings = len(siblings)\n    return player, obstacles, siblings, mother, foxes, player_start_px, total_siblings\n\n\ndef main():\n    ensure_assets()\n\n    pygame.init()\n    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))\n    pygame.display.set_caption(\"Save the Duckling\")\n    clock = pygame.time.Clock()\n\n    images = load_images()\n    background = level.build_background(images)\n\n    current_level = 0\n    (player, obstacles, siblings, mother, foxes,\n     player_start_px, total_siblings) = load_level(images, current_level)\n\n    font_hud = pygame.font.SysFont(None, 28)\n    font_win = pygame.font.SysFont(None, 56)\n    font_win_sub = pygame.font.SysFont(None, 28)\n\n    state = GameState.PLAYING\n    collected = 0\n    caught_flash = 0.0\n    level_complete_timer = 0.0\n\n    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)\n    overlay.fill(WIN_OVERLAY_COLOR)\n\n    running = True\n    while running:\n        dt = clock.tick(FPS) / 1000\n\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                running = False\n            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:\n                running = False\n\n        if state == GameState.PLAYING:\n            keys = pygame.key.get_pressed()\n            player.handle_input(keys)\n            player.update(dt, obstacles)\n            foxes.update(dt)\n\n            newly_collected = pygame.sprite.spritecollide(player, siblings, dokill=True)\n            collected += len(newly_collected)\n\n            if pygame.sprite.spritecollideany(player, foxes):\n                player.reset_to(*player_start_px)\n                caught_flash = CAUGHT_MESSAGE_DURATION\n\n            if player.rect.colliderect(mother.rect) and collected >= total_siblings:\n                if current_level + 1 < len(level.LEVELS):\n                    state = GameState.LEVEL_COMPLETE\n                    level_complete_timer = LEVEL_COMPLETE_DURATION\n                else:\n                    state = GameState.WIN\n\n        elif state == GameState.LEVEL_COMPLETE:\n            level_complete_timer -= dt\n            if level_complete_timer <= 0:\n                current_level += 1\n                (player, obstacles, siblings, mother, foxes,\n                 player_start_px, total_siblings) = load_level(images, current_level)\n                collected = 0\n                caught_flash = 0.0\n                state = GameState.PLAYING\n\n        if caught_flash > 0:\n            caught_flash = max(0.0, caught_flash - dt)\n\n        screen.blit(background, (0, 0))\n        obstacles.draw(screen)\n        screen.blit(mother.image, mother.rect)\n        siblings.draw(screen)\n        foxes.draw(screen)\n        screen.blit(player.image, player.rect)\n\n        hud_text = font_hud.render(\n            f\"Level {current_level + 1}/{len(level.LEVELS)}   \"\n            f\"Siblings found: {collected}/{total_siblings}\",\n            True, HUD_COLOR,\n        )\n        screen.blit(hud_text, (10, 10))\n        hint_text = font_hud.render(\"Arrows / WASD to move\", True, HUD_COLOR)\n        screen.blit(hint_text, (10, SCREEN_HEIGHT - 30))\n\n        if caught_flash > 0:\n            caught_text = font_hud.render(\"The fox caught you! Back to start.\", True, CAUGHT_TEXT_COLOR)\n            caught_rect = caught_text.get_rect(center=(SCREEN_WIDTH // 2, 20))\n            screen.blit(caught_text, caught_rect)\n\n        if state == GameState.LEVEL_COMPLETE:\n            screen.blit(overlay, (0, 0))\n            complete_text = font_win.render(\n                f\"Level {current_level + 1} Complete!\", True, WIN_TEXT_COLOR\n            )\n            complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(complete_text, complete_rect)\n            sub_text = font_win_sub.render(\"Get ready...\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        if state == GameState.WIN:\n            screen.blit(overlay, (0, 0))\n            win_text = font_win.render(\"You found your family!\", True, WIN_TEXT_COLOR)\n            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(win_text, win_rect)\n            sub_text = font_win_sub.render(\"Press ESC to quit\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        pygame.display.flip()\n\n    pygame.quit()\n\n\nif __name__ == \"__main__\":\n    main()\n"
                   }
-                ],
-                "entrypoint": "level_editor.py"
+                ]
               },
               "stdin": "\n",
               "explanation": {
@@ -6815,6 +6895,18 @@
                   }
                 ],
                 "run": "Run python3 level_editor.py from the project directory."
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "level_editor.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             },
             {
@@ -7198,8 +7290,7 @@
                     "path": "main.py",
                     "content": "from enum import Enum\n\nimport pygame\n\nfrom assets_gen import ensure_assets, load_images\nfrom constants import (\n    SCREEN_WIDTH, SCREEN_HEIGHT, FPS,\n    HUD_COLOR, WIN_TEXT_COLOR, WIN_OVERLAY_COLOR,\n    CAUGHT_TEXT_COLOR, CAUGHT_MESSAGE_DURATION, LEVEL_COMPLETE_DURATION,\n)\nimport level\n\n\nclass GameState(Enum):\n    PLAYING = 1\n    LEVEL_COMPLETE = 3\n    WIN = 2\n\n\ndef load_level(images, level_index):\n    player, obstacles, siblings, mother, foxes = level.build_level(images, level_index)\n    player_start_px = level.grid_to_px(*level.LEVELS[level_index].player_start)\n    total_siblings = len(siblings)\n    return player, obstacles, siblings, mother, foxes, player_start_px, total_siblings\n\n\ndef main():\n    ensure_assets()\n\n    pygame.init()\n    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))\n    pygame.display.set_caption(\"Save the Duckling\")\n    clock = pygame.time.Clock()\n\n    images = load_images()\n    background = level.build_background(images)\n\n    current_level = 0\n    (player, obstacles, siblings, mother, foxes,\n     player_start_px, total_siblings) = load_level(images, current_level)\n\n    font_hud = pygame.font.SysFont(None, 28)\n    font_win = pygame.font.SysFont(None, 56)\n    font_win_sub = pygame.font.SysFont(None, 28)\n\n    state = GameState.PLAYING\n    collected = 0\n    caught_flash = 0.0\n    level_complete_timer = 0.0\n\n    overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)\n    overlay.fill(WIN_OVERLAY_COLOR)\n\n    running = True\n    while running:\n        dt = clock.tick(FPS) / 1000\n\n        for event in pygame.event.get():\n            if event.type == pygame.QUIT:\n                running = False\n            elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:\n                running = False\n\n        if state == GameState.PLAYING:\n            keys = pygame.key.get_pressed()\n            player.handle_input(keys)\n            player.update(dt, obstacles)\n            foxes.update(dt)\n\n            newly_collected = pygame.sprite.spritecollide(player, siblings, dokill=True)\n            collected += len(newly_collected)\n\n            if pygame.sprite.spritecollideany(player, foxes):\n                player.reset_to(*player_start_px)\n                caught_flash = CAUGHT_MESSAGE_DURATION\n\n            if player.rect.colliderect(mother.rect) and collected >= total_siblings:\n                if current_level + 1 < len(level.LEVELS):\n                    state = GameState.LEVEL_COMPLETE\n                    level_complete_timer = LEVEL_COMPLETE_DURATION\n                else:\n                    state = GameState.WIN\n\n        elif state == GameState.LEVEL_COMPLETE:\n            level_complete_timer -= dt\n            if level_complete_timer <= 0:\n                current_level += 1\n                (player, obstacles, siblings, mother, foxes,\n                 player_start_px, total_siblings) = load_level(images, current_level)\n                collected = 0\n                caught_flash = 0.0\n                state = GameState.PLAYING\n\n        if caught_flash > 0:\n            caught_flash = max(0.0, caught_flash - dt)\n\n        screen.blit(background, (0, 0))\n        obstacles.draw(screen)\n        screen.blit(mother.image, mother.rect)\n        siblings.draw(screen)\n        foxes.draw(screen)\n        screen.blit(player.image, player.rect)\n\n        hud_text = font_hud.render(\n            f\"Level {current_level + 1}/{len(level.LEVELS)}   \"\n            f\"Siblings found: {collected}/{total_siblings}\",\n            True, HUD_COLOR,\n        )\n        screen.blit(hud_text, (10, 10))\n        hint_text = font_hud.render(\"Arrows / WASD to move\", True, HUD_COLOR)\n        screen.blit(hint_text, (10, SCREEN_HEIGHT - 30))\n\n        if caught_flash > 0:\n            caught_text = font_hud.render(\"The fox caught you! Back to start.\", True, CAUGHT_TEXT_COLOR)\n            caught_rect = caught_text.get_rect(center=(SCREEN_WIDTH // 2, 20))\n            screen.blit(caught_text, caught_rect)\n\n        if state == GameState.LEVEL_COMPLETE:\n            screen.blit(overlay, (0, 0))\n            complete_text = font_win.render(\n                f\"Level {current_level + 1} Complete!\", True, WIN_TEXT_COLOR\n            )\n            complete_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(complete_text, complete_rect)\n            sub_text = font_win_sub.render(\"Get ready...\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        if state == GameState.WIN:\n            screen.blit(overlay, (0, 0))\n            win_text = font_win.render(\"You found your family!\", True, WIN_TEXT_COLOR)\n            win_rect = win_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 20))\n            screen.blit(win_text, win_rect)\n            sub_text = font_win_sub.render(\"Press ESC to quit\", True, WIN_TEXT_COLOR)\n            sub_rect = sub_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 30))\n            screen.blit(sub_text, sub_rect)\n\n        pygame.display.flip()\n\n    pygame.quit()\n\n\nif __name__ == \"__main__\":\n    main()\n"
                   }
-                ],
-                "entrypoint": "level_editor.py"
+                ]
               },
               "stdin": "\n",
               "explanation": {
@@ -7223,6 +7314,18 @@
                   }
                 ],
                 "run": "Run python3 level_editor.py and use Ctrl+Z or Ctrl+Y after editing the grid."
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "level_editor.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             },
             {
@@ -7772,8 +7875,7 @@
                     "path": "pathfinder.py",
                     "content": "\"\"\"Grid pathfinding used by the level editor to check level beatability.\n\nPure logic, no pygame dependency, so it can be tested independently of a\ndisplay. Beatability means: is there a path through non-obstacle cells\nconnecting the player start, every sibling, and mother? Fox patrols are\nintentionally ignored -- getting caught only resets the player to the start\n(see main.py), it never permanently blocks a path.\n\"\"\"\n\nfrom collections import deque\n\n\ndef neighbors(cell, cols, rows):\n    col, row = cell\n    for dc, dr in ((1, 0), (-1, 0), (0, 1), (0, -1)):\n        nc, nr = col + dc, row + dr\n        if 0 <= nc < cols and 0 <= nr < rows:\n            yield (nc, nr)\n\n\ndef flood_fill(start, blocked, cols, rows):\n    \"\"\"BFS from start over all free cells.\n\n    Returns (visited_order, came_from): visited_order is the cell visitation\n    order (drives the frontier animation), came_from maps cell -> predecessor\n    (start -> None), enabling path reconstruction to any reached cell without\n    re-searching.\n    \"\"\"\n    frontier = deque([start])\n    came_from = {start: None}\n    visited_order = [start]\n    while frontier:\n        current = frontier.popleft()\n        for nxt in neighbors(current, cols, rows):\n            if nxt in came_from or nxt in blocked:\n                continue\n            came_from[nxt] = current\n            visited_order.append(nxt)\n            frontier.append(nxt)\n    return visited_order, came_from\n\n\ndef reconstruct_path(came_from, goal):\n    path = [goal]\n    while came_from[path[-1]] is not None:\n        path.append(came_from[path[-1]])\n    path.reverse()\n    return path\n\n\ndef find_route(start, targets, blocked, cols, rows):\n    \"\"\"Greedily visit `targets` nearest-first from `start`.\n\n    Returns (legs, beatable, unreachable_target). Each leg is a dict:\n    {\"visited_order\": [...], \"path\": [...] or None, \"goal\": cell}.\n    Stops at the first leg where nothing remaining is reachable.\n    \"\"\"\n    remaining = set(targets)\n    current = start\n    legs = []\n    while remaining:\n        visited_order, came_from = flood_fill(current, blocked, cols, rows)\n        reached = [c for c in visited_order if c in remaining]\n        if not reached:\n            legs.append({\n                \"visited_order\": visited_order,\n                \"path\": None,\n                \"goal\": next(iter(remaining)),\n            })\n            return legs, False, next(iter(remaining))\n\n        goal = reached[0]  # first-reached among remaining == nearest by BFS distance\n        legs.append({\n            \"visited_order\": visited_order,\n            \"path\": reconstruct_path(came_from, goal),\n            \"goal\": goal,\n        })\n        remaining.discard(goal)\n        current = goal\n\n    return legs, True, None\n"
                   }
-                ],
-                "entrypoint": "level_editor.py"
+                ]
               },
               "explanation": {
                 "summary": "This module uses breadth-first search to prove that every required target is reachable and supplies visitation/path data for the editor's animated beatability display.",
@@ -7796,6 +7898,18 @@
                   }
                 ],
                 "run": "Run python3 level_editor.py and press T after placing the player, siblings, and mother."
+              },
+              "execution": {
+                "mode": "run",
+                "commands": [
+                  [
+                    "python3",
+                    "level_editor.py"
+                  ]
+                ],
+                "launch": {
+                  "surface": "external"
+                }
               }
             }
           ]
