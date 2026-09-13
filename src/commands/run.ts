@@ -33,6 +33,7 @@ import { finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { defaultExercisePath } from "../workspace";
+import { runAsyncProcess, type ProcessInput } from "../process";
 
 const PROGRAM_TIMEOUT_MS = 30_000;
 const VERIFICATION_TIMEOUT_MS = 180_000;
@@ -43,7 +44,16 @@ export function runTimeoutMs(
   commandIndex = 0,
   commandCount = 1,
 ): number | undefined {
-  if (boolFlag(args, "no-timeout")) return undefined;
+  return executionTimeoutMs(boolFlag(args, "no-timeout"), execution, commandIndex, commandCount);
+}
+
+function executionTimeoutMs(
+  noTimeout: boolean,
+  execution?: Execution,
+  commandIndex = 0,
+  commandCount = 1,
+): number | undefined {
+  if (noTimeout) return undefined;
   const finalLaunch = execution?.launch && commandIndex === commandCount - 1
     ? execution.launch
     : undefined;
@@ -156,6 +166,29 @@ export interface PreparedExerciseFiles {
   wrote: boolean;
   replaced?: string;
   scaffoldFiles: string[];
+}
+
+export interface ExerciseRunOptions {
+  runtime?: PythonRuntime;
+  inputMode?: "authored-sample" | "reader";
+  noTimeout?: boolean;
+  signal?: AbortSignal;
+  onStdout?: (chunk: string) => void;
+  onStderr?: (chunk: string) => void;
+  onInputReady?: (input: ProcessInput) => void;
+}
+
+export interface ExerciseRunResult {
+  ok: boolean;
+  deliberate: boolean;
+  recorded: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  timedOut: boolean;
+  timedOutAfterMs?: number;
+  commands: string[][];
+  aborted: boolean;
 }
 
 /** Safely materialize an exercise without executing or recording it. */
@@ -271,6 +304,97 @@ export function prepareExerciseFiles(
   return { path, cwd: projectRoot, wrote, ...(replaced ? { replaced } : {}), scaffoldFiles };
 }
 
+/** Execute already-prepared exercise files with either deterministic or reader-provided input. */
+export async function executePreparedExercise(
+  example: Example,
+  step: Step,
+  prepared: PreparedExerciseFiles,
+  options: ExerciseRunOptions = {},
+): Promise<ExerciseRunResult> {
+  const commands = commandsFor(example, step, basename(prepared.path), options.runtime);
+  const command = commands[0];
+  if (!command) {
+    throw new CliError(
+      `Don't know how to run ${example.language} exercises`,
+      "unsupported_language",
+      `The file is written at ${prepared.path}; run it yourself, then: aifirst done ${example.id}`,
+    );
+  }
+  const usesJunitLauncher = commands.some((candidate) => candidate.includes(junitJar()));
+  if (usesJunitLauncher && !existsSync(junitJar())) {
+    throw new CliError(
+      `${example.id} is a JUnit test and the JUnit launcher is not installed`,
+      "missing_junit",
+      `Fetch it once, then run this again:\n` +
+        `    mkdir -p ${dirname(junitJar())}\n` +
+        `    curl -sSLo ${junitJar()} ${JUNIT_URL}`,
+    );
+  }
+  if (!which(command[0])) {
+    throw new CliError(
+      `${command[0]} is not installed`,
+      "missing_runtime",
+      example.language === "java"
+        ? `Install a JDK (11 or newer) to run Java exercises. The file is written at ${prepared.path}.`
+        : `Install Python 3 to run Python exercises. The file is written at ${prepared.path}.`,
+    );
+  }
+
+  let stdout = "";
+  let stderr = "";
+  let exitCode = 0;
+  let timedOut = false;
+  let timedOutAfterMs: number | undefined;
+  let aborted = false;
+  let ranProgram = false;
+
+  for (let index = 0; index < commands.length; index++) {
+    const argv = commands[index]!;
+    const last = index === commands.length - 1;
+    const readerInput = last && step.interactive && options.inputMode === "reader";
+    const timeoutMs = readerInput
+      ? undefined
+      : executionTimeoutMs(Boolean(options.noTimeout), step.execution, index, commands.length);
+    const result = await runAsyncProcess(argv, {
+      cwd: prepared.cwd,
+      stdin: readerInput
+        ? options.onInputReady ? "interactive" : "inherit"
+        : last && step.stdin !== undefined
+          ? step.stdin
+          : "ignore",
+      timeoutMs,
+      signal: options.signal,
+      onStdout: options.onStdout,
+      onStderr: options.onStderr,
+      onInputReady: readerInput ? options.onInputReady : undefined,
+    });
+    stdout += result.stdout;
+    stderr += result.stderr;
+    exitCode = result.exitCode;
+    timedOut = result.timedOut;
+    aborted = result.aborted;
+    if (timedOut) timedOutAfterMs = timeoutMs;
+    ranProgram = last;
+    if (exitCode !== 0 || timedOut || aborted) break;
+  }
+
+  const deliberate = step.expectsException === true && ranProgram && exitCode !== 0 && !timedOut && stdout.trim() !== "";
+  const ok = !aborted && (exitCode === 0 || deliberate);
+  const recorded = ok ? markIfNew(example.id, { via: "run" }) !== null : false;
+  return {
+    ok,
+    deliberate,
+    recorded,
+    stdout,
+    stderr,
+    exitCode,
+    timedOut,
+    ...(timedOutAfterMs === undefined ? {} : { timedOutAfterMs }),
+    commands,
+    aborted,
+  };
+}
+
 export async function run(args: Args): Promise<void> {
   const format = formatFlag(args, ["text", "json"]);
   const id = args.positionals[0];
@@ -302,7 +426,6 @@ export async function run(args: Args): Promise<void> {
   const { path, cwd, wrote, replaced, scaffoldFiles } = prepared;
   const body = step.response.endsWith("\n") ? step.response : step.response + "\n";
 
-  const commands = commandsFor(example, step, basename(path), dependencyReport.runtime);
   const mode = executionMode(example, step);
   // Whatever happened above, the file about to run must hold this exercise's code.
   //
@@ -319,98 +442,46 @@ export async function run(args: Args): Promise<void> {
     );
   }
 
-  const command = commands[0];
-  if (!command) {
-    throw new CliError(
-      `Don't know how to run ${example.language} exercises`,
-      "unsupported_language",
-      `The file is written at ${path}; run it yourself, then: aifirst done ${example.id}`,
-    );
-  }
-  const usesJunitLauncher = commands.some((command) => command.includes(junitJar()));
-  if (usesJunitLauncher && !existsSync(junitJar())) {
-    throw new CliError(
-      `${example.id} is a JUnit test and the JUnit launcher is not installed`,
-      "missing_junit",
-      `Fetch it once, then run this again:\n` +
-        `    mkdir -p ${dirname(junitJar())}\n` +
-        `    curl -sSLo ${junitJar()} ${JUNIT_URL}`,
-    );
-  }
-  if (!which(command[0])) {
-    throw new CliError(
-      `${command[0]} is not installed`,
-      "missing_runtime",
-      example.language === "java"
-        ? `Install a JDK (11 or newer) to run Java exercises. The file is written at ${path}.`
-        : `Install Python 3 to run Python exercises. The file is written at ${path}.`,
-    );
-  }
-
-  // Decide how the program gets its input.
-  const interactive = step.interactive;
-  const hasTty = Boolean(process.stdin.isTTY);
-  if (interactive && step.stdin === undefined && !hasTty) {
+  if (step.interactive && step.stdin === undefined && !process.stdin.isTTY) {
     throw new CliError(
       `${step.id} reads input and has no sample, and there is no terminal attached`,
       "needs_interactive_run",
       `Ask the learner to run it themselves: aifirst run ${step.id}`,
     );
   }
-  const useTty = interactive && step.stdin === undefined && hasTty;
+  const readerInput = format === "text" && step.interactive && Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  const renderPrepared = (showAuthoredInput: boolean) => {
+    out();
+    out(`  ${wrote ? green(glyph.done) : dim(glyph.done)} ${wrote ? "wrote" : "using"} ${bold(path)}  ${dim(step.id)}`);
+    if (replaced) {
+      out(dim(`  replaced ${replaced}'s code, which this exercise builds on`));
+    }
+    if (scaffoldFiles.length > 0) {
+      out(dim(`  also wrote ${scaffoldFiles.join(", ")} — the code this exercise needs around it`));
+    }
+    if (showAuthoredInput && step.stdin !== undefined) {
+      out(dim(`  input: ${JSON.stringify(step.stdin)}`));
+    }
 
-  // Run each command in turn; a failed compile stops the sequence.
-  let stdout = "";
-  let stderr = "";
-  let exitCode: number | null = 0;
-  let timedOut = false;
-  let timedOutAfterMs: number | undefined;
-  let ranProgram = false;
-
-  for (let n = 0; n < commands.length; n++) {
-    const argv = commands[n];
-    const last = n === commands.length - 1;
-    const proc = Bun.spawn(argv, {
-      cwd,
-      stdin:
-        useTty && last
-          ? "inherit"
-          : step.stdin === undefined || !last
-            ? "ignore"
-            : new TextEncoder().encode(step.stdin),
-      stdout: useTty && last ? "inherit" : "pipe",
-      stderr: useTty && last ? "inherit" : "pipe",
-    });
-
-    const timeoutMs = runTimeoutMs(args, step.execution, n, commands.length);
-    const timer = timeoutMs === undefined ? undefined : setTimeout(() => proc.kill(), timeoutMs);
-    const [o, e] =
-      useTty && last
-        ? ["", ""]
-        : await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()]);
-    await proc.exited;
-    if (timer) clearTimeout(timer);
-
-    stdout += o;
-    stderr += e;
-    exitCode = proc.exitCode;
-    timedOut = proc.exitCode === null;
-    if (timedOut) timedOutAfterMs = timeoutMs;
-    ranProgram = last;
-    if (proc.exitCode !== 0) break;
+    out();
+    out(`  ${cyan("Code")} ${dim(`(${example.language})`)}`);
+    out(codeBlock(step.response));
+  };
+  if (readerInput) {
+    renderPrepared(false);
+    out();
+    out(`  ${cyan("Interactive output")}`);
+    out();
   }
-
+  const executed = await executePreparedExercise(example, step, prepared, {
+    runtime: dependencyReport.runtime,
+    inputMode: readerInput ? "reader" : "authored-sample",
+    noTimeout: boolFlag(args, "no-timeout"),
+    onStdout: readerInput ? (chunk) => process.stdout.write(chunk) : undefined,
+    onStderr: readerInput ? (chunk) => process.stderr.write(chunk) : undefined,
+  });
+  const { stdout, stderr, exitCode, timedOut, timedOutAfterMs, deliberate, ok, recorded, commands } = executed;
   const output = `${stdout}${stderr}`.replace(/\n$/, "");
-
-  // Some exercises teach error handling by throwing on purpose, and the book says so.
-  // Treating that as failure would refuse to record an exercise that worked exactly
-  // as printed.
-  const deliberate =
-    step.expectsException === true && ranProgram && exitCode !== 0 && !timedOut && stdout.trim() !== "";
-  const ok = exitCode === 0 || deliberate;
-
-  // The whole point: only a clean run records progress.
-  const recorded = ok ? markIfNew(example.id, { via: "run" }) : null;
 
   if (format === "json") {
     json({
@@ -428,34 +499,22 @@ export async function run(args: Args): Promise<void> {
       ...(scaffoldFiles.length > 0 ? { scaffold: scaffoldFiles } : {}),
       ...(replaced ? { replaced } : {}),
       ...(step.stdin === undefined ? {} : { stdin: step.stdin }),
-      recorded: recorded !== null,
+      recorded,
       dependencies: dependencyReport.dependencies,
     });
     if (!ok) process.exitCode = 1;
     return;
   }
 
-  out();
-  out(`  ${wrote ? green(glyph.done) : dim(glyph.done)} ${wrote ? "wrote" : "using"} ${bold(path)}  ${dim(step.id)}`);
-  if (replaced) {
-    out(dim(`  replaced ${replaced}'s code, which this exercise builds on`));
-  }
-  if (scaffoldFiles.length > 0) {
-    out(dim(`  also wrote ${scaffoldFiles.join(", ")} — the code this exercise needs around it`));
-  }
-  if (step.stdin !== undefined) {
-    out(dim(`  input: ${JSON.stringify(step.stdin)}`));
-  }
-
-  out();
-  out(`  ${cyan("Code")} ${dim(`(${example.language})`)}`);
-  out(codeBlock(step.response));
-
-  if (!useTty) {
+  if (!readerInput) {
+    renderPrepared(true);
     out();
     out(`  ${cyan("Output")}`);
     out();
-    for (const line of output.split("\n")) out(`  ${line}`);
+    if (output) for (const line of output.split("\n")) out(`  ${line}`);
+    else out(dim("  Program completed with no console output."));
+  } else if (!output) {
+    out(dim("  Program completed with no console output."));
   }
   out();
 

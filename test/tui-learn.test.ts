@@ -154,7 +154,55 @@ suite("OpenTUI learning interface", () => {
     expect(progress.exercises["py-2-01"].status).toBe("done");
   }, 70_000);
 
-  test("wraps the complete immutable PocketCFO book default in the selected detail panel", async () => {
+  test("lets the reader answer an input exercise inside the TUI", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-tui-reader-input-"));
+    const state = join(root, "state");
+    const home = join(root, "home");
+    const scenario = join(root, "scenario.json");
+    mkdirSync(state);
+    mkdirSync(home);
+    writeFileSync(scenario, JSON.stringify({
+      columns: 100,
+      rows: 30,
+      timeoutSeconds: 30,
+      actions: [
+        { wait: "Which book are you reading?", down: 1, enter: true },
+        { wait: "What would you like to do?", paste: "py-2-08", enter: true },
+        { wait: "Your program is ready", enter: true },
+        { wait: "What is your name?", text: "Ada", enter: true },
+        { wait: "Hello, Ada!" },
+        { wait: "Lesson complete", ctrlC: true },
+      ],
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", ENTRY, "learn", "--no-animation"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        TERM: "xterm-256color",
+        NO_COLOR: "",
+        AIFIRST_TUI: "1",
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: home,
+        AIFIRST_LEARN_CHARS_PER_SECOND: "0",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
+    expect(stdout).toContain("Hello, Ada!");
+    expect(stdout).not.toContain("Hello, Sushi!");
+    const progress = JSON.parse(readFileSync(join(state, "progress.json"), "utf8"));
+    expect(progress.exercises["py-2-08"].status).toBe("done");
+  }, 70_000);
+
+  test("keeps the PocketCFO book default in a compact scrollable detail panel", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-tui-book-default-"));
     const state = join(root, "state");
     const home = join(root, "home");
@@ -173,7 +221,8 @@ suite("OpenTUI learning interface", () => {
       actions: [
         { wait: "Which book are you reading?", down: 1, enter: true },
         { wait: "What would you like to do?", paste: "java-11-01", enter: true },
-        { wait: "BOOK DEFAULT", escape: true },
+        { wait: "BOOK DEFAULT", pageDown: 10 },
+        { wait: "payments.", escape: true },
         { wait: "Lesson paused", ctrlC: true },
       ],
     }));

@@ -170,6 +170,37 @@ describe("replay execution", () => {
     }] }, root, undefined, { relaxOutput: true })).ok).toBe(false);
   });
 
+  it("runs ordinary asynchronous commands without blocking the event loop", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-async-"));
+    let heartbeat = false;
+    setTimeout(() => { heartbeat = true; }, 20);
+
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: [process.execPath, "-e", "setTimeout(() => console.log('done'), 100)"],
+      expectedExitCode: 0,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(heartbeat).toBe(true);
+    expect(result.command?.stdout).toContain("done");
+  });
+
+  it("honors asynchronous command timeouts", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-timeout-"));
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: [process.execPath, "-e", "setTimeout(() => {}, 10_000)"],
+      timeoutMs: 50,
+      expectedTimeout: true,
+      expectedExitCode: 124,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(result.command?.timedOut).toBe(true);
+    expect(result.command?.exitCode).toBe(124);
+  });
+
   it("stops after the first operation that fails verification", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-replay-fail-fast-"));
     const result = executeReplay({ operations: [
@@ -220,6 +251,21 @@ describe("replay execution", () => {
     ] }, root);
     expect(result.ok).toBe(true);
     expect(readFileSync(join(root, "value.txt"), "utf8")).toBe("after\n");
+  });
+
+  it("describes PNG reads without rendering binary bytes", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-image-"));
+    const png = Buffer.alloc(32);
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(png);
+    png.writeUInt32BE(32, 16);
+    png.writeUInt32BE(48, 20);
+    writeFileSync(join(root, "duckling.png"), png);
+
+    const result = executeReplayOperation({ type: "read", path: "duckling.png" }, root);
+
+    expect(result.ok).toBe(true);
+    expect(result.text).toBe("duckling.png - PNG, 32x48, 32 bytes; preview omitted");
+    expect(result.text).not.toContain("�");
   });
 });
 

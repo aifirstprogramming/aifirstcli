@@ -81,6 +81,30 @@ def main() -> int:
             if action.get("down"):
                 os.write(fd, b"\x1b[B" * int(action["down"]))
                 time.sleep(0.1)
+            if action.get("pageUp"):
+                os.write(fd, b"\x1b[5~" * int(action["pageUp"]))
+                time.sleep(0.1)
+            if action.get("pageDown"):
+                os.write(fd, b"\x1b[6~" * int(action["pageDown"]))
+                time.sleep(0.1)
+            if "click" in action:
+                click = action["click"]
+                x = int(click.get("x", 10))
+                y = int(click.get("y", 8))
+                os.write(fd, f"\x1b[<0;{x};{y}M\x1b[<0;{x};{y}m".encode("ascii"))
+                time.sleep(0.1)
+            if action.get("scrollUp"):
+                x = int(action.get("scrollX", 10))
+                y = int(action.get("scrollY", 10))
+                for _ in range(int(action["scrollUp"])):
+                    os.write(fd, f"\x1b[<64;{x};{y}M".encode("ascii"))
+                time.sleep(0.1)
+            if action.get("scrollDown"):
+                x = int(action.get("scrollX", 10))
+                y = int(action.get("scrollY", 10))
+                for _ in range(int(action["scrollDown"])):
+                    os.write(fd, f"\x1b[<65;{x};{y}M".encode("ascii"))
+                time.sleep(0.1)
             if action.get("enter"):
                 os.write(fd, b"\r")
             if action.get("escape"):

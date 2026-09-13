@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import { stripAnsi } from "../src/output";
 import {
+  renderExercisePrompt,
   renderTerminalMarkdown,
   terminalBlocks,
   type TerminalRenderOptions,
@@ -147,6 +148,56 @@ describe("native terminal pacing", () => {
     expect(tty.rawTransitions).toEqual([true, false]);
     expect(tty.listenerCount("keypress")).toBe(0);
     expect(tty.paused).toBe(true);
+  });
+
+  test("any key reveals the rest of a proposed plan", async () => {
+    const tty = new FakeTty();
+    const writes: string[] = [];
+    let sleeps = 0;
+    await renderTerminalMarkdown([
+      "## Proposed plan",
+      "",
+      "First deliberately long plan paragraph that would normally take time.",
+      "",
+      "Second plan paragraph must also be revealed by the same keypress.",
+    ].join("\n"), {
+      color: false,
+      columns: 40,
+      charsPerSecond: 10,
+      chunkChars: 5,
+      dumb: false,
+      writer: (text) => writes.push(text),
+      sleep: async () => {
+        sleeps++;
+        tty.emit("keypress", "x", { name: "x" });
+      },
+      stdin: tty as unknown as NodeJS.ReadStream,
+    });
+
+    expect(sleeps).toBe(1);
+    expect(writes.join("").replace(/\s+/g, "")).toContain("Secondplanparagraph");
+    expect(tty.rawTransitions).toEqual([true, false]);
+  });
+
+  test("any key reveals a prompt but does not also run it", async () => {
+    const tty = new FakeTty();
+    const writes: string[] = [];
+    let sleeps = 0;
+    const result = await renderExercisePrompt("A deliberately long prompt that should reveal immediately.", {
+      color: false,
+      columns: 60,
+      writer: (text) => writes.push(text),
+      sleep: async () => {
+        sleeps++;
+        tty.emit("keypress", "x", { name: "x" });
+        setTimeout(() => tty.emit("keypress", "\r", { name: "return" }), 0);
+      },
+      stdin: tty as unknown as NodeJS.ReadStream,
+    });
+
+    expect(result).toBe("run");
+    expect(sleeps).toBe(1);
+    expect(writes.join("")).toContain("PRESS ENTER TO RUN THIS PROMPT");
   });
 
   test("rate zero/no-animation writes immediately without sleeping", async () => {

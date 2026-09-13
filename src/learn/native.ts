@@ -34,7 +34,8 @@ import { renderExercisePrompt, renderTerminalMarkdown, type TerminalRenderOption
 import { unifiedPatch } from "../textdiff";
 import { currentTuiSession } from "../tui/session";
 import { runWithTui, shouldUseTui } from "../tui";
-import { prepareExerciseFiles } from "../commands/run";
+import { executePreparedExercise, prepareExerciseFiles } from "../commands/run";
+import type { ProcessInput } from "../process";
 import { ReplayStateGuard } from "./replayState";
 import { defaultExercisePath, ensureWorkspace as resolveWorkspace } from "../workspace";
 import { GeneratedFileStore } from "../generatedFiles";
@@ -521,7 +522,11 @@ async function runOrFinishExercise(
             `Running ${example.title}`,
             (signal) => runExercise(step.id, preparedInto, true, signal),
           )
-        : await tui.suspendDuring(() => runExercise(step.id, preparedInto))
+        : await tui.withTerminalProgram(
+            `Running ${example.title}`,
+            step.interactive,
+            (context) => runExercise(step.id, preparedInto, false, context.signal, context),
+          )
       : await runExercise(step.id, preparedInto, externalWindow);
     if (result.failed) {
       failed = true;
@@ -720,7 +725,13 @@ async function executeTool(
         }
       }
       const operation = nativeReplayOperation(action.operation, step);
-      const result = await executeReplayOperationAsync(operation, process.cwd());
+      const tui = currentTuiSession();
+      const result = tui && operation.type === "command"
+        ? await tui.withTaskRunning(
+            operation.display?.toolName ?? "Running verification",
+            (signal) => executeReplayOperationAsync(operation, process.cwd(), { signal }),
+          )
+        : await executeReplayOperationAsync(operation, process.cwd());
       const failed = replayOperationFailed(action.operation, result);
       if (!failed && (action.operation.type === "write" || action.operation.type === "edit")) {
         replayState.record(action.operation.path);
@@ -1048,31 +1059,10 @@ function boundedCommandOutput(value: string, limit = 40): string {
   ].join("\n");
 }
 
-function nestedRunFailure(stdout: string, stderr: string, exitCode: number | null): string {
-  try {
-    const result = JSON.parse(stdout) as {
-      ran?: {
-        exitCode?: number | null;
-        timedOut?: boolean;
-        stdout?: string;
-        stderr?: string;
-        commands?: string[];
-      };
-      execution?: { mode?: string };
-    };
-    const ran = result.ran;
-    const output = boundedCommandOutput(`${ran?.stdout ?? ""}${ran?.stderr ?? ""}`);
-    const reason = ran?.timedOut
-      ? `${result.execution?.mode ?? "Verification"} timed out.`
-      : `${result.execution?.mode ?? "Command"} exited ${ran?.exitCode ?? exitCode ?? 1}.`;
-    return [
-      reason,
-      ...(ran?.commands?.length ? [`Command: ${ran.commands.at(-1)}`] : []),
-      ...(output ? ["", output] : []),
-    ].join("\n");
-  } catch {
-    return boundedCommandOutput(`${stdout}${stderr}`) || `Command exited ${exitCode ?? 1}.`;
-  }
+interface ProgramDisplayContext {
+  onStdout: (chunk: string) => void;
+  onStderr: (chunk: string) => void;
+  onInputReady: (input: ProcessInput) => void;
 }
 
 async function runExercise(
@@ -1080,10 +1070,12 @@ async function runExercise(
   into?: string,
   noTimeout = false,
   signal?: AbortSignal,
+  display?: ProgramDisplayContext,
 ): Promise<{ failed: boolean; content: string }> {
   const { content } = resolveContent();
   const step = content.steps.find((candidate) => candidate.id === stepId);
-  if (!step) return { failed: true, content: `Unknown exercise ${stepId}` };
+  const example = step ? content.examples.find((candidate) => candidate.id === step.exampleId) : undefined;
+  if (!step || !example) return { failed: true, content: `Unknown exercise ${stepId}` };
 
   let runtime = resolvePythonRuntime();
   if (step.language === "python" && !runtime) {
@@ -1121,80 +1113,47 @@ async function runExercise(
     if (!installed.ok) return { failed: true, content: installed.output };
   }
 
-  const argv = selfCommand([
-    "run",
-    stepId,
-    ...(into ? ["--into", into] : []),
-    "--yes",
-    "--format",
-    "json",
-    ...(noTimeout ? ["--no-timeout"] : []),
-  ]);
-  const proc = Bun.spawn(argv, {
-    cwd: process.cwd(),
-    stdout: "pipe",
-    stderr: "pipe",
-    stdin: "inherit",
-    env: noTimeout ? { ...process.env, AIFIRST_LEARN_FINAL_RUN: "1" } : process.env,
-    detached: Boolean(signal && process.platform !== "win32"),
-  });
-  const stopProgram = () => {
-    if (proc.exitCode !== null) return;
-    if (process.platform === "win32") {
-      Bun.spawnSync(["taskkill", "/PID", String(proc.pid), "/T", "/F"], { stdout: "ignore", stderr: "ignore" });
-      return;
-    }
-    try {
-      process.kill(-proc.pid, "SIGTERM");
-    } catch {
-      proc.kill("SIGTERM");
-    }
-    setTimeout(() => {
-      if (proc.exitCode !== null) return;
-      try {
-        process.kill(-proc.pid, "SIGKILL");
-      } catch {
-        proc.kill("SIGKILL");
-      }
-    }, 1_000).unref();
-  };
-  signal?.addEventListener("abort", stopProgram, { once: true });
-  if (signal?.aborted) stopProgram();
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ]);
-  await proc.exited;
-  signal?.removeEventListener("abort", stopProgram);
-  const detail = `${stdout}${stderr}`.trim();
-  if (signal?.aborted) return { failed: true, content: detail || "Program stopped by the learner." };
-  let parsed: {
-    path?: string;
-    scaffold?: string[];
-    ran?: { stdout?: string; stderr?: string };
-  } | undefined;
   try {
-    parsed = JSON.parse(stdout);
-  } catch {
-    // Failure reporting below still includes raw output from future JSON shapes.
-  }
-  if (proc.exitCode === 0) {
-    if (parsed?.path) out(`  ${green(glyph.done)} wrote ${parsed.path}`);
-    for (const file of parsed?.scaffold ?? []) {
+    const prepared = prepareExerciseFiles(content, example, step, {
+      into: into ?? defaultExercisePath(content, example, step),
+    });
+    const executed = await executePreparedExercise(example, step, prepared, {
+      runtime: report.runtime ?? runtime,
+      inputMode: display && step.interactive ? "reader" : "authored-sample",
+      noTimeout,
+      signal,
+      onStdout: display?.onStdout,
+      onStderr: display?.onStderr,
+      onInputReady: display?.onInputReady,
+    });
+    if (executed.aborted) return { failed: true, content: "Program stopped by the learner." };
+    out(`  ${green(glyph.done)} ${prepared.wrote ? "wrote" : "using"} ${prepared.path}`);
+    for (const file of prepared.scaffoldFiles) {
       const projectRoot = step.scaffold?.projectRoot;
       const relativePath = projectRoot ? `${projectRoot}/${file}` : file;
       out(`  ${green(glyph.done)} Prepared prerequisite ${relativePath}`);
     }
-    const programOutput = `${parsed?.ran?.stdout ?? ""}${parsed?.ran?.stderr ?? ""}`.trim();
-    if (programOutput) {
+    const programOutput = `${executed.stdout}${executed.stderr}`.trim();
+    if (!display && programOutput) {
       out();
       out(`  ${cyan("Output")}`);
       for (const line of programOutput.split("\n")) out(`  ${line}`);
     }
+    if (executed.ok) return { failed: false, content: programOutput || "Completed" };
+    const reason = executed.timedOut
+      ? `${step.execution.mode} timed out.`
+      : `${step.execution.mode} exited ${executed.exitCode}.`;
+    return {
+      failed: true,
+      content: [
+        reason,
+        ...(executed.commands.length ? [`Command: ${executed.commands.at(-1)!.join(" ")}`] : []),
+        ...(programOutput ? ["", boundedCommandOutput(programOutput)] : []),
+      ].join("\n"),
+    };
+  } catch (error) {
+    return { failed: true, content: (error as Error).message };
   }
-  return proc.exitCode === 0
-    ? { failed: false, content: detail || "Completed" }
-    : { failed: true, content: nestedRunFailure(stdout, stderr, proc.exitCode) };
 }
 
 function selfCommand(args: string[]): string[] {

@@ -1,9 +1,10 @@
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { $ } from "bun";
 import type { Replay, ReplayOperation } from "../content/types";
 import { resolvePythonRuntime, withPythonRuntime, type PythonRuntime } from "../dependencies";
+import { runAsyncProcess } from "../process";
 
 export interface ReplayCommandResult {
   command: string[];
@@ -57,6 +58,22 @@ function inside(root: string, path: string): string {
     throw new Error(`Replay path escapes the workspace: ${path}`);
   }
   return target;
+}
+
+function replayReadText(path: string, data: Buffer): string {
+  const png = data.length >= 24 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  if (png) {
+    const width = data.readUInt32BE(16);
+    const height = data.readUInt32BE(20);
+    return `${path} - PNG, ${width}x${height}, ${data.length} bytes; preview omitted`;
+  }
+  try {
+    if (data.includes(0)) throw new TypeError("binary data");
+    return new TextDecoder("utf-8", { fatal: true }).decode(data);
+  } catch {
+    const type = extname(path).slice(1).toUpperCase() || "binary file";
+    return `${path} - ${type}, dimensions unknown, ${data.length} bytes; preview omitted`;
+  }
 }
 
 export function materializeReplayCommand(
@@ -131,10 +148,55 @@ function runCommand(
 async function runCommandAsync(
   operation: Extract<ReplayOperation, { type: "command" }>,
   root: string,
-  relaxOutput = false,
+  options: {
+    relaxOutput?: boolean;
+    signal?: AbortSignal;
+    onStdout?: (chunk: string) => void;
+    onStderr?: (chunk: string) => void;
+  } = {},
 ): Promise<ReplayCommandResult> {
   const source = operation.portableCommand ?? operation.command;
-  if (source[0] !== "<shell>") return runCommand(operation, root, relaxOutput);
+  if (operation.graphical && process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    return {
+      command: source,
+      exitCode: 0,
+      stdout: "Skipped graphical launch because no display is available.\n",
+      stderr: "",
+      timedOut: false,
+      matchesExpected: true,
+    };
+  }
+  if (source[0] !== "<shell>") {
+    const command = materializeReplayCommand(operation)
+      .map((argument) => argument.replaceAll("<workspace>", "."));
+    if (command[0] === "<python>") {
+      return { command, exitCode: 127, stdout: "", stderr: "Python 3 is unavailable.", timedOut: false, matchesExpected: false };
+    }
+    const result = await runAsyncProcess(command, {
+      cwd: inside(root, operation.cwd ?? "."),
+      env: { ...process.env, ...operation.env },
+      stdin: operation.stdin ?? "ignore",
+      timeoutMs: operation.timeoutMs,
+      signal: options.signal,
+      onStdout: options.onStdout,
+      onStderr: options.onStderr,
+    });
+    return {
+      command,
+      exitCode: result.exitCode,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      timedOut: result.timedOut,
+      matchesExpected: commandMatches(
+        operation,
+        result.exitCode,
+        result.stdout,
+        result.stderr,
+        result.timedOut,
+        options.relaxOutput,
+      ),
+    };
+  }
   const runtime = resolvePythonRuntime();
   if (source[1]?.includes("<python>") && !runtime) {
     return { command: source, exitCode: 127, stdout: "", stderr: "Python 3 is unavailable.", timedOut: false, matchesExpected: false };
@@ -151,7 +213,7 @@ async function runCommandAsync(
         stdout: "",
         stderr: "",
         timedOut: false,
-        matchesExpected: commandMatches(operation, 0, "", "", false, relaxOutput),
+        matchesExpected: commandMatches(operation, 0, "", "", false, options.relaxOutput),
       };
     } catch (error) {
       return { command: ["<shell>", script], exitCode: 1, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
@@ -177,7 +239,7 @@ async function runCommandAsync(
       stdout,
       stderr,
       timedOut: false,
-      matchesExpected: commandMatches(operation, result.exitCode, stdout, stderr, false, relaxOutput),
+      matchesExpected: commandMatches(operation, result.exitCode, stdout, stderr, false, options.relaxOutput),
     };
   } catch (error) {
     return { command: ["<shell>", script], exitCode: 127, stdout: "", stderr: (error as Error).message, timedOut: false, matchesExpected: false };
@@ -297,7 +359,7 @@ export function executeReplayOperation(
     return { files: [inside(root, operation.path)], ok: true, text: `Updated ${operation.path}` };
   }
   if (operation.type === "read") {
-    const text = readFileSync(inside(root, operation.path), "utf8");
+    const text = replayReadText(operation.path, readFileSync(inside(root, operation.path)));
     return { files: [], ok: true, text };
   }
 
@@ -319,10 +381,15 @@ export function executeReplayOperation(
 export async function executeReplayOperationAsync(
   operation: ReplayOperation,
   root = process.cwd(),
-  options: { relaxOutput?: boolean } = {},
+  options: {
+    relaxOutput?: boolean;
+    signal?: AbortSignal;
+    onStdout?: (chunk: string) => void;
+    onStderr?: (chunk: string) => void;
+  } = {},
 ): Promise<ReplayOperationExecution> {
   if (operation.type !== "command") return executeReplayOperation(operation, root);
-  const command = await runCommandAsync(operation, root, options.relaxOutput);
+  const command = await runCommandAsync(operation, root, options);
   const output = [command.stdout, command.stderr].filter(Boolean).join("\n").trim();
   const text = [
     `$ ${operation.display?.command ?? command.command.join(" ")}`,

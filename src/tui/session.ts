@@ -3,6 +3,8 @@ import {
   CliRenderEvents,
   CodeRenderable,
   DiffRenderable,
+  InputRenderable,
+  InputRenderableEvents,
   MarkdownRenderable,
   ScrollBoxRenderable,
   SelectRenderable,
@@ -19,6 +21,7 @@ import {
   type Selection,
 } from "@opentui/core";
 import { setOutputSink } from "../output";
+import type { ProcessInput } from "../process";
 import { unifiedPatch } from "../textdiff";
 import { markdownStreamBlocks, streamChunks, streamDelayMs } from "./streaming";
 import { tuiHighlightClient } from "./highlighting";
@@ -43,6 +46,37 @@ export function tuiChoiceDetail(choice: TuiChoice | undefined): string {
     choice.description ? `\n${choice.description}` : "",
     choice.preview && choice.preview !== choice.description ? `\n\n${choice.preview}` : "",
   ].join("");
+}
+
+export interface TuiChoiceLayout {
+  height: number;
+  selectHeight: number;
+  detailHeight: number;
+}
+
+function wrappedLineCount(value: string, width: number): number {
+  return value.split("\n").reduce((count, line) =>
+    count + Math.max(1, Math.ceil(Array.from(line).length / Math.max(1, width))), 0);
+}
+
+export function tuiChoiceLayout(
+  rendererHeight: number,
+  rendererWidth: number,
+  choices: TuiChoice[],
+  inputHint = false,
+): TuiChoiceLayout {
+  const hasDetails = choices.some((choice) => Boolean(choice.description || choice.preview));
+  const availableHeight = Math.max(7, rendererHeight - 5);
+  const cap = Math.min(availableHeight, Math.max(7, Math.min(14, Math.floor(rendererHeight * 0.45))));
+  const inputHeight = inputHint ? 2 : 0;
+  const selectLimit = hasDetails ? Math.max(2, cap - inputHeight - 5) : Math.max(2, cap - inputHeight - 2);
+  const selectHeight = Math.min(Math.max(2, choices.length), 6, selectLimit);
+  const detailLimit = Math.max(2, cap - inputHeight - selectHeight - 3);
+  const detailHeight = hasDetails
+    ? Math.min(6, detailLimit, Math.max(2, ...choices.map((choice) => wrappedLineCount(tuiChoiceDetail(choice), rendererWidth - 6))))
+    : 0;
+  const desired = 2 + inputHeight + selectHeight + (hasDetails ? detailHeight + 1 : 0);
+  return { height: Math.min(desired, cap), selectHeight, detailHeight };
 }
 
 export interface TuiMarkdownOptions {
@@ -322,6 +356,7 @@ export class LearnTuiSession {
     this.lastTextValue = "";
     this.clearBottom();
     this.interactionActive = true;
+    let revealPrompt = () => {};
     const panel = new BoxRenderable(this.renderer, {
       width: "100%",
       height: "auto",
@@ -334,6 +369,11 @@ export class LearnTuiSession {
       backgroundColor: this.palette.panel,
       title: " Exercise Prompt • read only ",
       titleColor: this.palette.accent,
+      onMouseDown: (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        revealPrompt();
+      },
     });
     const field = new TextRenderable(this.renderer, {
       width: "100%",
@@ -348,21 +388,31 @@ export class LearnTuiSession {
     this.renderer.requestRender();
 
     let cancelled: "back" | "exit" | undefined;
+    let skipped = false;
     let releaseSleep: (() => void) | undefined;
+    revealPrompt = () => {
+      if (cancelled || skipped) return;
+      skipped = true;
+      field.content = prompt;
+      this.renderer.requestRender();
+      releaseSleep?.();
+    };
     const blockEditing = (key: KeyEvent) => {
       if (key.ctrl && key.name === "c") cancelled = "exit";
       else if (key.name === "escape") cancelled = "back";
+      else revealPrompt();
       key.preventDefault();
       key.stopPropagation();
       if (cancelled) releaseSleep?.();
     };
     this.renderer.keyInput.on("keypress", blockEditing);
+    this.setFooter("Press any key or click to show the full prompt");
     const sleep = options.sleep ?? Bun.sleep;
     const rate = options.noAnimation ? undefined : (options.charsPerSecond ?? 40);
     let rendered = "";
     try {
       for (const char of Array.from(prompt)) {
-        if (cancelled) break;
+        if (cancelled || skipped) break;
         rendered += char;
         field.content = `${rendered}▌`;
         this.renderer.requestRender();
@@ -422,6 +472,7 @@ export class LearnTuiSession {
         clearInterval(timer);
         this.renderer.keyInput.off("keypress", onKey);
         this.interactionActive = false;
+        if (result === "run") this.followLatest();
         this.clearBottom();
         resolve(result);
       };
@@ -578,6 +629,60 @@ export class LearnTuiSession {
       this.renderer.requestRender();
     };
 
+    if (isPlan) {
+      let revealed = false;
+      let releaseWait: (() => void) | undefined;
+      const reveal = () => {
+        if (revealed) return;
+        revealed = true;
+        rendered = source;
+        update();
+        releaseWait?.();
+      };
+      panel.onMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        reveal();
+      };
+      const onKey = (key: KeyEvent) => {
+        key.preventDefault();
+        key.stopPropagation();
+        reveal();
+      };
+      this.interactionActive = true;
+      this.setFooter("Press any key or click to show the full plan");
+      this.renderer.keyInput.on("keypress", onKey);
+      try {
+        plan: for (const block of markdownStreamBlocks(source)) {
+          if (block.immediate) {
+            rendered += block.raw;
+            update();
+            continue;
+          }
+          for (const chunk of streamChunks(block.raw, chunkChars)) {
+            if (revealed) break plan;
+            rendered += chunk;
+            update();
+            await Promise.race([
+              sleep(streamDelayMs(chunk, rate)),
+              new Promise<void>((resolve) => { releaseWait = resolve; }),
+            ]);
+            releaseWait = undefined;
+          }
+          if (revealed) break;
+        }
+      } finally {
+        this.renderer.keyInput.off("keypress", onKey);
+        releaseWait?.();
+        this.interactionActive = false;
+        this.setFooter("");
+        content.content = source;
+        content.streaming = false;
+        this.renderer.requestRender();
+      }
+      return;
+    }
+
     try {
       for (const block of markdownStreamBlocks(source)) {
         if (block.immediate) {
@@ -675,10 +780,8 @@ export class LearnTuiSession {
     this.clearBottom();
     this.interactionActive = true;
     const hasDetails = choices.some((choice) => Boolean(choice.description || choice.preview));
-    const availableHeight = Math.max(7, this.renderer.height - 5);
-    const height = hasDetails
-      ? availableHeight
-      : Math.min(Math.max(7, choices.length + (inputHint ? 5 : 4)), availableHeight);
+    const layout = tuiChoiceLayout(this.renderer.height, this.renderer.width, choices, Boolean(inputHint));
+    const height = layout.height;
     this.bottom.height = height;
     this.bottom.border = true;
     this.bottom.borderColor = this.palette.border;
@@ -698,11 +801,37 @@ export class LearnTuiSession {
     });
     if (inputHint) this.bottom.add(queryLine);
 
+    const detailText = (index: number): string => stripAnsi(tuiChoiceDetail(choices[index]));
+    const detailScroll = hasDetails
+      ? new ScrollBoxRenderable(this.renderer, {
+          width: "100%",
+          height: layout.detailHeight,
+          flexShrink: 0,
+          scrollY: true,
+          viewportCulling: true,
+          marginBottom: 1,
+        })
+      : undefined;
+    const detail = hasDetails
+      ? new TextRenderable(this.renderer, {
+          width: "100%",
+          height: "auto",
+          flexShrink: 0,
+          content: detailText(0),
+          wrapMode: "word",
+          fg: this.palette.text,
+          selectionBg: this.palette.selection,
+          selectionFg: this.palette.selectionText,
+        })
+      : undefined;
+    if (detailScroll && detail) {
+      detailScroll.add(detail);
+      this.bottom.add(detailScroll);
+    }
+
     const select = new SelectRenderable(this.renderer, {
       width: "100%",
-      ...(hasDetails
-        ? { height: Math.min(Math.max(3, choices.length), Math.max(3, Math.floor(height * 0.35))), flexShrink: 0 }
-        : { flexGrow: 1 }),
+      ...(hasDetails ? { height: layout.selectHeight, flexShrink: 0 } : { flexGrow: 1 }),
       options: choices.map((choice, index) => ({
         name: `${index + 1}. ${choice.badge ? `[${stripAnsi(choice.badge)}] ` : ""}${stripAnsi(choice.label)}`,
         description: "",
@@ -722,27 +851,11 @@ export class LearnTuiSession {
       selectedDescriptionColor: this.palette.selectedText,
     });
     this.bottom.add(select);
-    const detail = hasDetails
-      ? new TextRenderable(this.renderer, {
-          width: "100%",
-          flexGrow: 1,
-          minHeight: 4,
-          content: "",
-          wrapMode: "word",
-          fg: this.palette.text,
-          selectionBg: this.palette.selection,
-          selectionFg: this.palette.selectionText,
-          marginTop: 1,
-        })
-      : undefined;
-    const detailText = (index: number): string => stripAnsi(tuiChoiceDetail(choices[index]));
-    if (detail) {
-      detail.content = detailText(0);
-      this.bottom.add(detail);
-    }
     this.setFooter(inputHint
       ? "↑/↓ move  enter select or submit text  esc back  type to search/enter"
-      : "↑/↓ or j/k move  enter select  1-9 shortcut  esc back");
+      : hasDetails
+        ? "↑/↓ move  PgUp/PgDn scroll details  enter select  1-9 shortcut  esc back"
+        : "↑/↓ or j/k move  enter select  1-9 shortcut  esc back");
     select.focus();
     this.renderer.requestRender();
 
@@ -757,6 +870,7 @@ export class LearnTuiSession {
         select.off(SelectRenderableEvents.SELECTION_CHANGED, onSelectionChanged);
         select.blur();
         this.interactionActive = false;
+        if (value) this.followLatest();
         this.clearBottom();
         resolve(value);
       };
@@ -765,6 +879,7 @@ export class LearnTuiSession {
       };
       const onSelectionChanged = (index: number) => {
         if (detail) detail.content = detailText(index);
+        detailScroll?.scrollTo(0);
         this.renderer.requestRender();
       };
       const updateQuery = () => {
@@ -785,6 +900,18 @@ export class LearnTuiSession {
       };
       const onKey = (key: KeyEvent) => {
         if (key.defaultPrevented) return;
+        if (detailScroll && key.name === "pageup") {
+          key.preventDefault();
+          key.stopPropagation();
+          detailScroll.scrollBy(-0.75, "viewport");
+          return;
+        }
+        if (detailScroll && key.name === "pagedown") {
+          key.preventDefault();
+          key.stopPropagation();
+          detailScroll.scrollBy(0.75, "viewport");
+          return;
+        }
         if (key.ctrl && key.name === "c") {
           key.preventDefault();
           key.stopPropagation();
@@ -844,8 +971,57 @@ export class LearnTuiSession {
     }
   }
 
+  async withTaskRunning<T>(title: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    this.clearBottom();
+    this.interactionActive = true;
+    const controller = new AbortController();
+    this.bottom.height = 4;
+    this.bottom.border = true;
+    this.bottom.borderColor = this.palette.border;
+    this.bottom.title = ` ${stripAnsi(title)} `;
+    this.bottom.titleColor = this.palette.accent;
+    this.bottom.paddingX = 1;
+    const frames = ["◐", "◓", "◑", "◒"];
+    let frame = 0;
+    const status = new TextRenderable(this.renderer, {
+      width: "100%",
+      height: 1,
+      content: `${frames[0]} Working...`,
+      fg: this.palette.text,
+    });
+    this.bottom.add(status);
+    this.setFooter("The TUI will remain responsive  •  Esc / Ctrl+C stops this command");
+    const onKey = (key: KeyEvent) => {
+      const cancel = key.name === "escape" || (key.ctrl && key.name === "c");
+      if (!cancel || controller.signal.aborted) return;
+      key.preventDefault();
+      key.stopPropagation();
+      controller.abort();
+      status.content = "◌ Stopping...";
+      this.renderer.requestRender();
+    };
+    this.renderer.keyInput.on("keypress", onKey);
+    const timer = setInterval(() => {
+      if (controller.signal.aborted) return;
+      frame = (frame + 1) % frames.length;
+      status.content = `${frames[frame]} Working...`;
+      this.renderer.requestRender();
+    }, 120);
+    this.renderer.requestRender();
+    try {
+      return await operation(controller.signal);
+    } finally {
+      clearInterval(timer);
+      this.renderer.keyInput.off("keypress", onKey);
+      this.interactionActive = false;
+      this.clearBottom();
+    }
+  }
+
   async withProgramRunning<T>(title: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     this.clearBottom();
+    this.interactionActive = true;
+    this.followLatest();
     this.bottom.height = 4;
     this.bottom.border = true;
     this.bottom.borderColor = this.palette.accent;
@@ -887,6 +1063,171 @@ export class LearnTuiSession {
     } finally {
       clearInterval(timer);
       this.renderer.keyInput.off("keypress", onKey);
+      this.interactionActive = false;
+      this.clearBottom();
+    }
+  }
+
+  async withTerminalProgram<T>(
+    title: string,
+    interactive: boolean,
+    operation: (context: {
+      signal: AbortSignal;
+      onStdout: (chunk: string) => void;
+      onStderr: (chunk: string) => void;
+      onInputReady: (input: ProcessInput) => void;
+    }) => Promise<T>,
+  ): Promise<T> {
+    this.clearBottom();
+    this.interactionActive = true;
+    this.followLatest();
+
+    const outputPanel = new BoxRenderable(this.renderer, {
+      width: "100%",
+      height: "auto",
+      flexShrink: 0,
+      border: true,
+      borderColor: this.palette.border,
+      title: " Program output ",
+      titleColor: this.palette.accent,
+      marginY: 1,
+      paddingX: 1,
+    });
+    const output = new TextRenderable(this.renderer, {
+      width: "100%",
+      height: "auto",
+      flexShrink: 0,
+      content: "Waiting for output...",
+      fg: this.palette.muted,
+      wrapMode: "word",
+    });
+    outputPanel.add(output);
+    this.transcript.add(outputPanel);
+
+    this.bottom.height = interactive ? 5 : 4;
+    this.bottom.border = true;
+    this.bottom.borderColor = this.palette.accent;
+    this.bottom.title = ` ${stripAnsi(title)} `;
+    this.bottom.titleColor = this.palette.accent;
+    this.bottom.paddingX = 1;
+    this.bottom.flexDirection = "column";
+    const frames = ["◐", "◓", "◑", "◒"];
+    let frame = 0;
+    const status = new TextRenderable(this.renderer, {
+      width: "100%",
+      height: 1,
+      flexShrink: 0,
+      content: `${frames[0]} Program running`,
+      fg: this.palette.text,
+    });
+    this.bottom.add(status);
+
+    let inputSink: ProcessInput | undefined;
+    const pendingInput: string[] = [];
+    let displayed = "";
+    let receivedOutput = false;
+    const renderOutput = () => {
+      const clean = stripAnsi(displayed).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      output.content = clean || "Waiting for output...";
+      output.fg = clean ? this.palette.text : this.palette.muted;
+      this.renderer.requestRender();
+    };
+    const appendOutput = (chunk: string) => {
+      if (!chunk) return;
+      receivedOutput = true;
+      displayed += chunk;
+      renderOutput();
+    };
+    const attachInput = (sink: ProcessInput) => {
+      inputSink = sink;
+      for (const value of pendingInput.splice(0)) sink.write(value);
+    };
+
+    let input: InputRenderable | undefined;
+    const submitInput = (value: string) => {
+      input!.value = "";
+      const line = `${value}\n`;
+      displayed += line;
+      renderOutput();
+      if (inputSink) inputSink.write(line);
+      else pendingInput.push(line);
+    };
+    if (interactive) {
+      input = new InputRenderable(this.renderer, {
+        width: "100%",
+        value: "",
+        placeholder: "Type a response and press Enter",
+        textColor: this.palette.text,
+        focusedTextColor: this.palette.selectedText,
+        backgroundColor: this.palette.panel,
+        focusedBackgroundColor: this.palette.selected,
+      });
+      input.on(InputRenderableEvents.ENTER, submitInput);
+    }
+    if (input) {
+      this.bottom.add(input);
+      input.focus();
+      this.setFooter("Type a response and press Enter  •  Ctrl+D sends EOF  •  Esc / Ctrl+C stops");
+    } else {
+      this.setFooter("Program output will appear above  •  Esc / Ctrl+C stops");
+    }
+
+    const controller = new AbortController();
+    const onKey = (key: KeyEvent) => {
+      if (interactive && !key.defaultPrevented && (
+        key.name === "return" || key.name === "enter" || key.name === "linefeed"
+      )) {
+        key.preventDefault();
+        key.stopPropagation();
+        input?.submit();
+        return;
+      }
+      if (interactive && key.ctrl && key.name === "d") {
+        key.preventDefault();
+        key.stopPropagation();
+        inputSink?.end();
+        input?.blur();
+        status.content = "◌ Input closed; waiting for the program to finish";
+        this.renderer.requestRender();
+        return;
+      }
+      const cancel = key.name === "escape" || (key.ctrl && key.name === "c");
+      if (!cancel || controller.signal.aborted) return;
+      key.preventDefault();
+      key.stopPropagation();
+      controller.abort();
+      status.content = "◌ Stopping the program...";
+      this.setFooter("Waiting for the program process to exit");
+      this.renderer.requestRender();
+    };
+    this.renderer.keyInput.on("keypress", onKey);
+    const timer = setInterval(() => {
+      if (controller.signal.aborted) return;
+      frame = (frame + 1) % frames.length;
+      status.content = `${frames[frame]} Program running`;
+      this.renderer.requestRender();
+    }, 120);
+    this.renderer.requestRender();
+    try {
+      return await operation({
+        signal: controller.signal,
+        onStdout: appendOutput,
+        onStderr: appendOutput,
+        onInputReady: attachInput,
+      });
+    } finally {
+      clearInterval(timer);
+      this.renderer.keyInput.off("keypress", onKey);
+      input?.off(InputRenderableEvents.ENTER, submitInput);
+      input?.blur();
+      inputSink?.end();
+      if (!receivedOutput && !displayed) {
+        displayed = "Program completed with no console output.";
+        renderOutput();
+      }
+      // Give the final output chunk one frame before the next learner screen is built.
+      await Bun.sleep(40);
+      this.interactionActive = false;
       this.clearBottom();
     }
   }
@@ -953,6 +1294,16 @@ export class LearnTuiSession {
   private setFooter(content: string): void {
     this.footerHint = content;
     this.footer.content = content;
+  }
+
+  private followLatest(): void {
+    const scroll = () => {
+      if (this.destroyed) return;
+      this.transcript.scrollTo(this.transcript.scrollHeight);
+      this.renderer.requestRender();
+    };
+    scroll();
+    setTimeout(scroll, 0);
   }
 
   private showClipboardNotice(content: string): void {

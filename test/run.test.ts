@@ -13,6 +13,7 @@ import { resolveContent } from "../src/content";
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
+const TTY_DRIVER = join(import.meta.dir, "fixtures", "native-tui-driver.py");
 const AUTHORED_EXERCISES = resolveContent().content.examples.length;
 
 let sandbox: string;
@@ -288,6 +289,49 @@ describe("run", () => {
     expect(out.ran.ok).toBe(true);
     expect(out.ran.stdout).toContain("Stopped.");
     expect(out.recorded).toBe(true);
+  });
+
+  shellTest("lets a terminal reader answer an interactive exercise", async () => {
+    const scenario = join(sandbox, "interactive-run.json");
+    writeFileSync(scenario, JSON.stringify({
+      columns: 100,
+      rows: 30,
+      timeoutSeconds: 15,
+      actions: [
+        { wait: "What is your name?", text: "Ada", enter: true },
+        { wait: "Hello, Ada!" },
+        { wait: "recorded py-2-08 as done" },
+      ],
+    }));
+    const proc = Bun.spawn([
+      "python3",
+      TTY_DRIVER,
+      scenario,
+      process.execPath,
+      "run",
+      ENTRY,
+      "run",
+      "py-2-08",
+    ], {
+      cwd: sandbox,
+      env: {
+        ...process.env,
+        AIFIRST_STATE_DIR: join(sandbox, "state"),
+        AIFIRST_HOME_OVERRIDE: join(sandbox, "home"),
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout}`).toBe(0);
+    expect(stdout).toContain("Hello, Ada!");
+    expect(stdout).not.toContain("Hello, Sushi!");
   });
 
   it("runs the final step of a progressive exercise", async () => {

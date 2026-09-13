@@ -13,6 +13,7 @@ const suite = process.platform === "win32" ? describe.skip : describe;
 const DRIVER = join(import.meta.dir, "fixtures", "native-tui-driver.py");
 const PROGRAM_DRIVER = join(import.meta.dir, "fixtures", "tui-program-driver.ts");
 const CANCEL_DRIVER = join(import.meta.dir, "fixtures", "tui-program-cancel-driver.ts");
+const INTERACTIVE_DRIVER = join(import.meta.dir, "fixtures", "tui-interactive-program-driver.ts");
 let root = "";
 
 afterEach(() => {
@@ -144,4 +145,39 @@ suite("retained graphical run status", () => {
     expect(stdout.match(/\x1b\[\?1049h/g)?.length).toBe(1);
     expect(stdout.match(/\x1b\[\?1049l/g)?.length).toBe(1);
   }, 20_000);
+});
+
+suite("embedded terminal program", () => {
+  test("streams output and accepts reader input without leaving the TUI", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-tui-interactive-program-"));
+    const scenario = join(root, "scenario.json");
+    writeFileSync(scenario, JSON.stringify({
+      columns: 100,
+      rows: 30,
+      timeoutSeconds: 15,
+      actions: [
+        { wait: "What is your name?", text: "Ada", enter: true },
+        { wait: "Hello, Ada!" },
+        { wait: "PROGRAM_EXIT:0" },
+      ],
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", INTERACTIVE_DRIVER], {
+      cwd: root,
+      env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", AIFIRST_TUI: "1" },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout.slice(-12_000)}`).toBe(0);
+    expect(stdout.match(/\x1b\[\?1049h/g)?.length).toBe(1);
+    expect(stdout.match(/\x1b\[\?1049l/g)?.length).toBe(1);
+    expect(stdout).toContain("What is your name?");
+    expect(stdout).toContain("Hello, Ada!");
+  }, 25_000);
 });
