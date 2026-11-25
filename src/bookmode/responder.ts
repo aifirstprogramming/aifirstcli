@@ -20,6 +20,7 @@ import { renderBookEnvelope, renderStep } from "./render";
 import type { Content } from "../content/types";
 import { writeScaffold } from "../content/scaffold";
 import type { ProgressLog } from "../log/progress";
+import { completesExample } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { executeReplay } from "../replay/executor";
 import { resolveReplay, type ReplayCandidate } from "../replay/resolver";
@@ -958,7 +959,7 @@ function replayCompletion(
   recordProgress = true,
 ): Reply {
   const example = content.examples.find((candidate) => candidate.id === step.exampleId);
-  if (recordProgress) {
+  if (recordProgress && completesExample(step)) {
     markIfNew(step.exampleId, {
       via: "agent",
       agent: "claude",

@@ -267,3 +267,14 @@ export function exampleJson(example: Example, log: ProgressLog, steps = example.
 export function finalResponse(example: Example): Step {
   return example.steps[example.steps.length - 1];
 }
+
+/**
+ * Whether finishing this step finishes its whole example.
+ *
+ * Only the final step does. An earlier step of a progressive example is a
+ * half-built program, so running it must not mark the exercise done — the
+ * learner still has the remaining prompts ahead of them.
+ */
+export function completesExample(step: Pick<Step, "index" | "total">): boolean {
+  return step.index >= step.total;
+}

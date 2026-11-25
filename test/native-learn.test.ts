@@ -633,6 +633,56 @@ suite("built-in learning", () => {
     expect(progress.exercises["py-1-01"].status).toBe("done");
   }, 35_000);
 
+  test("walks every prompt of a multi-step exercise in order", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-native-multi-step-"));
+    const state = join(root, "state");
+    const workspace = join(root, "workspace");
+    mkdirSync(state, { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    const { content } = resolveContent();
+    const book = content.books.find((candidate) => candidate.tag === "java")!;
+    const example = content.examples.find((candidate) => candidate.id === "java-3-01")!;
+    expect(example.steps.length).toBe(3);
+    writeFileSync(join(state, "config.json"), JSON.stringify({
+      version: 1,
+      book: book.id,
+      workspaces: { java: workspace },
+    }));
+
+    const proc = Bun.spawn(["python3", DRIVER, process.execPath, "run", ENTRY, "learn", "--plain"], {
+      cwd: root,
+      env: {
+        ...process.env,
+        AIFIRST_STATE_DIR: state,
+        AIFIRST_HOME_OVERRIDE: join(root, "home"),
+        AIFIRST_LEARN_CHARS_PER_SECOND: "0",
+        AIFIRST_LEARN_TEST_ANSWERS: JSON.stringify(["java-3-01", "continue", "continue", "finish", "exit"]),
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, stderr).toBe(0);
+    // Each prompt is introduced, in book order, before the next one builds on it.
+    const headings = example.steps.map((step) => stdout.indexOf(`${step.id}: ${example.title}`));
+    expect(headings.every((position) => position >= 0), stdout).toBe(true);
+    expect([...headings].sort((a, b) => a - b)).toEqual(headings);
+    expect(stdout).toContain("Step 1 of 3 is ready");
+    expect(stdout).toContain("Step 2 of 3 is ready");
+    for (const step of example.steps) {
+      const file = step.response.match(/public class (\w+)/)![1];
+      expect(existsSync(join(workspace, `${file}.java`)), file).toBe(true);
+    }
+    const progress = JSON.parse(readFileSync(join(state, "progress.json"), "utf8"));
+    expect(progress.exercises["java-3-01"].status).toBe("done");
+  }, 60_000);
+
   test("keeps navigation available after every exercise is handled", async () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-native-complete-"));
     const state = join(root, "state");
