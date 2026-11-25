@@ -9,6 +9,7 @@ import re
 import select
 import signal
 import struct
+import subprocess
 import sys
 import termios
 import time
@@ -20,6 +21,29 @@ ANSI = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x
 def compact(data: bytearray) -> str:
     visible = ANSI.sub("", data.decode("utf-8", errors="replace")).replace("\r", "")
     return re.sub(r"\s+", "", visible)
+
+
+def snapshot_pids(pid_files: dict, report_path: str) -> None:
+    """Record whether fixture-reported PIDs are alive, and who they are, right now."""
+    report = {}
+    for name, path in pid_files.items():
+        entry = {"pid": None, "alive": False}
+        try:
+            pid = int(open(str(path), encoding="utf-8").read().strip())
+            entry["pid"] = pid
+            os.kill(pid, 0)
+            entry["alive"] = True
+            listed = subprocess.run(
+                ["ps", "-o", "ppid=,pgid=,command=", "-p", str(pid)],
+                capture_output=True, text=True, check=False,
+            ).stdout.strip().split(None, 2)
+            if len(listed) == 3:
+                entry["ppid"], entry["pgid"], entry["command"] = int(listed[0]), int(listed[1]), listed[2]
+        except (OSError, ValueError):
+            pass
+        report[name] = entry
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(report, handle)
 
 
 def main() -> int:
@@ -63,11 +87,18 @@ def main() -> int:
                     prompt_acknowledged = True
                     time.sleep(0.1)
             action = scenario["actions"][action_index]
+            # A fixture can signal progress through the filesystem, for example a
+            # fake external program recording that it has started.
+            if "waitFile" in action and not os.path.exists(str(action["waitFile"])):
+                continue
             marker = re.sub(r"\s+", "", str(action["wait"]))
             found = visible.find(marker, search_offset)
             if found < 0:
                 continue
             time.sleep(float(action.get("settleSeconds", 0.1)))
+            if "snapshotPids" in action:
+                # Taken immediately before this action's keys are sent.
+                snapshot_pids(action["snapshotPids"], str(action["snapshotReport"]))
             if "text" in action:
                 os.write(fd, str(action["text"]).encode("utf-8"))
                 time.sleep(0.1)
@@ -111,6 +142,11 @@ def main() -> int:
                 os.write(fd, b"\x1b")
             if action.get("ctrlC"):
                 os.write(fd, b"\x03")
+            if "touch" in action:
+                # Lets a scenario stand in for the reader, such as closing a fake
+                # program window that the fixture is waiting on.
+                with open(str(action["touch"]), "a", encoding="utf-8"):
+                    pass
             search_offset = max(search_offset, found + len(marker))
             action_index += 1
         if action_index == len(scenario["actions"]):
@@ -153,8 +189,10 @@ def main() -> int:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+                # SIGKILL cannot be ignored, so this blocking reap is bounded and
+                # never leaves the PTY child behind as a zombie.
                 try:
-                    os.waitpid(pid, os.WNOHANG)
+                    os.waitpid(pid, 0)
                 except ChildProcessError:
                     pass
 

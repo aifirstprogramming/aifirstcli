@@ -18,7 +18,7 @@ import { finalResponse, report, resume } from "../exercises";
 import { mark, read as readLog, setPosition } from "../log/progress";
 import { bar, bold, cyan, dim, glyph, green, out, red, yellow } from "../output";
 import { choose, chooseOrInput, confirm, consumePromptInterrupt, isInteractive } from "../prompt";
-import { executeReplayOperationAsync, type ReplayOperationExecution } from "../replay/executor";
+import { executeReplayOperationAsync, graphicalLaunchSkipped, type ReplayOperationExecution } from "../replay/executor";
 import type { NativeLearnAction } from "./actions";
 import {
   respond,
@@ -730,6 +730,7 @@ async function executeTool(
         ? await tui.withTaskRunning(
             operation.display?.toolName ?? "Running verification",
             (signal) => executeReplayOperationAsync(operation, process.cwd(), { signal }),
+            verificationTaskOptions(action.operation, resolveContent().content),
           )
         : await executeReplayOperationAsync(operation, process.cwd());
       const failed = replayOperationFailed(action.operation, result);
@@ -782,6 +783,33 @@ function prepareNativeExercise(stepId: string, into?: string): ToolExecutionResu
   } catch (error) {
     return { failed: true, content: (error as Error).message };
   }
+}
+
+const PROGRAM_WINDOW_GUIDANCE = "When the program window opens, close it to return to Learn.";
+
+/**
+ * Extra guidance for the "Running verification" panel.
+ *
+ * Some replays finish by opening the finished program once (PocketCFO runs
+ * `mvn javafx:run`), and that command only returns when the reader closes the
+ * window. Without saying so, the panel just spins "Working..." and looks hung
+ * while the app sits open in another window. Headless Linux skips the launch,
+ * so it gets no guidance.
+ */
+export function verificationTaskOptions(
+  operation: ReplayOperation,
+  content: Content,
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+): { detail?: string } {
+  if (operation.type !== "command") return {};
+  const [executable, subcommand, action, stepId] = operation.command;
+  const replayExecute = executable === "aifirst" && subcommand === "replay" && action === "execute";
+  const step = replayExecute ? content.steps.find((candidate) => candidate.id === stepId) as ReplayStep | undefined : undefined;
+  // `aifirst replay execute` runs exactly `replay.operations` (executeReplayAsync).
+  const replayed = step?.replay ? step.replay.operations : [operation];
+  const opensWindow = replayed.some((candidate) => candidate.type === "command" && candidate.graphical === true);
+  return opensWindow && !graphicalLaunchSkipped(env, platform) ? { detail: PROGRAM_WINDOW_GUIDANCE } : {};
 }
 
 export function replayOperationFailed(

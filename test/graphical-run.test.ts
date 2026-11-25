@@ -6,6 +6,7 @@ import type { Args } from "../src/cli";
 import { commandsFor, runTimeoutMs } from "../src/commands/run";
 import { resolveContent } from "../src/content";
 import type { ReplayStep } from "../src/content/types";
+import * as learnNative from "../src/learn/native";
 import { nativeReplayOperation, opensExternalWindow } from "../src/learn/native";
 import { mavenJavaFxCommand } from "../src/projects";
 
@@ -18,6 +19,56 @@ let root = "";
 
 afterEach(() => {
   if (root) rmSync(root, { recursive: true, force: true });
+});
+
+describe("verification that opens a program window", () => {
+  const GUIDANCE = "When the program window opens, close it to return to Learn.";
+  const withDisplay = { DISPLAY: ":0" };
+  const replayExecute = (id: string) => ({
+    type: "command" as const,
+    command: ["aifirst", "replay", "execute", id, "--format", "json"],
+    expectedExitCode: 0,
+  });
+  const options = (...args: unknown[]) =>
+    (learnNative as unknown as { verificationTaskOptions: (...a: unknown[]) => { detail?: string } })
+      .verificationTaskOptions(...args);
+
+  test("guides the reader when a compact replay ends by opening the app", () => {
+    const content = resolveContent().content;
+    for (const id of ["java-11-01", "java-11-02"]) {
+      expect(options(replayExecute(id), content, withDisplay, "linux")).toEqual({ detail: GUIDANCE });
+      expect(options(replayExecute(id), content, {}, "darwin")).toEqual({ detail: GUIDANCE });
+    }
+  });
+
+  test("stays silent when headless Linux will skip the window", () => {
+    const content = resolveContent().content;
+    expect(options(replayExecute("java-11-02"), content, {}, "linux")).toEqual({});
+  });
+
+  test("stays silent for verification that never opens a window", () => {
+    const content = resolveContent().content;
+    expect(options(replayExecute("py-1-01"), content, withDisplay, "linux")).toEqual({});
+    expect(options({ type: "write", path: "a.txt", content: "" }, content, withDisplay, "linux")).toEqual({});
+    expect(options({ type: "command", command: ["mvn", "-q", "clean", "test"] }, content, withDisplay, "linux")).toEqual({});
+  });
+
+  test("follows the operations replay execute actually runs, not narrated events", () => {
+    const launch = { type: "command", command: ["mvn", "-q", "javafx:run"], graphical: true };
+    const synthetic = (replay: Record<string, unknown>) =>
+      ({ steps: [{ id: "x-1-01", replay }] }) as unknown as ReturnType<typeof resolveContent>["content"];
+    const eventsOnly = synthetic({ operations: [], events: [{ type: "operation", operation: launch }] });
+    const inOperations = synthetic({ operations: [launch] });
+    expect(options(replayExecute("x-1-01"), eventsOnly, withDisplay, "linux")).toEqual({});
+    expect(options(replayExecute("x-1-01"), inOperations, withDisplay, "linux")).toEqual({ detail: GUIDANCE });
+  });
+
+  test("guides the reader for a direct graphical command", () => {
+    const content = resolveContent().content;
+    const graphical = { type: "command", command: ["mvn", "-q", "javafx:run"], graphical: true };
+    expect(options(graphical, content, withDisplay, "linux")).toEqual({ detail: GUIDANCE });
+    expect(options(graphical, content, {}, "linux")).toEqual({});
+  });
 });
 
 describe("graphical exercise runs", () => {
