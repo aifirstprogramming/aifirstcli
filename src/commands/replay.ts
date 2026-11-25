@@ -15,6 +15,7 @@ import { executeReplayAsync } from "../replay/executor";
 import { resolveReplay } from "../replay/resolver";
 import { clearPendingReplay, readPendingReplay, replaySelection, savePendingReplay } from "../replay/pending";
 import type { ReplayStep } from "../content/types";
+import { completesExample } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { ReplayStateGuard } from "../learn/replayState";
 
@@ -97,11 +98,12 @@ export async function replay(args: Args): Promise<void> {
     if (!step?.replay) throw new CliError(`No replay found for ${id}`, "unknown_exercise");
     const root = process.cwd();
     const result = await executeReplayAsync(step.replay, root, new ReplayStateGuard(content, step));
-    if (result.ok) markIfNew(step.exampleId, { via: "agent", agent: "claude" });
+    const recorded = result.ok && completesExample(step);
+    if (recorded) markIfNew(step.exampleId, { via: "agent", agent: "claude" });
     const response = {
       exerciseId: step.id,
       ok: result.ok,
-      recorded: result.ok,
+      recorded,
       files: result.files.map((file) => relative(root, file)),
       commands: result.commands.map((command, index) => ({
         index: index + 1,

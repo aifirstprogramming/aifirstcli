@@ -29,7 +29,7 @@ import { GeneratedFileStore } from "../generatedFiles";
 import { preflightDependencies } from "./dependencies";
 import type { PythonRuntime } from "../dependencies";
 import { withPythonRuntime } from "../dependencies";
-import { finalResponse } from "../exercises";
+import { completesExample, finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { defaultExercisePath } from "../workspace";
@@ -375,8 +375,10 @@ export async function run(args: Args): Promise<void> {
     step.expectsException === true && ranProgram && exitCode !== 0 && !timedOut && stdout.trim() !== "";
   const ok = exitCode === 0 || deliberate;
 
-  // The whole point: only a clean run records progress.
-  const recorded = ok ? markIfNew(example.id, { via: "run" }) : null;
+  // The whole point: only a clean run records progress, and only the final
+  // step of a multi-step example finishes it.
+  const final = completesExample(step);
+  const recorded = ok && final ? markIfNew(example.id, { via: "run" }) : null;
 
   if (format === "json") {
     json({
@@ -426,10 +428,13 @@ export async function run(args: Args): Promise<void> {
   out();
 
   if (ok) {
+    const success = deliberate ? "threw as the book intends" : executionSuccessText(mode);
     out(
-      recorded
-        ? `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — recorded ${bold(example.id)} as done`
-        : `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — ${dim(`${example.id} was already recorded`)}`,
+      !final
+        ? `  ${green(glyph.done)} ${success} — ${dim(`step ${step.index} of ${step.total}; ${example.id} is recorded when its final step runs`)}`
+        : recorded
+          ? `  ${green(glyph.done)} ${success} — recorded ${bold(example.id)} as done`
+          : `  ${green(glyph.done)} ${success} — ${dim(`${example.id} was already recorded`)}`,
     );
     if (step.explanation) {
       out();

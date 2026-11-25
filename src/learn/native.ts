@@ -183,21 +183,11 @@ export async function nativeLearn(args: Args): Promise<void> {
     const owner = selectionForExample(example, content);
     if (owner.key !== selection.key) activateSelection(owner);
     setPosition(example.id);
-    const step = finalResponse(example) as ReplayStep;
-    const promptAction = await renderExerciseIntroduction(example, step, renderOptions);
-    if (promptAction === "exit") return;
-    if (promptAction === "back") continue;
-    const result = await driveExercise(
-      step.prompt,
-      content,
-      example.language,
-      confirmation,
-      planning,
-      dependencies,
-      renderOptions,
-      step,
-    );
-    if (result.readyToRun) {
+    const walked = await driveExerciseSteps(example, content, confirmation, planning, dependencies, renderOptions);
+    if (walked === "exit") return;
+    if (walked === "back" || walked === "menu") continue;
+    const { step, result } = walked;
+    if (result.readyToRun && walked.final) {
       const completion = await runOrFinishExercise(
         example,
         step,
@@ -511,26 +501,103 @@ async function runOrFinishExercise(
       return "completed";
     }
 
-    out();
-    out(`  ${cyan(glyph.arrow)} ${bold(`Running ${step.id}`)}`);
-    const tui = currentTuiSession();
-    const externalWindow = opensExternalWindow(step);
-    const result = tui
-      ? externalWindow
-        ? await tui.withProgramRunning(
-            `Running ${example.title}`,
-            (signal) => runExercise(step.id, preparedInto, true, signal),
-          )
-        : await tui.suspendDuring(() => runExercise(step.id, preparedInto))
-      : await runExercise(step.id, preparedInto, externalWindow);
-    if (result.failed) {
+    if (!(await runPreparedStep(example, step, renderOptions, preparedInto))) {
       failed = true;
-      out(`  ${red(glyph.todo)} The program did not run cleanly.`);
       continue;
     }
-    await renderExerciseExplanation(step, renderOptions);
     return "completed";
   }
+}
+
+/** Launch a prepared step, then explain it. Returns whether it ran cleanly. */
+async function runPreparedStep(
+  example: Example,
+  step: ReplayStep,
+  renderOptions: TerminalRenderOptions,
+  preparedInto?: string,
+): Promise<boolean> {
+  out();
+  out(`  ${cyan(glyph.arrow)} ${bold(`Running ${step.id}`)}`);
+  const tui = currentTuiSession();
+  const externalWindow = opensExternalWindow(step);
+  const result = tui
+    ? externalWindow
+      ? await tui.withProgramRunning(
+          `Running ${example.title}`,
+          (signal) => runExercise(step.id, preparedInto, true, signal),
+        )
+      : await tui.suspendDuring(() => runExercise(step.id, preparedInto))
+    : await runExercise(step.id, preparedInto, externalWindow);
+  if (result.failed) {
+    out(`  ${red(glyph.todo)} The program did not run cleanly.`);
+    return false;
+  }
+  await renderExerciseExplanation(step, renderOptions);
+  return true;
+}
+
+type WalkedExercise =
+  | { step: ReplayStep; result: ExerciseDriveResult; final: boolean }
+  | "back"
+  | "menu"
+  | "exit";
+
+/**
+ * Walk every prompt of an exercise in book order.
+ *
+ * Multi-step exercises are progressive: each prompt asks the learner to change
+ * the program the previous prompt produced ("Update the code to add an else…").
+ * Jumping straight to the final step would skip the prompts that teach the
+ * earlier versions, so each step is introduced and replayed in turn. Between
+ * steps the learner can run the version they just built before moving on.
+ */
+async function driveExerciseSteps(
+  example: Example,
+  content: Content,
+  confirmation: ConfirmationSession,
+  planning: PlanningSession,
+  dependencies: DependencySession,
+  renderOptions: TerminalRenderOptions,
+): Promise<WalkedExercise> {
+  const steps = example.steps as ReplayStep[];
+  for (let index = 0; index < steps.length; index++) {
+    const step = steps[index];
+    const final = index === steps.length - 1;
+    const promptAction = await renderExerciseIntroduction(example, step, renderOptions);
+    if (promptAction === "exit") return "exit";
+    if (promptAction === "back") return "back";
+    const result = await driveExercise(
+      step.prompt,
+      content,
+      example.language,
+      confirmation,
+      planning,
+      dependencies,
+      renderOptions,
+      step,
+    );
+    // A failed intermediate step pauses the lesson rather than building the
+    // next prompt on top of a program that never came together.
+    if (final || result.failed) return { step, result, final };
+    if (!result.readyToRun) continue;
+
+    const next = steps[index + 1];
+    let ran = false;
+    while (true) {
+      const picked = await choose(`Step ${index + 1} of ${steps.length} is ready`, [
+        ...(ran ? [] : [{ key: "run", label: "Run this version" }]),
+        { key: "continue", label: `Continue to step ${index + 2}: ${next.prompt}` },
+        { key: "menu", label: "Return to the learning menu" },
+        { key: "exit", label: "Exit learning" },
+      ]);
+      if (!picked || picked === "menu") return "menu";
+      if (picked === "exit") return "exit";
+      if (picked === "continue") break;
+      ran = await runPreparedStep(example, step, renderOptions, result.preparedInto);
+    }
+  }
+  // Unreachable: the final step always returns above.
+  return "menu";
 }
 
 async function renderExerciseExplanation(
