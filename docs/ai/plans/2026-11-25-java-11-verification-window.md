@@ -21,9 +21,10 @@ A tester reported that Java Chapter 11, Exercise 2 (java-11-02) stayed on
 they cancelled it. They wondered whether skipping the previous exercise or a
 looping model was to blame.
 
-The tester was running v0.13.4, which is commit `1aab407`, the tip of
-`release/v0.13.2`. The "Running verification" panel exists only on that release
-line; `main` does not have it.
+The panel in the report matches v0.13.4, which is commit `1aab407`, the tip of
+`release/v0.13.2`. That build was identified by matching the panel shown in the
+report, not read from the tester's machine. The "Running verification" panel exists only on that
+release line; `main` does not have it.
 
 ## Cause
 
@@ -60,10 +61,10 @@ gets a second line:
 > When the program window opens, close it to return to Learn.
 
 The wording says what to do when the window appears without claiming that it
-has already opened, because the tests run first and can take a while. It is 56
-characters so it fits an 80 column terminal, the size the tester used. With the
-detail line present the footer is shortened to "Esc / Ctrl+C stops this
-command" for the same reason.
+has already opened, because the tests run first and can take a while. It is
+short enough to fit on one line of an 80 column terminal, the size the tester
+used. With the detail line present the footer is shortened to "Esc / Ctrl+C
+stops this command" for the same reason.
 
 The detection looks only at `replay.operations`, because that is exactly what
 `executeReplayAsync` iterates. A graphical command that appears only in narrated
