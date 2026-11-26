@@ -13,6 +13,8 @@ await withTuiSession(async () => {
   ].join("\n"), {
     charsPerSecond: 40,
     chunkChars: 4,
+    // Hold the stream until a real input event reveals the plan.
+    sleep: () => new Promise<void>(() => {}),
   });
   const picked = await session.choose("Plan finished?", [
     { key: "yes", label: "Yes", description: "The whole plan is visible." },

@@ -46,6 +46,37 @@ def snapshot_pids(pid_files: dict, report_path: str) -> None:
         json.dump(report, handle)
 
 
+def wait_end(visible: str, wait, offset: int) -> int:
+    """Find every marker after the last action, without imposing paint order."""
+    markers = wait if isinstance(wait, list) else [wait]
+    if not markers:
+        raise ValueError("wait needs at least one marker")
+    end = offset
+    for value in markers:
+        marker = re.sub(r"\s+", "", str(value))
+        found = visible.find(marker, offset)
+        if found < 0:
+            return -1
+        end = max(end, found + len(marker))
+    return end
+
+
+def may_send_input(fd: int, output: bytearray, absent, deadline: float) -> bool:
+    # The child may have written more output during the action's settle delay.
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([fd], [], [], 0)
+        if not readable:
+            return wait_end(compact(output), absent, 0) < 0
+        try:
+            chunk = os.read(fd, 65536)
+        except OSError:
+            return False
+        if not chunk:
+            return False
+        output.extend(chunk)
+    return False
+
+
 def main() -> int:
     scenario_path = sys.argv[1]
     command = sys.argv[2:]
@@ -91,11 +122,15 @@ def main() -> int:
             # fake external program recording that it has started.
             if "waitFile" in action and not os.path.exists(str(action["waitFile"])):
                 continue
-            marker = re.sub(r"\s+", "", str(action["wait"]))
-            found = visible.find(marker, search_offset)
-            if found < 0:
+            end = wait_end(visible, action["wait"], search_offset)
+            if end < 0:
                 continue
             time.sleep(float(action.get("settleSeconds", 0.1)))
+            if "absentBeforeInput" in action and not may_send_input(
+                fd, output, action["absentBeforeInput"], deadline,
+            ):
+                sys.stderr.write(f"input withheld: could not verify {action['absentBeforeInput']!r} was absent\n")
+                break
             if "snapshotPids" in action:
                 # Taken immediately before this action's keys are sent.
                 snapshot_pids(action["snapshotPids"], str(action["snapshotReport"]))
@@ -147,7 +182,7 @@ def main() -> int:
                 # program window that the fixture is waiting on.
                 with open(str(action["touch"]), "a", encoding="utf-8"):
                     pass
-            search_offset = max(search_offset, found + len(marker))
+            search_offset = end
             action_index += 1
         if action_index == len(scenario["actions"]):
             grace = time.monotonic() + 2.0
