@@ -34,6 +34,29 @@ describe("TUI Markdown streaming", () => {
 });
 
 suite("TUI streaming interaction", () => {
+  test("withholds PTY input for an already visible or newly queued marker", () => {
+    const probe = String.raw`
+import os, runpy, sys, time
+may_send_input = runpy.run_path(sys.argv[1])["may_send_input"]
+for seen, queued, expected in (
+    (b"Ready\r\nFINAL_PLAN_MARKER", b"", False),
+    (b"Ready", b"\r\nFINAL_PLAN_MARKER", False),
+    (b"Ready", b"\r\nStill streaming", True),
+):
+    reader, writer = os.pipe()
+    try:
+        os.write(writer, queued)
+        output = bytearray(seen)
+        assert may_send_input(reader, output, "FINAL_PLAN_MARKER", time.monotonic() + 2) == expected
+        assert output == seen + queued
+    finally:
+        os.close(reader)
+        os.close(writer)
+`;
+    const result = Bun.spawnSync(["python3", "-I", "-B", "-c", probe, DRIVER]);
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+  });
+
   test("reveals the read-only prompt on a keypress and still requires Enter", async () => {
     const root = mkdtempSync(join(tmpdir(), "aifirst-tui-prompt-"));
     const scenario = join(root, "scenario.json");
@@ -75,12 +98,12 @@ suite("TUI streaming interaction", () => {
       timeoutSeconds: 15,
       autoRunPrompts: false,
       actions: [
-        { wait: "Builda", click: { x: 12, y: 8 } },
+        { wait: "Press any key or click to show the full prompt", click: { x: 12, y: 8 } },
         { wait: "PRESS ENTER TO RUN THIS PROMPT", enter: true },
         { wait: "PROMPT_RESULT:run" },
       ],
     }));
-    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", PROMPT_DRIVER], {
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", PROMPT_DRIVER, "--hold-stream"], {
       cwd: root,
       env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", AIFIRST_TUI: "1" },
       stdout: "pipe",
@@ -104,9 +127,13 @@ suite("TUI streaming interaction", () => {
       rows: 30,
       timeoutSeconds: 15,
       actions: [
-        { wait: "PROPOSED PLAN", text: "x" },
-        { wait: "Plan finished?" },
-        { wait: "FINAL_PLAN_MARKER", enter: true },
+        {
+          wait: "Press any key or click to show the full plan",
+          absentBeforeInput: "FINAL_PLAN_MARKER",
+          text: "x",
+        },
+        // Both must be painted before Enter, in either order.
+        { wait: ["Plan finished?", "FINAL_PLAN_MARKER"], enter: true },
         { wait: "PLAN_CHOICE:yes" },
       ],
     }));
