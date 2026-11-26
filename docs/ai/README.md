@@ -58,6 +58,12 @@ the wrong book, exercises marked done without running, and `next` dragging you b
 were all found by using the tool, not by testing it. The v0.2.0 plan above opens with four such
 findings.
 
+## Test maintenance
+
+| Note | Date | Scope |
+| --- | --- | --- |
+| [macOS TUI streaming tests](plans/2026-11-25-macos-tui-streaming-tests.md) (decision note): test the reveal actions without relying on terminal paint order | 2026-11-25 | Test-only maintenance fix |
+
 ## Adding to this directory
 
 When a plan is approved in a Claude Code session, save it here before the session ends: the
