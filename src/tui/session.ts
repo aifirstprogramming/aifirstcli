@@ -971,7 +971,16 @@ export class LearnTuiSession {
     }
   }
 
-  async withTaskRunning<T>(title: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  /**
+   * Run a background command with a spinner. `detail` adds a second status line
+   * telling the reader what the command needs from them, such as closing a
+   * program window it opens before it can finish.
+   */
+  async withTaskRunning<T>(
+    title: string,
+    operation: (signal: AbortSignal) => Promise<T>,
+    options: { detail?: string } = {},
+  ): Promise<T> {
     this.clearBottom();
     this.interactionActive = true;
     const controller = new AbortController();
@@ -983,14 +992,20 @@ export class LearnTuiSession {
     this.bottom.paddingX = 1;
     const frames = ["◐", "◓", "◑", "◒"];
     let frame = 0;
+    const working = (spinner: string) =>
+      options.detail ? `${spinner} Working...\n  ${options.detail}` : `${spinner} Working...`;
     const status = new TextRenderable(this.renderer, {
       width: "100%",
-      height: 1,
-      content: `${frames[0]} Working...`,
+      height: options.detail ? 2 : 1,
+      content: working(frames[0]),
       fg: this.palette.text,
     });
     this.bottom.add(status);
-    this.setFooter("The TUI will remain responsive  •  Esc / Ctrl+C stops this command");
+    // The detail line already explains the wait, so the footer stays short
+    // enough to fit an 80-column terminal.
+    this.setFooter(options.detail
+      ? "Esc / Ctrl+C stops this command"
+      : "The TUI will remain responsive  •  Esc / Ctrl+C stops this command");
     const onKey = (key: KeyEvent) => {
       const cancel = key.name === "escape" || (key.ctrl && key.name === "c");
       if (!cancel || controller.signal.aborted) return;
@@ -1004,7 +1019,7 @@ export class LearnTuiSession {
     const timer = setInterval(() => {
       if (controller.signal.aborted) return;
       frame = (frame + 1) % frames.length;
-      status.content = `${frames[frame]} Working...`;
+      status.content = working(frames[frame]);
       this.renderer.requestRender();
     }, 120);
     this.renderer.requestRender();

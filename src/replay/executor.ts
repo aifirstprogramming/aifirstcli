@@ -60,6 +60,17 @@ function inside(root: string, path: string): string {
   return target;
 }
 
+/**
+ * Whether a graphical replay command is skipped rather than launched: on Linux
+ * without a display server there is no window to open.
+ */
+export function graphicalLaunchSkipped(
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY;
+}
+
 function replayReadText(path: string, data: Buffer): string {
   const png = data.length >= 24 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   if (png) {
@@ -109,7 +120,7 @@ function runCommand(
   try {
     const command = materializeReplayCommand(operation)
       .map((argument) => argument.replaceAll("<workspace>", "."));
-    if (operation.graphical && process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+    if (operation.graphical && graphicalLaunchSkipped()) {
       return {
         command,
         exitCode: 0,
@@ -156,7 +167,7 @@ async function runCommandAsync(
   } = {},
 ): Promise<ReplayCommandResult> {
   const source = operation.portableCommand ?? operation.command;
-  if (operation.graphical && process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY) {
+  if (operation.graphical && graphicalLaunchSkipped()) {
     return {
       command: source,
       exitCode: 0,
