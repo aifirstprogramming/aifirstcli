@@ -29,7 +29,7 @@ import { GeneratedFileStore } from "../generatedFiles";
 import { preflightDependencies } from "./dependencies";
 import type { PythonRuntime } from "../dependencies";
 import { withPythonRuntime } from "../dependencies";
-import { finalResponse } from "../exercises";
+import { completesExample, finalResponse } from "../exercises";
 import { markIfNew } from "../log/progress";
 import { CliError, bold, codeBlock, cyan, dim, explanationBlock, glyph, green, json, out, red } from "../output";
 import { defaultExercisePath } from "../workspace";
@@ -380,7 +380,9 @@ export async function executePreparedExercise(
 
   const deliberate = step.expectsException === true && ranProgram && exitCode !== 0 && !timedOut && stdout.trim() !== "";
   const ok = !aborted && (exitCode === 0 || deliberate);
-  const recorded = ok ? markIfNew(example.id, { via: "run" }) !== null : false;
+  // Only a clean run records progress, and only the final step of a multi-step
+  // example finishes it; earlier steps are half-built versions of the program.
+  const recorded = ok && completesExample(step) ? markIfNew(example.id, { via: "run" }) !== null : false;
   return {
     ok,
     deliberate,
@@ -483,6 +485,9 @@ export async function run(args: Args): Promise<void> {
   const { stdout, stderr, exitCode, timedOut, timedOutAfterMs, deliberate, ok, recorded, commands } = executed;
   const output = `${stdout}${stderr}`.replace(/\n$/, "");
 
+  // Only the final step of a multi-step example records it (see executePreparedExercise).
+  const final = completesExample(step);
+
   if (format === "json") {
     json({
       exerciseId: example.id,
@@ -519,10 +524,13 @@ export async function run(args: Args): Promise<void> {
   out();
 
   if (ok) {
+    const success = deliberate ? "threw as the book intends" : executionSuccessText(mode);
     out(
-      recorded
-        ? `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — recorded ${bold(example.id)} as done`
-        : `  ${green(glyph.done)} ${deliberate ? "threw as the book intends" : executionSuccessText(mode)} — ${dim(`${example.id} was already recorded`)}`,
+      !final
+        ? `  ${green(glyph.done)} ${success} — ${dim(`step ${step.index} of ${step.total}; ${example.id} is recorded when its final step runs`)}`
+        : recorded
+          ? `  ${green(glyph.done)} ${success} — recorded ${bold(example.id)} as done`
+          : `  ${green(glyph.done)} ${success} — ${dim(`${example.id} was already recorded`)}`,
     );
     if (step.explanation) {
       out();

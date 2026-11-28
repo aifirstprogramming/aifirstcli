@@ -32,7 +32,7 @@
     "checkout and `bun link @aifirst/content` here."
   ],
   "dependencies": {
-    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#834fab16fd633c06d0745cfb6804b21d2261db6d",
+    "@aifirst/content": "github:aifirstprogramming/aifirstcontent#v2.0.1",
     "@opentui/core": "0.5.10",
     "diff": "9.0.0",
     "highlight.js": "11.12.0",
