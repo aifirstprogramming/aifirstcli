@@ -12,7 +12,7 @@ import sys
 import time
 
 
-ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\)|[@-_])")
+ANSI = re.compile(r"\x1b(?:\[[0-?]*[ -/]*[@-~]|\][\s\S]*?(?:\x07|\x1b\\)|[@-_])")
 
 
 def visible(raw: bytes) -> str:

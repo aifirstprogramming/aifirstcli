@@ -228,7 +228,7 @@ async function runPtyCampaign(pythonPath: string): Promise<CampaignResult> {
         const log = artifact(`pty-${scenario.name}-${repetition + 1}.log`, `${result.stdout}\n${result.stderr}`);
         logs.push(log);
         const visible = result.stdout
-          .replace(/\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "")
+          .replace(/\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "")
           .replace(/\s+/g, "");
         const semanticSuccess = result.exitCode === 0 || (
           scenario.name === "ambiguity-none-retry-first" && visible.includes("JSONfiles")
