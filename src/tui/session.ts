@@ -94,9 +94,11 @@ export function needsDirectOsc52(env: NodeJS.ProcessEnv = process.env): boolean 
   return /^(?:tmux|screen)/.test(env.TERM ?? "") || env.TERM_PROGRAM === "tmux" || Boolean(env.TMUX);
 }
 
-const ANSI = /\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g;
+// An OSC ends at its first BEL or ESC-backslash. Letting it run to a later
+// terminator would erase visible text, such as an OSC 8 hyperlink's label.
+const ANSI = /\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g;
 
-function stripAnsi(value: string): string {
+export function stripAnsi(value: string): string {
   return value.replace(ANSI, "");
 }
 

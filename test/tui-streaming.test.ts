@@ -66,13 +66,15 @@ for seen, queued, expected in (
       timeoutSeconds: 15,
       autoRunPrompts: false,
       actions: [
-        { wait: "Builda", text: "x" },
+        // The streamed prompt's typing cursor can split its letters in the
+        // capture, so wait for the reveal footer instead, as the click test does.
+        { wait: "Press any key or click to show the full prompt", text: "x" },
         { wait: "PRESS ENTER TO RUN THIS PROMPT", settleSeconds: 0.4, enter: true },
         { wait: "PROMPT_RESULT:run" },
       ],
     }));
     const started = performance.now();
-    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", PROMPT_DRIVER], {
+    const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", PROMPT_DRIVER, "--hold-stream"], {
       cwd: root,
       env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", AIFIRST_TUI: "1" },
       stdout: "pipe",
@@ -245,7 +247,7 @@ for seen, queued, expected in (
     await proc.exited;
     const elapsed = performance.now() - started;
     const visible = stdout
-      .replace(/\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x1b\\|\[[0-?]*[ -/]*[@-~])/g, "")
+      .replace(/\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x1b\\|\[[0-?]*[ -/]*[@-~])/g, "")
       .replace(/\s+/g, "");
 
     try {

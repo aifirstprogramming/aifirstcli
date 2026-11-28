@@ -11,7 +11,7 @@ import time
 
 
 PROMPT = "Make a game about a baby duckling who is trying to find its mother using pygame."
-ANSI = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])")
+ANSI = re.compile(r"\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])")
 PHASES = [
     ("☐ Game style", 0),
     ("☐ Challenge", 1),
