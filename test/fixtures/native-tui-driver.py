@@ -18,6 +18,13 @@ import time
 ANSI = re.compile(r"\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x1b\\|\[[0-?]*[ -/]*[@-~])")
 
 
+# Action keys that write to the child; none can be delivered after it exits.
+INPUT_KEYS = (
+    "absentBeforeInput", "text", "paste", "up", "down", "pageUp", "pageDown",
+    "click", "scrollUp", "scrollDown", "enter", "escape", "ctrlC",
+)
+
+
 def compact(data: bytearray) -> str:
     visible = ANSI.sub("", data.decode("utf-8", errors="replace")).replace("\r", "")
     return re.sub(r"\s+", "", visible)
@@ -96,21 +103,28 @@ def main() -> int:
     search_offset = 0
     prompt_acknowledged = False
     child_done = False
+    # Set once the child closes its side of the PTY. Its last lines often arrive
+    # together with its exit, so the remaining waits are still checked against
+    # what was captured, stopping at the first one that output does not satisfy
+    # or the first action that would need to send input.
+    child_closed = False
     deadline = time.monotonic() + float(scenario.get("timeoutSeconds", 45))
     try:
         while time.monotonic() < deadline and action_index < len(scenario["actions"]):
-            readable, _, _ = select.select([fd], [], [], 0.1)
-            if readable:
-                try:
-                    chunk = os.read(fd, 65536)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                output.extend(chunk)
+            if not child_closed:
+                readable, _, _ = select.select([fd], [], [], 0.1)
+                if readable:
+                    try:
+                        chunk = os.read(fd, 65536)
+                    except OSError:
+                        chunk = b""
+                    if chunk:
+                        output.extend(chunk)
+                    else:
+                        child_closed = True
 
             visible = compact(output)
-            if scenario.get("autoRunPrompts", True) and not prompt_acknowledged:
+            if scenario.get("autoRunPrompts", True) and not prompt_acknowledged and not child_closed:
                 prompt_marker = "PRESSENTERTORUNTHISPROMPT"
                 found_prompt = visible.find(prompt_marker)
                 if found_prompt >= 0:
@@ -121,10 +135,16 @@ def main() -> int:
             # A fixture can signal progress through the filesystem, for example a
             # fake external program recording that it has started.
             if "waitFile" in action and not os.path.exists(str(action["waitFile"])):
+                if child_closed:
+                    break
                 continue
             end = wait_end(visible, action["wait"], search_offset)
             if end < 0:
+                if child_closed:
+                    break
                 continue
+            if child_closed and any(key in action for key in INPUT_KEYS):
+                break
             time.sleep(float(action.get("settleSeconds", 0.1)))
             if "absentBeforeInput" in action and not may_send_input(
                 fd, output, action["absentBeforeInput"], deadline,

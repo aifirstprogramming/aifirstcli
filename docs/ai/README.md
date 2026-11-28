@@ -65,6 +65,7 @@ findings.
 | Note | Date | Scope |
 | --- | --- | --- |
 | [macOS TUI streaming tests](plans/2026-11-25-macos-tui-streaming-tests.md) (decision note): test the reveal actions without relying on terminal paint order | 2026-11-25 | Test-only maintenance fix |
+| [PTY driver waits at child exit](plans/2026-11-28-pty-driver-exit-waits.md) (decision note): keep checking the remaining waits against captured output after the child exits | 2026-11-28 | Test-only maintenance fix |
 
 ## Adding to this directory
 
