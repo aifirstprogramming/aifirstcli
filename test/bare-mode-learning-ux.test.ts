@@ -287,6 +287,21 @@ describe("5. Multi-step scenario", () => {
     expect(data.stepId).toBe("py-3-01.1");
   });
 
+  it("only the final step of a multi-step exercise records it done", async () => {
+    const first = JSON.parse((await aifirst(["run", "py-3-01.1", "--yes", "--format", "json"])).stdout);
+    expect(first.ran.ok).toBe(true);
+    expect(first.recorded).toBe(false);
+    const progressFile = join(sandbox, "state", "progress.json");
+    const progress = () =>
+      existsSync(progressFile) ? JSON.parse(readFileSync(progressFile, "utf8")).exercises ?? {} : {};
+    expect(progress()["py-3-01"]).toBeUndefined();
+
+    const last = JSON.parse((await aifirst(["run", "py-3-01.3", "--yes", "--format", "json"])).stdout);
+    expect(last.ran.ok).toBe(true);
+    expect(last.recorded).toBe(true);
+    expect(progress()["py-3-01"].status).toBe("done");
+  });
+
   it("run of unknown step reports an error", async () => {
     const r = await aifirst(["run", "py-3-01", "--step", "99", "--yes"]);
     expect(r.code).toBe(1);
