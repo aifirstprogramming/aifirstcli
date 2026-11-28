@@ -70,9 +70,12 @@ suite("rendered OpenTUI syntax colors", () => {
       timeoutSeconds: 10,
       actions: [{ wait: "HIGHLIGHT_DONE" }],
     }));
+    // Pin the terminal to 256 colors: the background assertions below expect
+    // 256-color codes, and an inherited COLORTERM=truecolor would switch them.
+    const { COLORTERM: _inheritedColorTerm, ...inheritedEnv } = process.env;
     const proc = Bun.spawn(["python3", DRIVER, scenario, process.execPath, "run", HIGHLIGHT_DRIVER], {
       cwd: root,
-      env: { ...process.env, TERM: "xterm-256color", NO_COLOR: "", AIFIRST_TUI: "1" },
+      env: { ...inheritedEnv, TERM: "xterm-256color", NO_COLOR: "", AIFIRST_TUI: "1" },
       stdout: "pipe",
       stderr: "pipe",
     });
