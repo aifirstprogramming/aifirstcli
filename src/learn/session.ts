@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { hostname, platform } from "node:os";
+import { delimiter, join, resolve } from "node:path";
+import { homedir, hostname, platform } from "node:os";
 import { stateDir } from "../paths";
 import { claudeEntries } from "../permissions";
 
@@ -146,6 +146,28 @@ export function createSession(): SessionRecord {
   return record;
 }
 
+/**
+ * PATH without entries inside the learner's own `~/.claude` folder.
+ *
+ * Claude Code puts plugin `bin` folders there on PATH. Passing them on would
+ * let the isolated session run the learner's plugins. The `claude` executable
+ * itself is resolved to an absolute path before launch, so it does not depend
+ * on these entries.
+ */
+function pathWithoutClaudeHome(value: string): string {
+  const claudeHome = resolve(homedir(), ".claude");
+  const comparable = (path: string) => (process.platform === "win32" ? path.toLowerCase() : path);
+  const home = comparable(claudeHome);
+  return value
+    .split(delimiter)
+    .filter((entry) => {
+      if (!entry) return true;
+      const path = comparable(resolve(entry));
+      return path !== home && !path.startsWith(home + sep);
+    })
+    .join(delimiter);
+}
+
 /** Build the child's environment without reading the learner's Claude state. */
 export function claudeLaunch(session: SessionRecord, passthrough: string[], baseUrl: string, replayName?: string): ClaudeLaunch {
   const env: Record<string, string> = {};
@@ -167,6 +189,7 @@ export function claudeLaunch(session: SessionRecord, passthrough: string[], base
     const value = process.env[name];
     if (value) env[name] = value;
   }
+  if (env.PATH !== undefined) env.PATH = pathWithoutClaudeHome(env.PATH);
   env.IS_DEMO = "1";
   // A temporary home isolates Claude's user profile without --bare/--safe-mode,
   // preserving the normal TUI and interactive built-in tools.
