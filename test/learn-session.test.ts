@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import {
   SERVER_TOOLS,
   claudeLaunch,
@@ -27,6 +27,29 @@ afterEach(() => {
 });
 
 describe("local Claude session", () => {
+  it("keeps the learner's own Claude folder off the child's PATH", () => {
+    const state = useState();
+    const session = createSession();
+    const originalPath = process.env.PATH;
+    const claudeHome = join(homedir(), ".claude");
+    const lookalike = join(homedir(), ".claude-other", "bin");
+    process.env.PATH = [
+      join(claudeHome, "plugins", "cache", "example", "bin"),
+      claudeHome,
+      "/usr/bin",
+      lookalike,
+    ].join(delimiter);
+    try {
+      const launch = claudeLaunch(session, [], "http://127.0.0.1:4567");
+      expect(launch.env.PATH?.split(delimiter)).toEqual(["/usr/bin", lookalike]);
+    } finally {
+      if (originalPath === undefined) delete process.env.PATH;
+      else process.env.PATH = originalPath;
+      cleanupSession(session);
+      rmSync(state, { recursive: true, force: true });
+    }
+  });
+
   it("uses a session-owned normal profile and TUI", () => {
     const state = useState();
     const session = createSession();
