@@ -243,7 +243,7 @@ describeLive("live fuzzy confirmation (real Claude Code client)", () => {
     const server = startBookServer({ port: 0, quiet: true });
     const driver = join(import.meta.dir, "fixtures", "claude-ambiguous-choice-driver.py");
     const compactTui = (value: string) => value
-      .replace(/\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "")
+      .replace(/\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "")
       .replace(/\s+/g, "");
     const run = async (mode: "none" | "select") => {
       const proc = Bun.spawn(["python3", driver, claude as string, settings, workspace, mode], {

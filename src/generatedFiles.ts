@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { generatedFilesDir } from "./paths";
 
 interface GeneratedFileRecord {
@@ -44,6 +44,38 @@ export class GeneratedFileStore {
     } catch {
       return false;
     }
+  }
+
+  /** Valid ownership records whose targets are contained by one managed project. */
+  recordsUnder(root: string): GeneratedFileRecord[] {
+    const projectRoot = targetPath(root);
+    let files: string[];
+    try {
+      files = readdirSync(this.directory).filter((file) => file.endsWith(".json"));
+    } catch {
+      return [];
+    }
+    return files.flatMap((file) => {
+      try {
+        const parsed = JSON.parse(readFileSync(join(this.directory, file), "utf8")) as Partial<GeneratedFileRecord>;
+        if (
+          parsed.version !== 1 ||
+          typeof parsed.path !== "string" ||
+          typeof parsed.sha256 !== "string" ||
+          !SHA256.test(parsed.sha256) ||
+          file !== `${digest(parsed.path)}.json`
+        ) return [];
+        const rel = relative(projectRoot, targetPath(parsed.path));
+        if (!rel || rel === ".." || rel.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) || isAbsolute(rel)) return [];
+        return [{ version: 1 as const, path: targetPath(parsed.path), sha256: parsed.sha256 }];
+      } catch {
+        return [];
+      }
+    });
+  }
+
+  forget(path: string): void {
+    rmSync(this.recordPath(path), { force: true });
   }
 
   /** Record the actual post-write bytes without retaining any learner source text. */

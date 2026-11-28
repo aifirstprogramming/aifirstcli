@@ -40,6 +40,8 @@ absolute paths from the machine it ran on were replaced with `<scratch>/` and `~
 | [Showtail replay](plans/2026-08-14-showtail-replay-in-aifirst.md): import and replay cached Showtail transcripts through book mode and local learning | 2026-08-14 | Shipped on the feature branch |
 | [Bare-mode learning UX](plans/2026-08-16-bare-mode-learning-ux.md): make `aifirst learn` reproduce the installed-skill workflow: `next` gives complete code/instruction, Claude writes/executes/explains, and success advances the learner; `show` is read-only; `run` is explicit write/execute/record | 2026-08-16 | Shipped on the feature branch |
 | [Bare-mode learning UX: policy rework](plans/2026-08-16-bare-mode-learning-ux-rework.md): fix `next`'s Windows path handling and missing-runtime detection, correct the Java missing-JDK test to force the real code path, after the earlier policy audit's stale-snapshot report | 2026-08-16 | Shipped on the feature branch |
+| [JavaFX wait during verification](plans/2026-11-25-java-11-verification-window.md) (decision note, not a verbatim plan): tell Learn readers to close the PocketCFO app window that verification opens, keep the launch, and scope the fix to the release branch | 2026-11-25 | Committed on the fix branch, not yet released |
+| [OSC stripping and keypress test](plans/2026-11-26-osc-stripping-and-keypress-test.md) (decision note, not a verbatim plan): end every OSC at its first terminator so links and streamed text stay visible, and wait for the reveal footer in the keypress prompt test | 2026-11-26 | Committed on the fix branch, not yet released |
 
 **Not every release has a plan here.** v0.3.0, v0.3.1 and v0.4.0 were small enough to be made
 directly, without a planning step, so there is nothing to capture. Their reasoning is in the
@@ -57,6 +59,13 @@ real exercises: in five sessions across 2026-08-07 to 08-09 (`59350787`, `915bc9
 the wrong book, exercises marked done without running, and `next` dragging you back to chapter 2
 were all found by using the tool, not by testing it. The v0.2.0 plan above opens with four such
 findings.
+
+## Test maintenance
+
+| Note | Date | Scope |
+| --- | --- | --- |
+| [macOS TUI streaming tests](plans/2026-11-25-macos-tui-streaming-tests.md) (decision note): test the reveal actions without relying on terminal paint order | 2026-11-25 | Test-only maintenance fix |
+| [PTY driver waits at child exit](plans/2026-11-28-pty-driver-exit-waits.md) (decision note): keep checking the remaining waits against captured output after the child exits | 2026-11-28 | Test-only maintenance fix |
 
 ## Adding to this directory
 

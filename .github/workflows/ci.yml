@@ -6,6 +6,9 @@ on:
   pull_request:
 
 jobs:
+  book-walk:
+    uses: ./.github/workflows/book-walk.yml
+
   check:
     strategy:
       fail-fast: false

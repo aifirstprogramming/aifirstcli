@@ -154,7 +154,7 @@ const scenarios: Scenario[] = [
 ];
 
 function compact(value: string): string {
-  return value.replace(/\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "").replace(/\s+/g, "");
+  return value.replace(/\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~])/g, "").replace(/\s+/g, "");
 }
 
 function artifact(name: string, text: string): string {

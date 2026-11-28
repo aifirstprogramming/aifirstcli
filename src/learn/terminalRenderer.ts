@@ -426,6 +426,7 @@ class BlockSkipController {
   constructor(
     private readonly stdin: NodeJS.ReadStream,
     private readonly onInterrupt: () => void,
+    private readonly anyKey = false,
   ) {
     this.previousRaw = Boolean(stdin.isRaw);
     this.enabled = Boolean(stdin.isTTY && typeof stdin.setRawMode === "function");
@@ -444,7 +445,7 @@ class BlockSkipController {
       this.onInterrupt();
       return;
     }
-    if (text === " " || text === "\r" || text === "\n" || key.name === "space" || key.name === "return" || key.name === "enter") {
+    if (this.anyKey || text === " " || text === "\r" || text === "\n" || key.name === "space" || key.name === "return" || key.name === "enter") {
       this.skipped = true;
       this.resolveSkip?.();
     }
@@ -490,26 +491,38 @@ export async function renderTerminalMarkdown(markdown: string, options: Terminal
   const blocks = terminalBlocks(markdown, options);
   const dumb = options.dumb ?? process.env.TERM === "dumb";
   const canAnimate = rate !== undefined && rate > 0 && !dumb;
+  const revealDocument = /^## Proposed plan\b/m.test(markdown);
+  const documentController = canAnimate && revealDocument
+    ? new BlockSkipController(
+        options.stdin ?? process.stdin,
+        options.onInterrupt ?? (() => process.kill(process.pid, "SIGINT")),
+        true,
+      )
+    : undefined;
 
-  for (const block of blocks) {
-    if (!canAnimate || block.kind === "immediate") {
-      writer(block.fragments.map((fragment) => fragment.text).join(""));
-      continue;
-    }
-    const controller = new BlockSkipController(
-      options.stdin ?? process.stdin,
-      options.onInterrupt ?? (() => process.kill(process.pid, "SIGINT")),
-    );
-    try {
-      for (const fragment of block.fragments) {
-        writer(fragment.text);
-        if (controller.isSkipped()) continue;
-        const delay = fragment.delayMs ?? Math.round((fragment.visible / Math.max(1, rate)) * 1000);
-        await controller.wait(delay, sleep);
+  try {
+    for (const block of blocks) {
+      if (!canAnimate || block.kind === "immediate") {
+        writer(block.fragments.map((fragment) => fragment.text).join(""));
+        continue;
       }
-    } finally {
-      controller.finish();
+      const controller = documentController ?? new BlockSkipController(
+        options.stdin ?? process.stdin,
+        options.onInterrupt ?? (() => process.kill(process.pid, "SIGINT")),
+      );
+      try {
+        for (const fragment of block.fragments) {
+          writer(fragment.text);
+          if (controller.isSkipped()) continue;
+          const delay = fragment.delayMs ?? Math.round((fragment.visible / Math.max(1, rate)) * 1000);
+          await controller.wait(delay, sleep);
+        }
+      } finally {
+        if (!documentController) controller.finish();
+      }
     }
+  } finally {
+    documentController?.finish();
   }
 }
 
@@ -539,11 +552,13 @@ export async function renderExercisePrompt(
   const enabled = Boolean(stdin.isTTY && typeof stdin.setRawMode === "function");
   const previousRaw = Boolean(stdin.isRaw);
   let cancelled: PromptGateResult | undefined;
+  let skipped = false;
   let release: (() => void) | undefined;
   const onTypingKey = (_text: string, key: { name?: string; ctrl?: boolean }) => {
     if (key.ctrl && key.name === "c") cancelled = "exit";
     else if (key.name === "escape") cancelled = "back";
-    if (cancelled) release?.();
+    else skipped = true;
+    if (cancelled || skipped) release?.();
   };
   if (enabled) {
     emitKeypressEvents(stdin);
@@ -563,7 +578,7 @@ export async function renderExercisePrompt(
       for (const char of Array.from(line)) {
         if (cancelled) break;
         writer(char);
-        if (!options.noAnimation) {
+        if (!options.noAnimation && !skipped) {
           await Promise.race([
             sleep(25),
             new Promise<void>((resolve) => { release = resolve; }),

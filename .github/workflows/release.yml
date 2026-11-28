@@ -11,6 +11,9 @@ permissions:
   issues: write
 
 jobs:
+  book-walk:
+    uses: ./.github/workflows/book-walk.yml
+
   learn-compatibility:
     uses: ./.github/workflows/learn-compatibility.yml
     permissions:
@@ -183,7 +186,7 @@ jobs:
 
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [learn-compatibility, build-linux, build-windows, build-darwin]
+    needs: [book-walk, learn-compatibility, build-linux, build-windows, build-darwin]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

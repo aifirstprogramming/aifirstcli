@@ -13,6 +13,7 @@ import { resolveContent } from "../src/content";
  */
 
 const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
+const TTY_DRIVER = join(import.meta.dir, "fixtures", "native-tui-driver.py");
 const AUTHORED_EXERCISES = resolveContent().content.examples.length;
 
 let sandbox: string;
@@ -118,6 +119,9 @@ describe("run", () => {
     const mvn = join(bin, "mvn");
     writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
     chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
 
     const result = await aifirst(["run", "java-6-01", "--yes", "--format", "json"], {
       PATH: `${bin}:${process.env.PATH ?? ""}`,
@@ -140,6 +144,9 @@ describe("run", () => {
     const mvn = join(bin, "mvn");
     writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
     chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
     const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
 
     expect((await aifirst(["run", "java-6-14", "--yes", "--format", "json"], env)).code).toBe(0);
@@ -150,6 +157,52 @@ describe("run", () => {
     expect((await aifirst(["run", "java-6-03", "--yes", "--format", "json"], env)).code).toBe(0);
     expect(existsSync(futureTest)).toBe(false);
     expect(existsSync(join(project, "src", "test", "java", "ThermostatTest.java"))).toBe(true);
+  });
+
+  shellTest("reconciles Chapter 6 launchers across forward and reverse checkpoints", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
+    const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
+    const project = join(sandbox, "home", "aifirst", "java", "chapter-6-testing", "src", "main", "java");
+
+    expect((await aifirst(["run", "java-6-02", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatApp.java"))).toBe(true);
+
+    expect((await aifirst(["run", "java-6-05", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatApp.java"))).toBe(false);
+    expect(existsSync(join(project, "ThermostatDemo.java"))).toBe(true);
+
+    expect((await aifirst(["run", "java-6-01", "--yes", "--format", "json"], env)).code).toBe(0);
+    expect(existsSync(join(project, "ThermostatDemo.java"))).toBe(false);
+    expect(existsSync(join(project, "Thermostat.java"))).toBe(true);
+  });
+
+  shellTest("refuses to remove a learner-modified file from an earlier project checkpoint", async () => {
+    const bin = join(sandbox, "bin");
+    mkdirSync(bin, { recursive: true });
+    const mvn = join(bin, "mvn");
+    writeFileSync(mvn, "#!/bin/sh\nexit 0\n");
+    chmodSync(mvn, 0o755);
+    const java = join(bin, "java");
+    writeFileSync(java, "#!/bin/sh\nexit 0\n");
+    chmodSync(java, 0o755);
+    const env = { PATH: `${bin}:${process.env.PATH ?? ""}` };
+
+    expect((await aifirst(["run", "java-6-02", "--yes", "--format", "json"], env)).code).toBe(0);
+    const project = join(sandbox, "home", "aifirst", "java", "chapter-6-testing", "src", "main", "java");
+    const app = join(project, "ThermostatApp.java");
+    writeFileSync(app, "// learner change\n" + readFileSync(app, "utf8"));
+
+    const result = await aifirst(["run", "java-6-05", "--yes", "--format", "json"], env);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("belongs to an earlier project checkpoint but now contains your changes");
+    expect(readFileSync(app, "utf8")).toStartWith("// learner change");
   });
 
   it("reports missing dependencies before writing or recording anything", async () => {
@@ -236,6 +289,49 @@ describe("run", () => {
     expect(out.ran.ok).toBe(true);
     expect(out.ran.stdout).toContain("Stopped.");
     expect(out.recorded).toBe(true);
+  });
+
+  shellTest("lets a terminal reader answer an interactive exercise", async () => {
+    const scenario = join(sandbox, "interactive-run.json");
+    writeFileSync(scenario, JSON.stringify({
+      columns: 100,
+      rows: 30,
+      timeoutSeconds: 15,
+      actions: [
+        { wait: "What is your name?", text: "Ada", enter: true },
+        { wait: "Hello, Ada!" },
+        { wait: "recorded py-2-08 as done" },
+      ],
+    }));
+    const proc = Bun.spawn([
+      "python3",
+      TTY_DRIVER,
+      scenario,
+      process.execPath,
+      "run",
+      ENTRY,
+      "run",
+      "py-2-08",
+    ], {
+      cwd: sandbox,
+      env: {
+        ...process.env,
+        AIFIRST_STATE_DIR: join(sandbox, "state"),
+        AIFIRST_HOME_OVERRIDE: join(sandbox, "home"),
+        NO_COLOR: "1",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+    ]);
+    await proc.exited;
+
+    expect(proc.exitCode, `${stderr}\n${stdout}`).toBe(0);
+    expect(stdout).toContain("Hello, Ada!");
+    expect(stdout).not.toContain("Hello, Sushi!");
   });
 
   it("runs the final step of a progressive exercise", async () => {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeReplay, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
+import { executeReplay, executeReplayAsync, executeReplayOperation, executeReplayOperationAsync, materializeReplayCommand } from "../src/replay/executor";
 import { resolveReplay } from "../src/replay/resolver";
 import { clearPendingReplay, confirmationAnswer, readPendingReplay, replaySelection, savePendingReplay } from "../src/replay/pending";
 import type { Content, ReplayStep } from "../src/content/types";
@@ -113,6 +113,22 @@ describe("replay execution", () => {
     expect(result.command?.stdout.replace(/\r\n/g, "\n")).toBe("portable\n");
   });
 
+  it("lets the portable shell remove more than one file", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-remove-many-"));
+    writeFileSync(join(root, "one.txt"), "one\n");
+    writeFileSync(join(root, "two.txt"), "two\n");
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: ["bash", "-lc", "rm one.txt two.txt"],
+      portableCommand: ["<shell>", "rm one.txt two.txt"],
+      expectedExitCode: 0,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(existsSync(join(root, "one.txt"))).toBe(false);
+    expect(existsSync(join(root, "two.txt"))).toBe(false);
+  });
+
   it("materializes privacy-safe workspace placeholders before executing commands", () => {
     root = mkdtempSync(join(tmpdir(), "aifirst-replay-workspace-"));
     const result = executeReplayOperation({
@@ -135,6 +151,54 @@ describe("replay execution", () => {
     expect(result.ok).toBe(true);
     expect(readFileSync(join(root, "nested/value.txt"), "utf8")).toBe("hello\n");
     expect(result.commands[0]?.stdout).toBe("hello\n");
+  });
+
+  it("can relax captured output while still requiring the captured exit code", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-relaxed-"));
+    const replay = { operations: [{
+      type: "command" as const,
+      command: [process.execPath, "-e", "console.log('current output')"],
+      expectedExitCode: 0,
+      expectedStdout: "captured output\n",
+    }] };
+
+    expect((await executeReplayAsync(replay, root)).ok).toBe(false);
+    expect((await executeReplayAsync(replay, root, undefined, { relaxOutput: true })).ok).toBe(true);
+    expect((await executeReplayAsync({ operations: [{
+      ...replay.operations[0],
+      command: [process.execPath, "-e", "process.exit(2)"],
+    }] }, root, undefined, { relaxOutput: true })).ok).toBe(false);
+  });
+
+  it("runs ordinary asynchronous commands without blocking the event loop", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-async-"));
+    let heartbeat = false;
+    setTimeout(() => { heartbeat = true; }, 20);
+
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: [process.execPath, "-e", "setTimeout(() => console.log('done'), 100)"],
+      expectedExitCode: 0,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(heartbeat).toBe(true);
+    expect(result.command?.stdout).toContain("done");
+  });
+
+  it("honors asynchronous command timeouts", async () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-timeout-"));
+    const result = await executeReplayOperationAsync({
+      type: "command",
+      command: [process.execPath, "-e", "setTimeout(() => {}, 10_000)"],
+      timeoutMs: 50,
+      expectedTimeout: true,
+      expectedExitCode: 124,
+    }, root);
+
+    expect(result.ok).toBe(true);
+    expect(result.command?.timedOut).toBe(true);
+    expect(result.command?.exitCode).toBe(124);
   });
 
   it("stops after the first operation that fails verification", () => {
@@ -187,6 +251,21 @@ describe("replay execution", () => {
     ] }, root);
     expect(result.ok).toBe(true);
     expect(readFileSync(join(root, "value.txt"), "utf8")).toBe("after\n");
+  });
+
+  it("describes PNG reads without rendering binary bytes", () => {
+    root = mkdtempSync(join(tmpdir(), "aifirst-replay-image-"));
+    const png = Buffer.alloc(32);
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(png);
+    png.writeUInt32BE(32, 16);
+    png.writeUInt32BE(48, 20);
+    writeFileSync(join(root, "duckling.png"), png);
+
+    const result = executeReplayOperation({ type: "read", path: "duckling.png" }, root);
+
+    expect(result.ok).toBe(true);
+    expect(result.text).toBe("duckling.png - PNG, 32x48, 32 bytes; preview omitted");
+    expect(result.text).not.toContain("�");
   });
 });
 

@@ -9,17 +9,79 @@ import re
 import select
 import signal
 import struct
+import subprocess
 import sys
 import termios
 import time
 
 
-ANSI = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x1b\\|\[[0-?]*[ -/]*[@-~])")
+ANSI = re.compile(r"\x1b(?:\][\s\S]*?(?:\x07|\x1b\\)|P[^\x1b]*\x1b\\|_[^\x1b]*\x1b\\|\[[0-?]*[ -/]*[@-~])")
+
+
+# Action keys that write to the child; none can be delivered after it exits.
+INPUT_KEYS = (
+    "absentBeforeInput", "text", "paste", "up", "down", "pageUp", "pageDown",
+    "click", "scrollUp", "scrollDown", "enter", "escape", "ctrlC",
+)
 
 
 def compact(data: bytearray) -> str:
     visible = ANSI.sub("", data.decode("utf-8", errors="replace")).replace("\r", "")
     return re.sub(r"\s+", "", visible)
+
+
+def snapshot_pids(pid_files: dict, report_path: str) -> None:
+    """Record whether fixture-reported PIDs are alive, and who they are, right now."""
+    report = {}
+    for name, path in pid_files.items():
+        entry = {"pid": None, "alive": False}
+        try:
+            pid = int(open(str(path), encoding="utf-8").read().strip())
+            entry["pid"] = pid
+            os.kill(pid, 0)
+            entry["alive"] = True
+            listed = subprocess.run(
+                ["ps", "-o", "ppid=,pgid=,command=", "-p", str(pid)],
+                capture_output=True, text=True, check=False,
+            ).stdout.strip().split(None, 2)
+            if len(listed) == 3:
+                entry["ppid"], entry["pgid"], entry["command"] = int(listed[0]), int(listed[1]), listed[2]
+        except (OSError, ValueError):
+            pass
+        report[name] = entry
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(report, handle)
+
+
+def wait_end(visible: str, wait, offset: int) -> int:
+    """Find every marker after the last action, without imposing paint order."""
+    markers = wait if isinstance(wait, list) else [wait]
+    if not markers:
+        raise ValueError("wait needs at least one marker")
+    end = offset
+    for value in markers:
+        marker = re.sub(r"\s+", "", str(value))
+        found = visible.find(marker, offset)
+        if found < 0:
+            return -1
+        end = max(end, found + len(marker))
+    return end
+
+
+def may_send_input(fd: int, output: bytearray, absent, deadline: float) -> bool:
+    # The child may have written more output during the action's settle delay.
+    while time.monotonic() < deadline:
+        readable, _, _ = select.select([fd], [], [], 0)
+        if not readable:
+            return wait_end(compact(output), absent, 0) < 0
+        try:
+            chunk = os.read(fd, 65536)
+        except OSError:
+            return False
+        if not chunk:
+            return False
+        output.extend(chunk)
+    return False
 
 
 def main() -> int:
@@ -41,21 +103,28 @@ def main() -> int:
     search_offset = 0
     prompt_acknowledged = False
     child_done = False
+    # Set once the child closes its side of the PTY. Its last lines often arrive
+    # together with its exit, so the remaining waits are still checked against
+    # what was captured, stopping at the first one that output does not satisfy
+    # or the first action that would need to send input.
+    child_closed = False
     deadline = time.monotonic() + float(scenario.get("timeoutSeconds", 45))
     try:
         while time.monotonic() < deadline and action_index < len(scenario["actions"]):
-            readable, _, _ = select.select([fd], [], [], 0.1)
-            if readable:
-                try:
-                    chunk = os.read(fd, 65536)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                output.extend(chunk)
+            if not child_closed:
+                readable, _, _ = select.select([fd], [], [], 0.1)
+                if readable:
+                    try:
+                        chunk = os.read(fd, 65536)
+                    except OSError:
+                        chunk = b""
+                    if chunk:
+                        output.extend(chunk)
+                    else:
+                        child_closed = True
 
             visible = compact(output)
-            if scenario.get("autoRunPrompts", True) and not prompt_acknowledged:
+            if scenario.get("autoRunPrompts", True) and not prompt_acknowledged and not child_closed:
                 prompt_marker = "PRESSENTERTORUNTHISPROMPT"
                 found_prompt = visible.find(prompt_marker)
                 if found_prompt >= 0:
@@ -63,11 +132,28 @@ def main() -> int:
                     prompt_acknowledged = True
                     time.sleep(0.1)
             action = scenario["actions"][action_index]
-            marker = re.sub(r"\s+", "", str(action["wait"]))
-            found = visible.find(marker, search_offset)
-            if found < 0:
+            # A fixture can signal progress through the filesystem, for example a
+            # fake external program recording that it has started.
+            if "waitFile" in action and not os.path.exists(str(action["waitFile"])):
+                if child_closed:
+                    break
                 continue
+            end = wait_end(visible, action["wait"], search_offset)
+            if end < 0:
+                if child_closed:
+                    break
+                continue
+            if child_closed and any(key in action for key in INPUT_KEYS):
+                break
             time.sleep(float(action.get("settleSeconds", 0.1)))
+            if "absentBeforeInput" in action and not may_send_input(
+                fd, output, action["absentBeforeInput"], deadline,
+            ):
+                sys.stderr.write(f"input withheld: could not verify {action['absentBeforeInput']!r} was absent\n")
+                break
+            if "snapshotPids" in action:
+                # Taken immediately before this action's keys are sent.
+                snapshot_pids(action["snapshotPids"], str(action["snapshotReport"]))
             if "text" in action:
                 os.write(fd, str(action["text"]).encode("utf-8"))
                 time.sleep(0.1)
@@ -81,13 +167,42 @@ def main() -> int:
             if action.get("down"):
                 os.write(fd, b"\x1b[B" * int(action["down"]))
                 time.sleep(0.1)
+            if action.get("pageUp"):
+                os.write(fd, b"\x1b[5~" * int(action["pageUp"]))
+                time.sleep(0.1)
+            if action.get("pageDown"):
+                os.write(fd, b"\x1b[6~" * int(action["pageDown"]))
+                time.sleep(0.1)
+            if "click" in action:
+                click = action["click"]
+                x = int(click.get("x", 10))
+                y = int(click.get("y", 8))
+                os.write(fd, f"\x1b[<0;{x};{y}M\x1b[<0;{x};{y}m".encode("ascii"))
+                time.sleep(0.1)
+            if action.get("scrollUp"):
+                x = int(action.get("scrollX", 10))
+                y = int(action.get("scrollY", 10))
+                for _ in range(int(action["scrollUp"])):
+                    os.write(fd, f"\x1b[<64;{x};{y}M".encode("ascii"))
+                time.sleep(0.1)
+            if action.get("scrollDown"):
+                x = int(action.get("scrollX", 10))
+                y = int(action.get("scrollY", 10))
+                for _ in range(int(action["scrollDown"])):
+                    os.write(fd, f"\x1b[<65;{x};{y}M".encode("ascii"))
+                time.sleep(0.1)
             if action.get("enter"):
                 os.write(fd, b"\r")
             if action.get("escape"):
                 os.write(fd, b"\x1b")
             if action.get("ctrlC"):
                 os.write(fd, b"\x03")
-            search_offset = max(search_offset, found + len(marker))
+            if "touch" in action:
+                # Lets a scenario stand in for the reader, such as closing a fake
+                # program window that the fixture is waiting on.
+                with open(str(action["touch"]), "a", encoding="utf-8"):
+                    pass
+            search_offset = end
             action_index += 1
         if action_index == len(scenario["actions"]):
             grace = time.monotonic() + 2.0
@@ -129,8 +244,10 @@ def main() -> int:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+                # SIGKILL cannot be ignored, so this blocking reap is bounded and
+                # never leaves the PTY child behind as a zombie.
                 try:
-                    os.waitpid(pid, os.WNOHANG)
+                    os.waitpid(pid, 0)
                 except ChildProcessError:
                     pass
 
